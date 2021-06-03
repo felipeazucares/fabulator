@@ -24,7 +24,7 @@ app.add_middleware(
 
 def initialise_tree():
     tree = Tree()
-    # create root node
+    return tree
 
 
 class payload():
@@ -37,6 +37,7 @@ class payload():
 
 @app.get("/nodes")
 async def treeDump() -> dict:
+    tree.show(line_type="ascii-em")
     return tree.all_nodes()
 
 
@@ -56,4 +57,5 @@ async def create_new(name: str, parent_node: Optional[str] = None) -> dict:
 
     return{"id": new_node}
 
-initialise_tree()
+# Create tree
+tree = initialise_tree()
