@@ -63,7 +63,10 @@ async def test_root_path():
     assert response.status_code == 200
     assert response.json() == {"message": "Welcome to Fabulator"}
 
+# Add root node
 
+
+@pytest.fixture
 @pytest.mark.asyncio
 async def test_create_root_node():
     data = {'description': 'Unit test description',
@@ -71,19 +74,32 @@ async def test_create_root_node():
 
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", params=data)
-
+    print(f"response {response}")
     assert response.status_code == 200
     assert response.json()["id"]["_tag"] == "Unit test root node"
     return(response.json()["id"]["_identifier"])
 
 
+# add and remove root node
 @ pytest.mark.asyncio
-async def test_get_all_nodes():
+async def test_remove_node(test_create_root_node):
+    # id = await test_create_root_node()
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
+        response = await ac.delete("/nodes/" + test_create_root_node)
+    assert response.status_code == 200
+    assert response.json()
+    # test that the root node is configured as expected
+
+# get all nodes - test root node
+
+
+@ pytest.mark.asyncio
+async def test_get_all_nodes(test_create_root_node):
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/nodes")
     assert response.status_code == 200
     # test that the root node is configured as expected
-    assert response.json()[0]["_identifier"] != None
+    assert response.json()[0]["_identifier"] == test_create_root_node
     assert response.json()[0]["_tag"] == "Unit test root node"
     assert response.json()[0]["data"]["description"] == 'Unit test description'
     assert response.json()[0]["data"]["prev"] == "previous node"

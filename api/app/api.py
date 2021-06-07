@@ -38,18 +38,18 @@ class Payload():
 
 
 @app.get("/nodes")
-async def treeDump() -> dict:
+async def get_all_nodes() -> dict:
     tree.show(line_type="ascii-em")
     return tree.all_nodes()
 
 
 @app.get("/")
-async def treeDump() -> dict:
+async def get() -> dict:
     return {"message": "Welcome to Fabulator"}
 
 
 @app.post("/nodes/{name}")
-async def create_new(name: str, parent_node: Optional[str] = None, description: Optional[str] = None, prev: Optional[str] = None, next: Optional[str] = None, tags: Optional[list] = None, text: Optional[str] = None) -> dict:
+async def create_node(name: str, parent_node: Optional[str] = None, description: Optional[str] = None, prev: Optional[str] = None, next: Optional[str] = None, tags: Optional[list] = None, text: Optional[str] = None) -> dict:
     # generate a new id for the node if we have a parent
 
     node_payload = Payload(description=description,
@@ -66,6 +66,14 @@ async def create_new(name: str, parent_node: Optional[str] = None, description: 
             return {"message": "Tree already has a root node"}
 
     return{"id": new_node}
+
+
+@app.delete("/nodes/{id}")
+async def delete_node(id: str) -> dict:
+    # remove the node with the supplied id
+    # probably want to stash the children somewhere first in a sub tree for later use
+    response = tree.remove_node(id)
+    return response
 
 # Create tree
 tree = initialise_tree()
