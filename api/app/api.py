@@ -29,7 +29,11 @@ def initialise_tree():
 
 
 class Payload():
-    def __init__(self, description: Optional[str] = None, prev: Optional[str] = None, next: Optional[str] = None, tags: Optional[list] = None, text: Optional[str] = None):
+    def __init__(self, description: Optional[str] = None,
+                 prev: Optional[str] = None,
+                 next: Optional[str] = None,
+                 tags: Optional[str] = None,
+                 text: Optional[str] = None):
         self.description = description
         self.text = text
         self.prev = prev
@@ -43,13 +47,23 @@ async def get_all_nodes() -> dict:
     return tree.all_nodes()
 
 
+@app.get("/nodes/{id}")
+async def get_all_nodes() -> dict:
+    return tree.get_node(id)
+
+
 @app.get("/")
 async def get() -> dict:
     return {"message": "Welcome to Fabulator"}
 
 
 @app.post("/nodes/{name}")
-async def create_node(name: str, parent_node: Optional[str] = None, description: Optional[str] = None, prev: Optional[str] = None, next: Optional[str] = None, tags: Optional[list] = None, text: Optional[str] = None) -> dict:
+async def create_node(name: str, parent_node: Optional[str] = None,
+                      description: Optional[str] = None,
+                      prev: Optional[str] = None,
+                      next: Optional[str] = None,
+                      tags: Optional[str] = None,
+                      text: Optional[str] = None) -> dict:
     # generate a new id for the node if we have a parent
 
     node_payload = Payload(description=description,
