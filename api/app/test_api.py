@@ -57,34 +57,23 @@ def test_payload_create_null():
 
 
 @pytest.mark.asyncio
-async def test_root():
+async def test_root_path():
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Welcome to Fabulator"}
 
 
-# @pytest.mark.asyncio
-# async def test_create_root():
-#     payload = {"name": "Unit Test Name", "description": "Unit Test Description",
-#                "prev": "previous node", "next": "next node", "text": "Unit test text for root node"}
-#     async with httpx.AsyncClient(app=api.app) as ac:
-#         response = await ac.post("http://127.0.0.1:8000/nodes/Unit Test Name?description=root%20node")
-#     assert response.status_code == 200
-#     assert response.json()['id']['_tag'] == "Unit Test Name"
-
-
 @pytest.mark.asyncio
-async def test_create_root2():
-    # payload = {'description': 'Unit Test Description',
-    #            'prev': 'previous node', 'next': 'next node', 'text': 'Unit test text for root node'}
-    payload = "{'description': 'Unit Test Description'}"
+async def test_create_root_node():
+    data = {'description': 'Unit test description',
+            'prev': 'previous node', 'next': 'next node', 'text': 'Unit test text for root node'}
 
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post("http://127.0.0.1:8000/nodes/Unit_Test_Name")
+        response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", params=data)
 
     assert response.status_code == 200
-    assert response.json()["id"]["_tag"] == "Unit_Test_Name"
+    assert response.json()["id"]["_tag"] == "Unit test root node"
     return(response.json()["id"]["_identifier"])
 
 
@@ -93,4 +82,10 @@ async def test_get_all_nodes():
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/nodes")
     assert response.status_code == 200
-    assert response.json() == []
+    # test that the root node is configured as expected
+    assert response.json()[0]["_identifier"] != None
+    assert response.json()[0]["_tag"] == "Unit test root node"
+    assert response.json()[0]["data"]["description"] == 'Unit test description'
+    assert response.json()[0]["data"]["prev"] == "previous node"
+    assert response.json()[0]["data"]["next"] == "next node"
+    assert response.json()[0]["data"]["text"] == "Unit test text for root node"
