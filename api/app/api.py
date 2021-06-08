@@ -3,9 +3,9 @@ from typing import Optional
 from treelib import Node, Tree
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pymongo import MongoClient
 
-import db
+from .db import db_connect
+
 
 # local modules here
 
