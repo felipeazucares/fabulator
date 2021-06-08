@@ -9,6 +9,7 @@ httpcore==0.13.3
 httpx==0.18.1
 idna==3.2
 iniconfig==1.1.1
+motor==2.4.0
 packaging==20.9
 pluggy==0.13.1
 py==1.10.0

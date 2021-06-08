@@ -4,10 +4,28 @@ from treelib import Node, Tree
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .db import db_connect
+import motor.motor_asyncio
+client = motor.motor_asyncio.AsyncIOMotorClient()
+db = client.fabulation
 
+
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid objectid")
+        return ObjectId(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")
 
 # local modules here
+
 
 app = FastAPI()
 version = "v.0.0.1"
@@ -112,6 +130,15 @@ async def delete_node(id: str) -> dict:
     # probably want to stash the children somewhere first in a sub tree for later use
     response = tree.remove_node(id)
     return response
+
+
+@app.get("/mongo")
+async def mongo_insert() -> dict:
+    # remove the node with the supplied id
+    # probably want to stash the children somewhere first in a sub tree for later use
+    response = setup_db()
+    return response
+
 
 # Create tree
 tree = initialise_tree()
