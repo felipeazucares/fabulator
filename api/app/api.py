@@ -8,6 +8,7 @@ from pymongo import MongoClient
 # local modules here
 
 app = FastAPI()
+version = "v.0.0.1"
 
 origins = [
     "http://localhost:8000",
@@ -54,7 +55,7 @@ async def get_all_nodes() -> dict:
 
 @app.get("/")
 async def get() -> dict:
-    return {"message": "Welcome to Fabulator"}
+    return {"message": f"Fabulator {version}"}
 
 
 @app.post("/nodes/{name}")
@@ -80,6 +81,27 @@ async def create_node(name: str, parent_node: Optional[str] = None,
             return {"message": "Tree already has a root node"}
 
     return{"id": new_node}
+
+
+@app.put("/nodes/{id}")
+async def update_node(id: str, name: str,
+                      description: Optional[str] = None,
+                      prev: Optional[str] = None,
+                      next: Optional[str] = None,
+                      tags: Optional[str] = None,
+                      text: Optional[str] = None) -> dict:
+    # generate a new id for the node if we have a parent
+
+    node_payload = Payload(description=description,
+                           prev=prev, next=next, tags=tags, text=text)
+    if name:
+        update_node = tree.update_node(
+            id, _tag=name, data=node_payload)
+    else:
+        update_node = tree.update_node(
+            id, data=node_payload)
+
+    return{update_node}
 
 
 @app.delete("/nodes/{id}")

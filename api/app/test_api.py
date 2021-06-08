@@ -1,10 +1,16 @@
-import json
 
-from fastapi import datastructures
 import pytest
 import httpx
-
 import api
+from typing import Optional
+
+app = FastAPI()
+
+
+@app.get("/items/")
+async def read_items(user_agent: Optional[str] = Header(None)):
+    return {"User-Agent": user_agent}
+
 
 # Main test suite for Fabulator
 # Philip Suggars
@@ -15,21 +21,15 @@ base_port = "8000"
 root_url = f"http://localhost:{base_port}"
 
 
-@pytest.mark.asyncio
-async def teardown_class(self):
-    print("TEARDOWN TIME!")
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-        response = await ac.delete("/nodes/" + test_create_root_node)
-
-
 def test_tree_create():
+    """ initialise a tree and return it"""
     tree = api.initialise_tree()
     assert tree != None
-
-# create a populated payload
+    return tree
 
 
 def test_payload_create():
+    """ Set up a test payload & return it"""
     test_description = "This is the node's description"
     test_text = "This is the node's test text content"
     test_prev = "Previous node id"
@@ -42,11 +42,11 @@ def test_payload_create():
     assert test_payload.prev == test_prev
     assert test_payload.next == test_next
     assert test_payload.tags == test_tags
+    return test_payload
 
-
-# create a unpopulated payload
 
 def test_payload_create_null():
+    """ Set up an empty test payload & return it"""
     test_description = None
     test_text = None
     test_prev = None
@@ -59,23 +59,22 @@ def test_payload_create_null():
     assert test_payload.prev == test_prev
     assert test_payload.next == test_next
     assert test_payload.tags == test_tags
-
-# Now run async tests
+    return test_payload
 
 
 @pytest.mark.asyncio
 async def test_root_path():
+    """ return version number"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to Fabulator"}
-
-# Add root node
+    assert response.json()["message"] != None
 
 
 @pytest.fixture
 @pytest.mark.asyncio
 async def test_create_root_node():
+    """ Create a root node and return it """
     data = {"description": "Unit test description",
             "prev": "previous node", "next": "next node", "text": "Unit test text for root node",
             "tags": "['tag 1', 'tag 2', 'tag 3']"}
@@ -86,40 +85,57 @@ async def test_create_root_node():
     return(response.json()["id"]["_identifier"])
 
 
-# add and remove root node
 @ pytest.mark.asyncio
 async def test_remove_node(test_create_root_node):
+    """ generate a root node and remove it """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
         response = await ac.delete("/nodes/" + test_create_root_node)
     assert response.status_code == 200
     # test that the root node is removed as expected
     assert int(response.json()) == 1
 
-# get all nodes - test root node
-
 
 @ pytest.mark.asyncio
-async def test_get_all_nodes(test_create_root_node):
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/nodes")
+async def test_update_node(test_create_root_node):
+    """ generate a root node and update it"""
+    data = {
+        "name": "Unit test root node updated name",
+        "description": "Unit test updated description",
+        "prev": "previous updated node",
+        "next": "next updated node",
+        "text": "Unit test text for updated node",
+        "tags": "['updated tag 1', 'updated tag 2', 'updated tag 3']"
+    }
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/", params=data) as ac:
+        response = await ac.put("/nodes/" + test_create_root_node)
     assert response.status_code == 200
-    # test that the root node is configured as expected
+
+    # now check it updated
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node) as ac:
+        response = await ac.get("/nodes/")
+    assert response.status_code == 200
+    # test that the root node is updated as expected
     assert response.json()[0]["_identifier"] == test_create_root_node
-    assert response.json()[0]["_tag"] == "Unit test root node"
-    assert response.json()[0]["data"]["description"] == "Unit test description"
-    assert response.json()[0]["data"]["prev"] == "previous node"
-    assert response.json()[0]["data"]["next"] == "next node"
-    assert response.json()[0]["data"]["text"] == "Unit test text for root node"
-    assert response.json()[0]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
-    # remove the root node we just created
+    assert response.json()[0]["_tag"] == "Unit test root node updated name"
+    assert response.json()[
+        0]["data"]["description"] == "Unit test updated description"
+    assert response.json()[0]["data"]["prev"] == "previous updated node"
+    assert response.json()[0]["data"]["next"] == "next updated node"
+    assert response.json()[
+        0]["data"]["text"] == "Unit test text for updated node"
+    assert response.json()[
+        0]["data"]["tags"] == "['updated tag 1', 'updated tag 2', 'updated tag 3']"
+
+    # now remove the node we just added
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
         response = await ac.delete("/nodes/" + test_create_root_node)
-
-# get a single node
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
 async def test_get_a_node(test_create_root_node):
+    """ get a single node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node) as ac:
         response = await ac.get("/nodes/")
     assert response.status_code == 200
@@ -131,15 +147,15 @@ async def test_get_a_node(test_create_root_node):
     assert response.json()[0]["data"]["next"] == "next node"
     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
     assert response.json()[0]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
         response = await ac.delete("/nodes/" + test_create_root_node)
 
-    # add and remove root node
-
 
 @ pytest.mark.asyncio
 async def test_add_child_node(test_create_root_node):
+    """ Add a child node"""
     data = {
         "parent_node": test_create_root_node,
         "description": "unit test child description",
@@ -158,7 +174,27 @@ async def test_add_child_node(test_create_root_node):
         "id"]["data"]["text"] == "unit test text for child node"
     assert response.json()[
         "id"]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
         response = await ac.delete("/nodes/" + test_create_root_node)
-# get all nodes - test root node
+
+
+@ pytest.mark.asyncio
+async def test_get_all_nodes(test_create_root_node):
+    """ get all nodes and test the root"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/nodes")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[0]["_identifier"] == test_create_root_node
+    assert response.json()[0]["_tag"] == "Unit test root node"
+    assert response.json()[0]["data"]["description"] == "Unit test description"
+    assert response.json()[0]["data"]["prev"] == "previous node"
+    assert response.json()[0]["data"]["next"] == "next node"
+    assert response.json()[0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()[0]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
+        response = await ac.delete("/nodes/" + test_create_root_node)
