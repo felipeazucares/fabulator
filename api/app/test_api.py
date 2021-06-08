@@ -2,15 +2,9 @@
 import pytest
 import httpx
 import api
-import db
 from typing import Optional
-
+from fastapi import FastAPI
 app = FastAPI()
-
-
-@app.get("/items/")
-async def read_items(user_agent: Optional[str] = Header(None)):
-    return {"User-Agent": user_agent}
 
 
 # Main test suite for Fabulator
