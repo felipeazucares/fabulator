@@ -2,6 +2,7 @@
 import pytest
 import httpx
 import api
+import db
 from typing import Optional
 
 app = FastAPI()
