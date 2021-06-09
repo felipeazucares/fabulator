@@ -8,7 +8,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 
-#from .models import FabulationSchema
+
+from .models import (
+    RequestAddNodeSchema,
+    RequestUpdateNodeSchema,
+    ResponseModel,
+    ErrorResponseModel
+)
+
+# from .models import FabulationSchema
 
 MONGO_DETAILS = "mongodb://localhost:27017"
 
@@ -32,17 +40,17 @@ def student_helper(student) -> dict:
 
 
 class PyObjectId(ObjectId):
-    @classmethod
+    @ classmethod
     def __get_validators__(cls):
         yield cls.validate
 
-    @classmethod
+    @ classmethod
     def validate(cls, v):
         if not ObjectId.is_valid(v):
             raise ValueError("Invalid objectid")
         return ObjectId(v)
 
-    @classmethod
+    @ classmethod
     def __modify_schema__(cls, field_schema):
         field_schema.update(type="string")
 
@@ -150,23 +158,23 @@ class Payload():
 # ------------
 
 
-@app.get("/nodes")
+@ app.get("/nodes")
 async def get_all_nodes() -> dict:
     tree.show(line_type="ascii-em")
     return tree.all_nodes()
 
 
-@app.get("/nodes/{id}")
+@ app.get("/nodes/{id}")
 async def get_all_nodes() -> dict:
     return tree.get_node(id)
 
 
-@app.get("/")
+@ app.get("/")
 async def get() -> dict:
     return {"message": f"Fabulator {version}"}
 
 
-@app.post("/nodes/{name}")
+@ app.post("/nodes/{name}")
 async def create_node(name: str, parent_node: Optional[str] = None,
                       description: Optional[str] = None,
                       prev: Optional[str] = None,
@@ -191,7 +199,7 @@ async def create_node(name: str, parent_node: Optional[str] = None,
     return{"id": new_node}
 
 
-@app.put("/nodes/{id}")
+@ app.put("/nodes/{id}")
 async def update_node(id: str, name: str,
                       description: Optional[str] = None,
                       prev: Optional[str] = None,
@@ -212,7 +220,7 @@ async def update_node(id: str, name: str,
     return{update_node}
 
 
-@app.delete("/nodes/{id}")
+@ app.delete("/nodes/{id}")
 async def delete_node(id: str) -> dict:
     # remove the node with the supplied id
     # probably want to stash the children somewhere first in a sub tree for later use
@@ -224,14 +232,14 @@ async def delete_node(id: str) -> dict:
 # student routes
 # -------------------
 
-@app.post("/student", response_description="Student data added into the database")
+@ app.post("/student", response_description="Student data added into the database")
 async def add_student_data(student: StudentSchema = Body(...)):
     student = jsonable_encoder(student)
     new_student = await add_student(student)
     return ResponseModel(new_student, "Student added successfully.")
 
 
-@app.get("/students", response_description="Students retrieved")
+@ app.get("/students", response_description="Students retrieved")
 async def get_students():
     students = await retrieve_students()
     if students:
