@@ -1,7 +1,7 @@
 
 import pytest
 import httpx
-import api
+import app.api as api
 from typing import Optional
 from fastapi import FastAPI
 app = FastAPI()
