@@ -148,8 +148,6 @@ class Payload():
         self.tags = tags
 
 # ------------
-#   FABULATOR ROUTES
-# ------------
 
 
 @app.get("/nodes")
