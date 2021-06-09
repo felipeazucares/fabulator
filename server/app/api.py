@@ -16,7 +16,6 @@ from .models import (
     ErrorResponseModel
 )
 
-# from .models import FabulationSchema
 
 MONGO_DETAILS = "mongodb://localhost:27017"
 
