@@ -8,7 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from bson.objectid import ObjectId
 from pydantic import BaseModel, Field
 
-#from .models import FabulationSchema
+
+from app.models.models import (
+    RequestAddNodeSchema,
+    RequestUpdateNodeSchema
+)
+
 
 MONGO_DETAILS = "mongodb://localhost:27017"
 

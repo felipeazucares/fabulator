@@ -1,19 +1,41 @@
 
+from typing import Optional
 from pydantic import BaseModel, Field
 
+# -------------------------------------
+#   Classes for http requests
+# -------------------------------------
 
-class FabulationSchema(BaseModel):
-    fullname: str = Field(...)
-    course_of_study: str = Field(...)
-    year: int = Field(..., gt=0, lt=9)
-    gpa: float = Field(..., le=4.0)
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "fullname": "John Doe",
-                "course_of_study": "Water resources engineering",
-                "year": 2,
-                "gpa": "3.0",
-            }
-        }
+class RequestAddNodeSchema(BaseModel):
+    id: str = Field(...)
+    name: str = Field(...)
+    parent: Optional[str]
+    previous: Optional[str]
+    next: Optional[str]
+    description: Optional[str]
+    text: Optional[str]
+    tags: Optional[dict]
+
+
+class RequestUpdateNodeSchema(BaseModel):
+    id: str = Field(...)
+    name: Optional[str]
+    parent: Optional[str]
+    previous: Optional[str]
+    next: Optional[str]
+    description: Optional[str]
+    text: Optional[str]
+    tags: Optional[dict]
+
+
+def ResponseModel(data, message):
+    return {
+        "data": [data],
+        "code": 200,
+        "message": message,
+    }
+
+
+def ErrorResponseModel(error, code, message):
+    return {"error": error, "code": code, "message": message}
