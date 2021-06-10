@@ -147,13 +147,13 @@ def initialise_tree():
 
 class Payload():
     def __init__(self, description: Optional[str] = None,
-                 prev: Optional[str] = None,
+                 previous: Optional[str] = None,
                  next: Optional[str] = None,
                  tags: Optional[list] = None,
                  text: Optional[str] = None):
         self.description = description
         self.text = text
-        self.prev = prev
+        self.previous = previous
         self.next = next
         self.tags = tags
 
@@ -181,14 +181,14 @@ async def get() -> dict:
 # @ app.post("/nodes/{name}")
 # async def create_node(name: str, parent_node: Optional[str] = None,
 #                       description: Optional[str] = None,
-#                       prev: Optional[str] = None,
+#                       previous: Optional[str] = None,
 #                       next: Optional[str] = None,
 #                       tags: Optional[str] = None,
 #                       text: Optional[str] = None) -> dict:
 #     # generate a new id for the node if we have a parent
 
 #     node_payload = Payload(description=description,
-#                            prev=prev, next=next, tags=tags, text=text)
+#                            previous=previous, next=next, tags=tags, text=text)
 #     if parent_node:
 #         new_node = tree.create_node(
 #             name, parent=parent_node, data=node_payload)
@@ -217,7 +217,7 @@ async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict
     if request["next"]:
         node_payload.next = request["next"]
     if request["previous"]:
-        node_payload.prev = request["previous"]
+        node_payload.previous = request["previous"]
     if request["text"]:
         node_payload.text = request["text"]
     if request["tags"]:
@@ -225,7 +225,7 @@ async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict
 
     if request["parent"]:
         new_node = tree.create_node(
-            name, parent=request.parent, data=node_payload)
+            name, parent=request["parent"], data=node_payload)
     else:
         # No parent so check if we already have a root
         if tree.root == None:
@@ -233,21 +233,21 @@ async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict
                 name, data=node_payload)
         else:
             return {"message": "Tree already has a root node"}
-
-    return{"id": new_node}
+    print(f"new node: {new_node}")
+    return{new_node}
 
 
 @ app.put("/nodes/{id}")
 async def update_node(id: str, name: str,
                       description: Optional[str] = None,
-                      prev: Optional[str] = None,
+                      previous: Optional[str] = None,
                       next: Optional[str] = None,
                       tags: Optional[str] = None,
                       text: Optional[str] = None) -> dict:
     # generate a new id for the node if we have a parent
 
     node_payload = Payload(description=description,
-                           prev=prev, next=next, tags=tags, text=text)
+                           previous=previous, next=next, tags=tags, text=text)
     if name:
         update_node = tree.update_node(
             id, _tag=name, data=node_payload)

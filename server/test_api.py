@@ -30,14 +30,14 @@ def test_payload_create():
     """ Set up a test payload & return it"""
     test_description = "This is the node's description"
     test_text = "This is the node's test text content"
-    test_prev = "Previous node id"
+    test_previous = "Previous node id"
     test_next = "Next node id"
     test_tags = ["test_tag1", "test_tag2", "test_tag3"]
     test_payload = api.Payload(
-        description=test_description, text=test_text, prev=test_prev, next=test_next, tags=test_tags)
+        description=test_description, text=test_text, previous=test_previous, next=test_next, tags=test_tags)
     assert test_payload != None
     assert test_payload.text == test_text
-    assert test_payload.prev == test_prev
+    assert test_payload.previous == test_previous
     assert test_payload.next == test_next
     assert test_payload.tags == test_tags
     return test_payload
@@ -47,14 +47,14 @@ def test_payload_create_null():
     """ Set up an empty test payload & return it"""
     test_description = None
     test_text = None
-    test_prev = None
+    test_previous = None
     test_next = None
     test_tags = None
     test_payload = api.Payload(
-        description=test_description, text=test_text, prev=test_prev, next=test_next, tags=test_tags)
+        description=test_description, text=test_text, previous=test_previous, next=test_next, tags=test_tags)
     assert test_payload != None
     assert test_payload.text == test_text
-    assert test_payload.prev == test_prev
+    assert test_payload.previous == test_previous
     assert test_payload.next == test_next
     assert test_payload.tags == test_tags
     return test_payload
@@ -84,8 +84,8 @@ async def test_create_root_node():
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", json=data)
     assert response.status_code == 200
-    assert response.json()["id"]["_tag"] == "Unit test root node"
-    return(response.json()["id"]["_identifier"])
+    assert response.json()[0]["_tag"] == "Unit test root node"
+    return(response.json()[0]["_identifier"])
 
 
 @ pytest.mark.asyncio
@@ -104,7 +104,7 @@ async def test_update_node(test_create_root_node):
     data = {
         "name": "Unit test root node updated name",
         "description": "Unit test updated description",
-        "prev": "previous updated node",
+        "previous": "previous updated node",
         "next": "next updated node",
         "text": "Unit test text for updated node",
         "tags": "['updated tag 1', 'updated tag 2', 'updated tag 3']"
@@ -123,7 +123,7 @@ async def test_update_node(test_create_root_node):
     assert response.json()[0]["_tag"] == "Unit test root node updated name"
     assert response.json()[
         0]["data"]["description"] == "Unit test updated description"
-    assert response.json()[0]["data"]["prev"] == "previous updated node"
+    assert response.json()[0]["data"]["previous"] == "previous updated node"
     assert response.json()[0]["data"]["next"] == "next updated node"
     assert response.json()[
         0]["data"]["text"] == "Unit test text for updated node"
@@ -146,7 +146,7 @@ async def test_get_a_node(test_create_root_node):
     assert response.json()[0]["_identifier"] == test_create_root_node
     assert response.json()[0]["_tag"] == "Unit test root node"
     assert response.json()[0]["data"]["description"] == "Unit test description"
-    assert response.json()[0]["data"]["prev"] == "previous node"
+    assert response.json()[0]["data"]["previous"] == "previous node"
     assert response.json()[0]["data"]["next"] == "next node"
     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
     assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
@@ -160,23 +160,24 @@ async def test_get_a_node(test_create_root_node):
 async def test_add_child_node(test_create_root_node):
     """ Add a child node"""
     data = jsonable_encoder({
-        "parent_node": test_create_root_node,
+        "parent": test_create_root_node,
         "description": "unit test child description",
-        "prev": "previous child node", "next": "next child node", "text": "unit test text for child node",
+        "previous": "previous child node",
+        "next": "next child node",
+        "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
         response = await ac.post("/nodes/unit test child node", json=data)
     assert response.status_code == 200
-    assert response.json()["id"]["_tag"] == "unit test child node"
-    assert response.json()["id"][
+    assert response.json()[0]["_tag"] == "unit test child node"
+    assert response.json()[0][
         "data"]["description"] == "unit test child description"
-    assert response.json()["id"]["data"]["prev"] == "previous child node"
-    assert response.json()["id"]["data"]["next"] == "next child node"
+    assert response.json()[0]["data"]["previous"] == "previous child node"
+    assert response.json()[0]["data"]["next"] == "next child node"
     assert response.json()[
-        "id"]["data"]["text"] == "unit test text for child node"
-    assert response.json()[
-        "id"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+        0]["data"]["text"] == "unit test text for child node"
+    assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
@@ -193,10 +194,10 @@ async def test_get_all_nodes(test_create_root_node):
     assert response.json()[0]["_identifier"] == test_create_root_node
     assert response.json()[0]["_tag"] == "Unit test root node"
     assert response.json()[0]["data"]["description"] == "Unit test description"
-    assert response.json()[0]["data"]["prev"] == "previous node"
+    assert response.json()[0]["data"]["previous"] == "previous node"
     assert response.json()[0]["data"]["next"] == "next node"
     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
-    assert response.json()[0]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+    assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
