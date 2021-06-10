@@ -73,3 +73,7 @@ class NodePayload(BaseModel):
     next: Optional[str] = None
     text: Optional[str] = None
     tags: Optional[list] = None
+
+# -------------------------------------
+#   Classes for mongo db storage
+# -------------------------------------
