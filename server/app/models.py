@@ -51,14 +51,6 @@ class RequestUpdateSchema(BaseModel):
         }
 
 
-class NodePayload(BaseModel):
-    description: Optional[str] = None
-    previous: Optional[str] = None
-    next: Optional[str] = None
-    text: Optional[str] = None
-    tags: Optional[list] = None
-
-
 def ResponseModel(data, message):
     return {
         "data": [data],
@@ -69,3 +61,15 @@ def ResponseModel(data, message):
 
 def ErrorResponseModel(error, code, message):
     return {"error": error, "code": code, "message": message}
+
+# -------------------------------------
+#   Classes for tree node data
+# -------------------------------------
+
+
+class NodePayload(BaseModel):
+    description: Optional[str] = None
+    previous: Optional[str] = None
+    next: Optional[str] = None
+    text: Optional[str] = None
+    tags: Optional[list] = None
