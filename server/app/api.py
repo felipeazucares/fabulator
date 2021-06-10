@@ -10,8 +10,9 @@ from pydantic import BaseModel, Field
 
 
 from .models import (
-    RequestAddNodeSchema,
+    RequestNodeSchema,
     RequestUpdateNodeSchema,
+    NodePayload,
     ResponseModel,
     ErrorResponseModel
 )
@@ -205,26 +206,26 @@ async def get() -> dict:
 
 
 @ app.post("/nodes/{name}")
-async def create_node(name: str, req: Optional[RequestAddNodeSchema] = {}) -> dict:
+async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict:
     # map the incoming fields from the https request to the fields required by the treelib API
-    req = jsonable_encoder(req)
-    print(f"req: {req}")
+    request = jsonable_encoder(request)
+    print(f"req: {request}")
     node_payload = Payload()
 
-    if req["description"]:
-        node_payload.description = req["description"]
-    if req["next"]:
-        node_payload.next = req["next"]
-    if req["previous"]:
-        node_payload.prev = req["previous"]
-    if req["text"]:
-        node_payload.text = req["text"]
-    if req["tags"]:
-        node_payload.tags = req["tags"]
+    if request["description"]:
+        node_payload.description = request["description"]
+    if request["next"]:
+        node_payload.next = request["next"]
+    if request["previous"]:
+        node_payload.prev = request["previous"]
+    if request["text"]:
+        node_payload.text = request["text"]
+    if request["tags"]:
+        node_payload.tags = request["tags"]
 
-    if req["parent"]:
+    if request["parent"]:
         new_node = tree.create_node(
-            name, parent=req.parent, data=node_payload)
+            name, parent=request.parent, data=node_payload)
     else:
         # No parent so check if we already have a root
         if tree.root == None:

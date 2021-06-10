@@ -159,14 +159,14 @@ async def test_get_a_node(test_create_root_node):
 @ pytest.mark.asyncio
 async def test_add_child_node(test_create_root_node):
     """ Add a child node"""
-    data = {
+    data = jsonable_encoder({
         "parent_node": test_create_root_node,
         "description": "unit test child description",
         "prev": "previous child node", "next": "next child node", "text": "unit test text for child node",
-        "tags": "['tag 1', 'tag 2', 'tag 3']"
-    }
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-        response = await ac.post("/nodes/unit test child node", params=data)
+        response = await ac.post("/nodes/unit test child node", json=data)
     assert response.status_code == 200
     assert response.json()["id"]["_tag"] == "unit test child node"
     assert response.json()["id"][
@@ -176,7 +176,7 @@ async def test_add_child_node(test_create_root_node):
     assert response.json()[
         "id"]["data"]["text"] == "unit test text for child node"
     assert response.json()[
-        "id"]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+        "id"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:

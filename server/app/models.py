@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 # -------------------------------------
 
 
-class RequestAddNodeSchema(BaseModel):
+class RequestNodeSchema(BaseModel):
     #name: str = Field(...)
     parent: Optional[str] = None
     previous: Optional[str] = None
@@ -19,9 +19,9 @@ class RequestAddNodeSchema(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "parent": "8002fa78-ca07-11eb-992a-f01898e87167",
-                "previous": "8003fb81-ca07-11eb-992a-f01898e87178",
-                "next": "8543fb81-ba08-14ef-992a-f01898e87200",
+                "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
+                "previous": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "next": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "description": "John meets his evil twin in a bar",
                 "text": "John walked into the bar. He pulled up a stool and sat down",
                 "tags": ['main plot', 'john', 'evil twin']
@@ -36,15 +36,15 @@ class RequestUpdateNodeSchema(BaseModel):
     next: Optional[str]
     description: Optional[str]
     text: Optional[str]
-    tags: Optional[dict]
+    tags: Optional[list]
 
 
 class NodePayload(BaseModel):
     description: Optional[str] = None
-    prev: Optional[str] = None
+    previous: Optional[str] = None
     next: Optional[str] = None
     text: Optional[str] = None
-    tags: Optional[dict] = None
+    tags: Optional[list] = None
 
 
 def ResponseModel(data, message):
