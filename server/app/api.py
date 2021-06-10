@@ -10,8 +10,8 @@ from pydantic import BaseModel, Field
 
 
 from .models import (
-    RequestNodeSchema,
-    RequestUpdateNodeSchema,
+    RequestAddSchema,
+    RequestUpdateSchema,
     NodePayload,
     ResponseModel,
     ErrorResponseModel
@@ -168,7 +168,6 @@ async def get_all_nodes() -> dict:
 
 @ app.get("/nodes/{id}")
 async def get_a_node() -> dict:
-
     print(f"id:{id}")
     return tree.get_node(id)
 
@@ -206,7 +205,7 @@ async def get() -> dict:
 
 
 @ app.post("/nodes/{name}")
-async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict:
+async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
     # map the incoming fields from the https request to the fields required by the treelib API
     request = jsonable_encoder(request)
     print(f"req: {request}")
@@ -238,23 +237,18 @@ async def create_node(name: str, request: RequestNodeSchema = Body(...)) -> dict
 
 
 @ app.put("/nodes/{id}")
-async def update_node(id: str, name: str,
-                      description: Optional[str] = None,
-                      previous: Optional[str] = None,
-                      next: Optional[str] = None,
-                      tags: Optional[str] = None,
-                      text: Optional[str] = None) -> dict:
+async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict:
     # generate a new id for the node if we have a parent
-
-    node_payload = Payload(description=description,
-                           previous=previous, next=next, tags=tags, text=text)
-    if name:
+    print(f"req: {request}")
+    node_payload = Payload(description=request.description,
+                           previous=request.previous, next=request.next, tags=request.tags, text=request.text)
+    if request.name:
         update_node = tree.update_node(
-            id, _tag=name, data=node_payload)
+            id, _tag=request.name, data=node_payload)
     else:
         update_node = tree.update_node(
             id, data=node_payload)
-
+    print(f"updated node: {update_node }")
     return{update_node}
 
 

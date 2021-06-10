@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field
 # -------------------------------------
 
 
-class RequestNodeSchema(BaseModel):
-    #name: str = Field(...)
+class RequestAddSchema(BaseModel):
     parent: Optional[str] = None
     previous: Optional[str] = None
     next: Optional[str] = None
@@ -29,14 +28,27 @@ class RequestNodeSchema(BaseModel):
         }
 
 
-class RequestUpdateNodeSchema(BaseModel):
-    name: Optional[str]
-    parent: Optional[str]
-    previous: Optional[str]
-    next: Optional[str]
-    description: Optional[str]
-    text: Optional[str]
-    tags: Optional[list]
+class RequestUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    parent: Optional[str] = None
+    previous: Optional[str] = None
+    next: Optional[str] = None
+    description: Optional[str] = None
+    text: Optional[str] = None
+    tags: Optional[list] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "An updated node name",
+                "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
+                "previous": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "next": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "description": "John's evil twin escapes into another dimension",
+                "text": "There was a strange burning smell coming from the room next door",
+                "tags": ['main plot', 'john', 'evil twin', 'Mirror Universe']
+            }
+        }
 
 
 class NodePayload(BaseModel):
