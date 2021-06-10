@@ -145,17 +145,17 @@ def initialise_tree():
 # this should be a pydantic class?
 
 
-class Payload():
-    def __init__(self, description: Optional[str] = None,
-                 previous: Optional[str] = None,
-                 next: Optional[str] = None,
-                 tags: Optional[list] = None,
-                 text: Optional[str] = None):
-        self.description = description
-        self.text = text
-        self.previous = previous
-        self.next = next
-        self.tags = tags
+# class Payload():
+#     def __init__(self, description: Optional[str] = None,
+#                  previous: Optional[str] = None,
+#                  next: Optional[str] = None,
+#                  tags: Optional[list] = None,
+#                  text: Optional[str] = None):
+#         self.description = description
+#         self.text = text
+#         self.previous = previous
+#         self.next = next
+#         self.tags = tags
 
 # ------------
 
@@ -209,7 +209,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
     # map the incoming fields from the https request to the fields required by the treelib API
     request = jsonable_encoder(request)
     print(f"req: {request}")
-    node_payload = Payload()
+    node_payload = NodePayload()
 
     if request["description"]:
         node_payload.description = request["description"]
@@ -240,8 +240,8 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
 async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict:
     # generate a new id for the node if we have a parent
     print(f"req: {request}")
-    node_payload = Payload(description=request.description,
-                           previous=request.previous, next=request.next, tags=request.tags, text=request.text)
+    node_payload = NodePayload(description=request.description,
+                               previous=request.previous, next=request.next, tags=request.tags, text=request.text)
     if request.name:
         update_node = tree.update_node(
             id, _tag=request.name, data=node_payload)

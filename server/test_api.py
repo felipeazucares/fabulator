@@ -33,7 +33,7 @@ def test_payload_create():
     test_previous = "Previous node id"
     test_next = "Next node id"
     test_tags = ["test_tag1", "test_tag2", "test_tag3"]
-    test_payload = api.Payload(
+    test_payload = api.NodePayload(
         description=test_description, text=test_text, previous=test_previous, next=test_next, tags=test_tags)
     assert test_payload != None
     assert test_payload.text == test_text
@@ -50,7 +50,7 @@ def test_payload_create_null():
     test_previous = None
     test_next = None
     test_tags = None
-    test_payload = api.Payload(
+    test_payload = api.NodePayload(
         description=test_description, text=test_text, previous=test_previous, next=test_next, tags=test_tags)
     assert test_payload != None
     assert test_payload.text == test_text
