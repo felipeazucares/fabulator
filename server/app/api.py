@@ -141,12 +141,14 @@ def initialise_tree():
     tree = Tree()
     return tree
 
+# this should be a pydantic class?
+
 
 class Payload():
     def __init__(self, description: Optional[str] = None,
                  prev: Optional[str] = None,
                  next: Optional[str] = None,
-                 tags: Optional[str] = None,
+                 tags: Optional[list] = None,
                  text: Optional[str] = None):
         self.description = description
         self.text = text
@@ -164,7 +166,9 @@ async def get_all_nodes() -> dict:
 
 
 @ app.get("/nodes/{id}")
-async def get_all_nodes() -> dict:
+async def get_a_node() -> dict:
+
+    print(f"id:{id}")
     return tree.get_node(id)
 
 
@@ -173,20 +177,54 @@ async def get() -> dict:
     return {"message": f"Fabulator {version}"}
 
 
-@ app.post("/nodes/{name}")
-async def create_node(name: str, parent_node: Optional[str] = None,
-                      description: Optional[str] = None,
-                      prev: Optional[str] = None,
-                      next: Optional[str] = None,
-                      tags: Optional[str] = None,
-                      text: Optional[str] = None) -> dict:
-    # generate a new id for the node if we have a parent
+# @ app.post("/nodes/{name}")
+# async def create_node(name: str, parent_node: Optional[str] = None,
+#                       description: Optional[str] = None,
+#                       prev: Optional[str] = None,
+#                       next: Optional[str] = None,
+#                       tags: Optional[str] = None,
+#                       text: Optional[str] = None) -> dict:
+#     # generate a new id for the node if we have a parent
 
-    node_payload = Payload(description=description,
-                           prev=prev, next=next, tags=tags, text=text)
-    if parent_node:
+#     node_payload = Payload(description=description,
+#                            prev=prev, next=next, tags=tags, text=text)
+#     if parent_node:
+#         new_node = tree.create_node(
+#             name, parent=parent_node, data=node_payload)
+#     else:
+#         # No parent so check if we already have a root
+#         if tree.root == None:
+#             new_node = tree.create_node(
+#                 name, data=node_payload)
+#         else:
+#             return {"message": "Tree already has a root node"}
+
+#     return{"id": new_node}
+
+# try using pydantic classes here
+
+
+@ app.post("/nodes/{name}")
+async def create_node(name: str, req: Optional[RequestAddNodeSchema] = {}) -> dict:
+    # map the incoming fields from the https request to the fields required by the treelib API
+    req = jsonable_encoder(req)
+    print(f"req: {req}")
+    node_payload = Payload()
+
+    if req["description"]:
+        node_payload.description = req["description"]
+    if req["next"]:
+        node_payload.next = req["next"]
+    if req["previous"]:
+        node_payload.prev = req["previous"]
+    if req["text"]:
+        node_payload.text = req["text"]
+    if req["tags"]:
+        node_payload.tags = req["tags"]
+
+    if req["parent"]:
         new_node = tree.create_node(
-            name, parent=parent_node, data=node_payload)
+            name, parent=req.parent, data=node_payload)
     else:
         # No parent so check if we already have a root
         if tree.root == None:

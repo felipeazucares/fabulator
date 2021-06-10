@@ -4,6 +4,9 @@ import httpx
 import app.api as api
 from typing import Optional
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+
+
 app = FastAPI()
 
 
@@ -70,11 +73,16 @@ async def test_root_path():
 @pytest.mark.asyncio
 async def test_create_root_node():
     """ Create a root node and return it """
-    data = {"description": "Unit test description",
-            "prev": "previous node", "next": "next node", "text": "Unit test text for root node",
-            "tags": "['tag 1', 'tag 2', 'tag 3']"}
+    data = jsonable_encoder({
+                            "description": "Unit test description",
+                            "previous": "previous node",
+                            "next": "next node",
+                            "text": "Unit test text for root node",
+                            "tags": ['tag 1', 'tag 2', 'tag 3']
+                            })
+
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", params=data)
+        response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", json=data)
     assert response.status_code == 200
     assert response.json()["id"]["_tag"] == "Unit test root node"
     return(response.json()["id"]["_identifier"])
@@ -141,7 +149,7 @@ async def test_get_a_node(test_create_root_node):
     assert response.json()[0]["data"]["prev"] == "previous node"
     assert response.json()[0]["data"]["next"] == "next node"
     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
-    assert response.json()[0]["data"]["tags"] == "['tag 1', 'tag 2', 'tag 3']"
+    assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
