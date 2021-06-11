@@ -80,7 +80,7 @@ class NodePayload(BaseModel):
 # -------------------------------------
 
 
-class tree_store(Tree):
+class TreeSchema(Tree):
     date_time: datetime
     version: int
     tree: Tree()
