@@ -1,4 +1,4 @@
-import uuid
+
 import motor.motor_asyncio
 from typing import Optional
 from treelib import Tree
@@ -17,12 +17,16 @@ from .models import (
     ErrorResponseModel
 )
 
+from .database import (
+    save_working_tree
+)
 
-MONGO_DETAILS = "mongodb://localhost:27017"
 
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-database = client.students
-student_collection = database.get_collection("students_collection")
+# MONGO_DETAILS = "mongodb://localhost:27017"
+
+# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+# database = client.students
+# student_collection = database.get_collection("students_collection")
 
 # ----------------------------
 #   Pydantic models
@@ -188,7 +192,8 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
                 name, data=node_payload)
         else:
             return {"message": "Tree already has a root node"}
-    print(f"new node: {new_node}")
+    save_result = await save_working_tree(tree)
+    print(f"mongo save: {save_result}")
     return{new_node}
 
 

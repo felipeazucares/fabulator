@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Optional
 from pydantic import BaseModel, Field, ValidationError, validator
 from treelib import Tree
+import uuid
 
 # -------------------------------------
 #   Classes for http requests
@@ -80,7 +81,8 @@ class NodePayload(BaseModel):
 # -------------------------------------
 
 
-class TreeSchema(Tree):
-    date_time: datetime
-    version: int
-    tree: Tree()
+class TreeSchema():
+    def __init__(self, tree: Tree):
+        self.tree = tree
+        self.id = uuid.uuid4()
+        self.date_time = datetime.now()
