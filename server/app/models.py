@@ -1,6 +1,7 @@
-
+from datetime import date, datetime, time, timedelta
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, validator
+from treelib import Tree
 
 # -------------------------------------
 #   Classes for http requests
@@ -77,3 +78,9 @@ class NodePayload(BaseModel):
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
+
+
+class tree_store(Tree):
+    date_time: datetime
+    version: int
+    tree: Tree()

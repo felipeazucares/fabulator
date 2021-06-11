@@ -1,7 +1,7 @@
 import uuid
 import motor.motor_asyncio
 from typing import Optional
-from treelib import Node, Tree
+from treelib import Tree
 from fastapi import FastAPI, Body, APIRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware

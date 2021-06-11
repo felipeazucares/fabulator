@@ -7,10 +7,14 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
 
 database = client.students
 
-nodes_collection = database.get_collection("nodes_collection")
+tree_collection = database.get_collection("tree_collection")
 
 
-# helpers
+# ----------------------------------------------------
+#  Functions for saving and loading the tree structure
+# ----------------------------------------------------
+
+async def save_working_tree(tree):
 
 
 def student_helper(student) -> dict:
