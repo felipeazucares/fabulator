@@ -18,19 +18,17 @@ from .models import (
 )
 
 from .database import (
-    save_working_tree
+    save_working_tree,
+    list_all_saved_trees
 )
 
-
-# MONGO_DETAILS = "mongodb://localhost:27017"
-
-# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-# database = client.students
-# student_collection = database.get_collection("students_collection")
 
 # ----------------------------
 #   Pydantic models
 # ----------------------------
+
+# set debug flag
+debug = True
 
 
 def student_helper(student) -> dict:
@@ -143,32 +141,56 @@ app.add_middleware(
 
 
 def initialise_tree():
+    """ Create a new Tree and return it"""
     tree = Tree()
     return tree
 
 
+@ app.get("/")
+async def get() -> dict:
+    """ Return the API version """
+    if debug:
+        print(f"get()")
+    return {"message": f"Fabulator {version}"}
+
+
 @ app.get("/nodes")
 async def get_all_nodes() -> dict:
+    """ Get a list of all the nodes in the working tree"""
+    if debug:
+        print(f"get_all_nodes()")
     tree.show(line_type="ascii-em")
     return tree.all_nodes()
 
 
 @ app.get("/nodes/{id}")
 async def get_a_node() -> dict:
-    print(f"id:{id}")
+    """ Return a node specified by an id"""
+    if debug:
+        print(f"get_a_node()")
+        print(f"id:{id}")
     return tree.get_node(id)
 
 
-@ app.get("/")
-async def get() -> dict:
-    return {"message": f"Fabulator {version}"}
+@ app.get("/trees/")
+async def get_all_saves() -> dict:
+    """ Return a dict of all the trees saved in the db collection """
+    all_saves = await list_all_saved_trees()
+    if debug:
+        print(f"get_all_saves()")
+        print(f"all_saves:{all_saves}")
+
+    return jsonable_encoder(all_saves)
 
 
 @ app.post("/nodes/{name}")
 async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
+    """ Add a node to the working tree """
     # map the incoming fields from the https request to the fields required by the treelib API
     request = jsonable_encoder(request)
-    print(f"req: {request}")
+    if debug:
+        print(f"create_node())")
+        print(f"req: {request}")
     node_payload = NodePayload()
 
     if request["description"]:
@@ -193,14 +215,17 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
         else:
             return {"message": "Tree already has a root node"}
     save_result = await save_working_tree(tree)
-    print(f"mongo save: {save_result}")
+    if debug:
+        print(f"mongo save: {save_result}")
     return{new_node}
 
 
 @ app.put("/nodes/{id}")
 async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict:
+    """ Update a node in the working tree identified by an id"""
     # generate a new id for the node if we have a parent
-    print(f"req: {request}")
+    if debug:
+        print(f"req: {request}")
     node_payload = NodePayload(description=request.description,
                                previous=request.previous, next=request.next, tags=request.tags, text=request.text)
     if request.name:
@@ -209,12 +234,14 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
     else:
         update_node = tree.update_node(
             id, data=node_payload)
-    print(f"updated node: {update_node }")
+    if debug:
+        print(f"updated node: {update_node }")
     return{update_node}
 
 
 @ app.delete("/nodes/{id}")
 async def delete_node(id: str) -> dict:
+    """ Delete a node from the working tree identified by an id """
     # remove the node with the supplied id
     # probably want to stash the children somewhere first in a sub tree for later use
     response = tree.remove_node(id)

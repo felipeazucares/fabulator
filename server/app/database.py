@@ -19,14 +19,11 @@ tree_collection = database.get_collection("tree_collection")
 # ----------------------------------------------------
 
 
-def student_helper(student) -> dict:
+def save_helper(save) -> dict:
     return {
-        "id": str(student["_id"]),
-        "fullname": student["fullname"],
-        "email": student["email"],
-        "course_of_study": student["course_of_study"],
-        "year": student["year"],
-        "GPA": student["gpa"],
+        "id": str(save["_id"]),
+        "tree": str(tree["tree"]),
+        "date_time": datetime(date_time["date_time"])
     }
 
 # Save the tree to a database document
@@ -41,8 +38,8 @@ async def save_working_tree(tree: Tree) -> dict:
 # return all the saves in the database
 
 
-async def return_all_saves() -> dict:
+async def list_all_saved_trees() -> dict:
     saves = []
-    async for saves in tree_collection.find():
-        saves.append(saves)
+    async for save in tree_collection.find():
+        saves.append(save_helper(save))
     return saves
