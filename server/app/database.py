@@ -3,7 +3,6 @@ import motor.motor_asyncio
 from bson.objectid import ObjectId
 from treelib import Tree
 from fastapi.encoders import jsonable_encoder
-import pprint
 
 from .models import (
     TreeSchema
@@ -49,9 +48,16 @@ async def list_all_saved_trees() -> dict:
 
 async def delete_all_saves() -> int:
     delete_result = await tree_collection.delete_many({})
-    print(f"Deletions: {delete_result.acknowledged}")
     # delete_result object contains a deleted_count & acknowledged properties
     return delete_result.deleted_count
+
+
+async def list_latest_save() -> dict:
+    cursor = tree_collection.find()
+    cursor.sort('date_time', -1)
+    async for document in cursor:
+        print(f"_id:{document['date_time']}")
+    return cursor[1]
 
 # todo: get the latest save
 # todo: load the latest save into a tree

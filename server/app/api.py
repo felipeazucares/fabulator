@@ -20,7 +20,8 @@ from .models import (
 from .database import (
     save_working_tree,
     list_all_saved_trees,
-    delete_all_saves
+    delete_all_saves,
+    list_latest_save
 )
 
 # set debug flag
@@ -91,6 +92,17 @@ async def get_all_saves() -> dict:
         print(f"all_saves:{all_saves}")
 
     return jsonable_encoder(all_saves)
+
+
+@ app.get("/save/")
+async def get_latest_save() -> dict:
+    """ Return the latest saved tree in the db collection"""
+    latest_save = await list_latest_save()
+    if debug:
+        print(f"get_latest_save()")
+        print(f"latest:{latest_save}")
+
+    return jsonable_encoder(latest_save)
 
 
 @ app.post("/nodes/{name}")
