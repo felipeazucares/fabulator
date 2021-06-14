@@ -22,8 +22,8 @@ tree_collection = database.get_collection("tree_collection")
 def save_helper(save) -> dict:
     return {
         "id": str(save["_id"]),
-        "tree": str(tree["tree"]),
-        "date_time": datetime(date_time["date_time"])
+        "tree": str(save["tree"]),
+        "date_time": str(save["date_time"])
     }
 
 # Save the tree to a database document
