@@ -52,3 +52,6 @@ async def delete_all_saves() -> dict:
     delete_response = await tree_collection.delete_many({})
     print(f"delete response:{jsonable_encoder(delete_response)}")
     return delete_response
+
+# todo: get the latest save
+# todo: load the latest save into a tree
