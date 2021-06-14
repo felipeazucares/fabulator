@@ -82,7 +82,7 @@ async def get_a_node() -> dict:
     return tree.get_node(id)
 
 
-@ app.get("/trees/")
+@ app.get("/saves/")
 async def get_all_saves() -> dict:
     """ Return a dict of all the trees saved in the db collection """
     all_saves = await list_all_saved_trees()
@@ -164,7 +164,9 @@ async def delete_node(id: str) -> dict:
 async def delete_node() -> dict:
     """ Delete all saves from the db trees collection """
     delete_result = await delete_all_saves()
-    return delete_result
+
+    result = ResponseModel(delete_result, "Documents removed")
+    return result
 
 
 # Create tree
