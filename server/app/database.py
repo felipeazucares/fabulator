@@ -57,7 +57,7 @@ async def list_latest_save() -> dict:
     cursor.sort('date_time', -1)
     async for document in cursor:
         print(f"_id:{document['date_time']}")
-    return cursor[1]
+    return
 
 # todo: get the latest save
 # todo: load the latest save into a tree
