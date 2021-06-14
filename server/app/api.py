@@ -19,109 +19,15 @@ from .models import (
 
 from .database import (
     save_working_tree,
-    list_all_saved_trees
+    list_all_saved_trees,
+    delete_all_saves
 )
-
-
-# ----------------------------
-#   Pydantic models
-# ----------------------------
 
 # set debug flag
 debug = True
 
-
-def student_helper(student) -> dict:
-    return {
-        "id": str(student["_id"]),
-        "fullname": student["fullname"],
-        "course_of_study": student["course_of_study"],
-        "year": student["year"],
-        "GPA": student["gpa"],
-    }
-
-
-class PyObjectId(ObjectId):
-    @ classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @ classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid objectid")
-        return ObjectId(v)
-
-    @ classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
-
-
-class StudentSchema(BaseModel):
-    fullname: str = Field(...)
-    course_of_study: str = Field(...)
-    year: int = Field(..., gt=0, lt=9)
-    gpa: float = Field(..., le=4.0)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "fullname": "John Doe",
-                "course_of_study": "Water resources engineering",
-                "year": 2,
-                "gpa": "3.0",
-            }
-        }
-
-
-class UpdateStudentModel(BaseModel):
-    fullname: Optional[str]
-    course_of_study: Optional[str]
-    year: Optional[int]
-    gpa: Optional[float]
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "fullname": "John Doe",
-                "course_of_study": "Water resources and environmental engineering",
-                "year": 4,
-                "gpa": "4.0",
-            }
-        }
-
-
-def ResponseModel(data, message):
-    return {
-        "data": [data],
-        "code": 200,
-        "message": message,
-    }
-
-
-def ErrorResponseModel(error, code, message):
-    return {"error": error, "code": code, "message": message}
-
-
-# ----------------------------
-#   DB async function calls
-# ----------------------------
-async def add_student(student_data: dict) -> dict:
-    student = await student_collection.insert_one(student_data)
-    new_student = await student_collection.find_one({"_id": student.inserted_id})
-    return student_helper(new_student)
-
-# Retrieve all students present in the database
-
-
-async def retrieve_students():
-    students = []
-    async for student in student_collection.find():
-        students.append(student_helper(student))
-    return students
-
 # ------------------------
-#   FABULATOR
+#      FABULATOR
 # ------------------------
 app = FastAPI()
 version = "v.0.0.1"
@@ -138,6 +44,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+# ------------------------
+#       API Routes
+# ------------------------
 
 
 def initialise_tree():
@@ -234,6 +144,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
     else:
         update_node = tree.update_node(
             id, data=node_payload)
+    save_result = await save_working_tree(tree)
     if debug:
         print(f"updated node: {update_node }")
     return{update_node}
@@ -243,28 +154,18 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
 async def delete_node(id: str) -> dict:
     """ Delete a node from the working tree identified by an id """
     # remove the node with the supplied id
-    # probably want to stash the children somewhere first in a sub tree for later use
+    # todo: probably want to stash the children somewhere first in a sub tree for later use
     response = tree.remove_node(id)
+    save_result = await save_working_tree(tree)
     return response
 
 
-# -------------------
-# student routes
-# -------------------
+@ app.delete("/saves/")
+async def delete_node() -> dict:
+    """ Delete all saves from the db trees collection """
+    delete_result = await delete_all_saves()
+    return delete_result
 
-@ app.post("/student", response_description="Student data added into the database")
-async def add_student_data(student: StudentSchema = Body(...)):
-    student = jsonable_encoder(student)
-    new_student = await add_student(student)
-    return ResponseModel(new_student, "Student added successfully.")
-
-
-@ app.get("/students", response_description="Students retrieved")
-async def get_students():
-    students = await retrieve_students()
-    if students:
-        return ResponseModel(students, "Students data retrieved successfully")
-    return ResponseModel(students, "Empty list returned")
 
 # Create tree
 tree = initialise_tree()

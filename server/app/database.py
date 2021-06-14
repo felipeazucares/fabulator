@@ -43,3 +43,12 @@ async def list_all_saved_trees() -> dict:
     async for save in tree_collection.find():
         saves.append(save_helper(save))
     return saves
+
+# delete all the saves in the collection
+
+
+async def delete_all_saves() -> dict:
+    print(f"deleting all documents")
+    delete_response = await tree_collection.delete_many({})
+    print(f"delete response:{jsonable_encoder(delete_response)}")
+    return delete_response
