@@ -86,3 +86,10 @@ class TreeSchema():
         self.tree = tree
         self.id = uuid.uuid4()
         self.date_time = datetime.utcnow()
+
+
+def saves_helper(save) -> dict:
+    return {
+        "tree": str(save["tree"]),
+        "date_time": str(save["date_time"])
+    }

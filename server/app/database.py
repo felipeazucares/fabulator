@@ -5,7 +5,8 @@ from treelib import Tree
 from fastapi.encoders import jsonable_encoder
 
 from .models import (
-    TreeSchema
+    TreeSchema,
+    saves_helper
 )
 
 MONGO_DETAILS = "mongodb://localhost:27017"
@@ -17,14 +18,6 @@ tree_collection = database.get_collection("tree_collection")
 # ----------------------------------------------------
 #  Functions for saving and loading the tree structure
 # ----------------------------------------------------
-
-
-def save_helper(save) -> dict:
-    return {
-        "id": str(save["_id"]),
-        "tree": str(save["tree"]),
-        "date_time": str(save["date_time"])
-    }
 
 # Save the tree to a database document
 
@@ -40,7 +33,7 @@ async def save_working_tree(tree: Tree) -> dict:
 async def list_all_saved_trees() -> dict:
     saves = []
     async for save in tree_collection.find():
-        saves.append(save_helper(save))
+        saves.append(saves_helper(save))
     return saves
 
 # delete all the saves in the collection
@@ -53,11 +46,7 @@ async def delete_all_saves() -> int:
 
 
 async def list_latest_save() -> dict:
-    cursor = tree_collection.find()
-    cursor.sort('date_time', -1)
-    async for document in cursor:
-        print(f"_id:{document['date_time']}")
-    return
+    last_save = await tree_collection.find_one(sort=[("date_time", -1)])
+    return saves_helper(last_save)
 
-# todo: get the latest save
 # todo: load the latest save into a tree

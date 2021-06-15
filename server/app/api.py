@@ -176,7 +176,6 @@ async def delete_node(id: str) -> dict:
 async def delete_node() -> dict:
     """ Delete all saves from the db trees collection """
     delete_result = await delete_all_saves()
-
     result = ResponseModel(delete_result, "Documents removed")
     return result
 
