@@ -1,7 +1,6 @@
-from datetime import date, datetime, time, timedelta
 import motor.motor_asyncio
 from bson.objectid import ObjectId
-from treelib import Tree
+from treelib import Tree, Node
 from fastapi.encoders import jsonable_encoder
 
 from .models import (
@@ -48,3 +47,9 @@ async def return_latest_save() -> dict:
     return saves_helper(last_save)
 
 # todo: load the latest save into a tree
+
+
+async def load_latest_into_working_tree():
+    """ return a tree containing the latest saved tree """
+    tree_to_load = await return_latest_save()
+    working_tree = Tree()

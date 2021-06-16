@@ -1,5 +1,6 @@
 from datetime import date, datetime, time, timedelta
-from typing import Optional
+from hashlib import sha256
+from typing import Dict, Optional
 from pydantic import BaseModel, Field, ValidationError, validator
 from treelib import Tree
 import uuid
@@ -76,6 +77,28 @@ class NodePayload(BaseModel):
     text: Optional[str] = None
     tags: Optional[list] = None
 
+
+# -------------------------------------
+#   Classes for user account
+# -------------------------------------
+
+class Name(BaseModel):
+    firstname: str
+    surname: str
+
+
+class UserDetails(BaseModel):
+    name: Name
+    username: str
+    account_id: str
+
+
+class User():
+    def __init__(self, username: str, firstname: str, surname: str):
+        self.accountid = uuid.uuid4(username)
+        self.username = username
+        self.name = {self.firstname: firstname, self.surname: surname}
+
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
@@ -83,12 +106,14 @@ class NodePayload(BaseModel):
 
 class TreeSchema():
     def __init__(self, tree: Tree):
+        self.account = str
         self.tree = tree
         self.date_time = datetime.utcnow()
 
 
 def saves_helper(save) -> dict:
     return {
+        "account": str(["user"]),
         "tree": str(save["tree"]),
         "date_time": str(save["date_time"])
     }

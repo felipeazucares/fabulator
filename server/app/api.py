@@ -1,5 +1,6 @@
 
 import motor.motor_asyncio
+import hashlib
 from typing import Optional
 from treelib import Tree
 from fastapi import FastAPI, Body, APIRouter
@@ -14,7 +15,8 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     ResponseModel,
-    ErrorResponseModel
+    ErrorResponseModel,
+    UserDetails
 )
 
 from .database import (
@@ -49,6 +51,17 @@ app.add_middleware(
 # ------------------------
 #       API Routes
 # ------------------------
+
+# initialise dummy user details
+username = "felipeazucares"
+firstname = "Philip"
+surname = "Suggars"
+hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+
+user = UserDetails(
+    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=hash)
+
+print(f"user:{user.json}")
 
 
 def initialise_tree():
@@ -97,7 +110,7 @@ async def get_all_saves() -> dict:
 @ app.get("/save/")
 async def get_latest_save() -> dict:
     """ Return the latest saved tree in the db collection"""
-    latest_save = await list_latest_save()
+    latest_save = await return_latest_save()
     if debug:
         print(f"get_latest_save()")
         print(f"latest:{latest_save}")
@@ -156,7 +169,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
     else:
         update_node = tree.update_node(
             id, data=node_payload)
-    save_result = await save_working_tree(tree)
+    await save_working_tree(tree)
     if debug:
         print(f"updated node: {update_node }")
     return{update_node}
@@ -168,7 +181,7 @@ async def delete_node(id: str) -> dict:
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
     response = tree.remove_node(id)
-    save_result = await save_working_tree(tree)
+    await save_working_tree(tree)
     return response
 
 
