@@ -21,7 +21,7 @@ from .database import (
     save_working_tree,
     list_all_saved_trees,
     delete_all_saves,
-    list_latest_save
+    return_latest_save
 )
 
 # set debug flag

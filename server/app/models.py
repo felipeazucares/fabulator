@@ -84,7 +84,6 @@ class NodePayload(BaseModel):
 class TreeSchema():
     def __init__(self, tree: Tree):
         self.tree = tree
-        self.id = uuid.uuid4()
         self.date_time = datetime.utcnow()
 
 
