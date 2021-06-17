@@ -3,7 +3,6 @@ from hashlib import sha256
 from typing import Dict, Optional
 from pydantic import BaseModel, Field, ValidationError, validator
 from treelib import Tree
-import uuid
 
 # -------------------------------------
 #   Classes for http requests
@@ -88,32 +87,25 @@ class Name(BaseModel):
 
 
 class UserDetails(BaseModel):
-    name: Name
+    name: Name  # use nested model definition
     username: str
     account_id: str
-
-
-class User():
-    def __init__(self, username: str, firstname: str, surname: str):
-        self.accountid = uuid.uuid4(username)
-        self.username = username
-        self.name = {self.firstname: firstname, self.surname: surname}
 
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
 
 
-class TreeSchema():
-    def __init__(self, tree: Tree):
-        self.account = str
+class TreeSaveSchema():
+    def __init__(self, user: UserDetails, tree: Tree):
+        self.account_id = user.account_id
         self.tree = tree
         self.date_time = datetime.utcnow()
 
 
 def saves_helper(save) -> dict:
     return {
-        "account": str(["user"]),
+        "account_id": str(save["account_id"]),
         "tree": str(save["tree"]),
         "date_time": str(save["date_time"])
     }

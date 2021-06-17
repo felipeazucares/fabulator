@@ -49,19 +49,21 @@ app.add_middleware(
 )
 
 # ------------------------
-#       API Routes
+#    Dummy user details
 # ------------------------
 
 # initialise dummy user details
 username = "felipeazucares"
 firstname = "Philip"
 surname = "Suggars"
-hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
 
 user = UserDetails(
-    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=hash)
+    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=username_hash)
 
-print(f"user:{user.json}")
+# ------------------------
+#       API Routes
+# ------------------------
 
 
 def initialise_tree():
@@ -89,17 +91,17 @@ async def get_all_nodes() -> dict:
 
 @ app.get("/nodes/{id}")
 async def get_a_node() -> dict:
-    """ Return a node specified by an id"""
+    """ Return a node specified by supplied id"""
     if debug:
         print(f"get_a_node()")
         print(f"id:{id}")
     return tree.get_node(id)
 
 
-@ app.get("/saves/")
-async def get_all_saves() -> dict:
+@ app.get("/saves/{user}")
+async def get_all_saves(user) -> dict:
     """ Return a dict of all the trees saved in the db collection """
-    all_saves = await list_all_saved_trees()
+    all_saves = await list_all_saved_trees(user=user)
     if debug:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
@@ -107,10 +109,10 @@ async def get_all_saves() -> dict:
     return jsonable_encoder(all_saves)
 
 
-@ app.get("/save/")
-async def get_latest_save() -> dict:
+@ app.get("/save/{user}")
+async def get_latest_save(user) -> dict:
     """ Return the latest saved tree in the db collection"""
-    latest_save = await return_latest_save()
+    latest_save = await return_latest_save(user=user)
     if debug:
         print(f"get_latest_save()")
         print(f"latest:{latest_save}")
@@ -120,7 +122,7 @@ async def get_latest_save() -> dict:
 
 @ app.post("/nodes/{name}")
 async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
-    """ Add a node to the working tree """
+    """ Add a node to the working tree using name supplied """
     # map the incoming fields from the https request to the fields required by the treelib API
     request = jsonable_encoder(request)
     if debug:
@@ -149,7 +151,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
                 name, data=node_payload)
         else:
             return {"message": "Tree already has a root node"}
-    save_result = await save_working_tree(tree)
+    save_result = await save_working_tree(tree=tree, user=user)
     if debug:
         print(f"mongo save: {save_result}")
     return{new_node}
@@ -157,7 +159,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
 
 @ app.put("/nodes/{id}")
 async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict:
-    """ Update a node in the working tree identified by an id"""
+    """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
     if debug:
         print(f"req: {request}")
@@ -177,7 +179,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
 
 @ app.delete("/nodes/{id}")
 async def delete_node(id: str) -> dict:
-    """ Delete a node from the working tree identified by an id """
+    """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
     response = tree.remove_node(id)
@@ -185,10 +187,10 @@ async def delete_node(id: str) -> dict:
     return response
 
 
-@ app.delete("/saves/")
-async def delete_node() -> dict:
+@ app.delete("/saves/{user}")
+async def delete_node(user) -> dict:
     """ Delete all saves from the db trees collection """
-    delete_result = await delete_all_saves()
+    delete_result = await delete_all_saves(user=user)
     result = ResponseModel(delete_result, "Documents removed")
     return result
 
