@@ -156,11 +156,19 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
     if request["parent"]:
         new_node = tree.create_node(
             name, parent=request["parent"], data=node_payload)
+        # debug
+        tree2 = Tree(tree)
+        print(f"tree2:{tree2}")
+        # end debug
     else:
         # No parent so check if we already have a root
         if tree.root == None:
             new_node = tree.create_node(
                 name, data=node_payload)
+            # debug
+            tree2 = Tree(tree)
+            print(f"tree2:{tree2}")
+            # end debug
         else:
             return {"message": "Tree already has a root node"}
     save_result = await save_working_tree(tree=tree, user=user)

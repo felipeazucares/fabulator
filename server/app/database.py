@@ -25,8 +25,8 @@ tree_collection = database.get_collection("tree_collection")
 async def save_working_tree(user: UserDetails, tree: Tree) -> dict:
     """ Save the current working tree to a document in the tree_collection for supplied account_id """
 
-    tree_to_save = json.JSONencoder(TreeSaveSchema(user=user, tree=tree))
-    save_response = await tree_collection.insert_one(tree_to_save)
+    tree_to_save = TreeSaveSchema(user=user, tree=tree)
+    save_response = await tree_collection.insert_one(jsonable_encoder(tree_to_save))
     return save_response
 
 
@@ -54,10 +54,8 @@ async def return_latest_save(user: UserDetails) -> dict:
 async def load_latest_into_working_tree(user: UserDetails):
     """ return a tree containing the latest saved tree """
     tree_to_load = await return_latest_save(user)
-    print(f"tree_to_load:{type(tree_to_load['tree'])}")
-    tree_obj = json.loads(tree_to_load['tree'])
-    print(f"tree_to_load:{type(tree_obj)}")
-    working_tree = Tree(tree=tree_to_load["tree"])
+    print(f"tree_to_load:{tree_to_load['tree']}")
+    working_tree = Tree(json.loads(tree_to_load['tree'].to_json()))
     return working_tree
 
     # see if you can write out with the jsonEncondder and read with the loads - or the jsonable_encoder/decoder
