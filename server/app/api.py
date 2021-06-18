@@ -23,7 +23,8 @@ from .database import (
     save_working_tree,
     list_all_saved_trees,
     delete_all_saves,
-    return_latest_save
+    return_latest_save,
+    load_latest_into_working_tree
 )
 
 # set debug flag
@@ -109,15 +110,26 @@ async def get_all_saves(user) -> dict:
     return jsonable_encoder(all_saves)
 
 
+# @ app.get("/save/{user}")
+# async def get_latest_save(user) -> dict:
+#     """ Return the latest saved tree in the db collection"""
+#     latest_save = await return_latest_save(user=user)
+#     if debug:
+#         print(f"get_latest_save()")
+#         print(f"latest:{latest_save}")
+
+#     return jsonable_encoder(latest_save)
+
+
 @ app.get("/save/{user}")
 async def get_latest_save(user) -> dict:
     """ Return the latest saved tree in the db collection"""
-    latest_save = await return_latest_save(user=user)
+    tree = await load_latest_into_working_tree(user=user)
     if debug:
         print(f"get_latest_save()")
-        print(f"latest:{latest_save}")
+        print(f"latest:{tree}")
 
-    return jsonable_encoder(latest_save)
+    return jsonable_encoder(tree)
 
 
 @ app.post("/nodes/{name}")

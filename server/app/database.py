@@ -2,6 +2,8 @@ import motor.motor_asyncio
 from bson.objectid import ObjectId
 from treelib import Tree, Node
 from fastapi.encoders import jsonable_encoder
+import json
+from bson import json_util
 
 from .models import (
     UserDetails,
@@ -23,7 +25,7 @@ tree_collection = database.get_collection("tree_collection")
 async def save_working_tree(user: UserDetails, tree: Tree) -> dict:
     """ Save the current working tree to a document in the tree_collection for supplied account_id """
 
-    tree_to_save = jsonable_encoder(TreeSaveSchema(user=user, tree=tree))
+    tree_to_save = json.JSONencoder(TreeSaveSchema(user=user, tree=tree))
     save_response = await tree_collection.insert_one(tree_to_save)
     return save_response
 
@@ -54,4 +56,10 @@ async def return_latest_save(user: UserDetails) -> dict:
 async def load_latest_into_working_tree(user: UserDetails):
     """ return a tree containing the latest saved tree """
     tree_to_load = await return_latest_save(user)
-    working_tree = Tree()
+    print(f"tree_to_load:{type(tree_to_load['tree'])}")
+    tree_obj = json.loads(tree_to_load['tree'])
+    print(f"tree_to_load:{type(tree_obj)}")
+    working_tree = Tree(tree=tree_to_load["tree"])
+    return working_tree
+
+    # see if you can write out with the jsonEncondder and read with the loads - or the jsonable_encoder/decoder
