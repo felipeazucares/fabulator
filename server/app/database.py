@@ -55,8 +55,7 @@ async def load_latest_into_working_tree(user: UserDetails):
     """ return a tree containing the latest saved tree """
     tree_to_load = await return_latest_save(user)
     print(f"tree_to_load:{tree_to_load['tree']}")
-    working_tree = Tree(json.loads(tree_to_load['tree'].to_json()))
+    print(f"tree_to_load:{type(tree_to_load['tree'])}")
+    working_tree = Tree(json.loads(tree_to_load['tree']))
     return working_tree
-
-    # see if you can write out with the jsonEncondder and read with the loads - or the jsonable_encoder/decoder
-    # todo actually take monog out of the equation and try with a precreated tree to see if it works at all
+# todo look at the object_id make sure that's not messing this up somehow
