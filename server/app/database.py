@@ -50,8 +50,6 @@ async def return_latest_save(user: UserDetails) -> dict:
     last_save = await tree_collection.find_one({"account_id": user}, sort=[("date_time", -1)])
     return saves_helper(last_save)
 
-# todo: load the latest save into a tree
-
 
 async def load_latest_into_working_tree(user: UserDetails):
     """ return a tree containing the latest saved tree """
@@ -63,3 +61,4 @@ async def load_latest_into_working_tree(user: UserDetails):
     return working_tree
 
     # see if you can write out with the jsonEncondder and read with the loads - or the jsonable_encoder/decoder
+    # todo actually take monog out of the equation and try with a precreated tree to see if it works at all
