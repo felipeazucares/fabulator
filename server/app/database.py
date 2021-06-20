@@ -56,6 +56,12 @@ async def load_latest_into_working_tree(user: UserDetails):
     tree_to_load = await return_latest_save(user)
     print(f"tree_to_load:{tree_to_load['tree']}")
     print(f"tree_to_load:{type(tree_to_load['tree'])}")
-    working_tree = Tree(json.loads(tree_to_load['tree']))
+    json_obj1 = tree_to_load['tree'].replace("'", '"')
+    print(f"json_obj1:{json_obj1}")
+    # json_obj2 = json.loads(json_obj1, strict=False)
+    # print(f"json_obj:{json_obj2}")
+    working_tree = Tree()
+    working_tree = tree_to_load
+    # working_tree.show(line_type="ascii-em")
     return working_tree
 # todo look at the object_id make sure that's not messing this up somehow
