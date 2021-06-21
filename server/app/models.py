@@ -106,6 +106,6 @@ class TreeSaveSchema():
 def saves_helper(save) -> dict:
     return {
         "account_id": str(save["account_id"]),
-        "tree": str(save["tree"]),
+        "tree": dict(save["tree"]),
         "date_time": str(save["date_time"])
     }

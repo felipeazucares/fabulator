@@ -52,23 +52,33 @@ async def return_latest_save(user: UserDetails) -> dict:
     return saves_helper(last_save)
 
 
-async def load_latest_into_working_tree(user: UserDetails) -> dict:
-
+async def load_latest_into_working_tree(user: UserDetails) -> Tree:
     """ return a tree containing the latest saved tree """
-    str = '{"identifier": "2e1c8abc-d272-11eb-ad82-f01898e87167", "nodes": {"6020c438-d272-11eb-ad82-f01898e87167": {"identifier": "6020c438-d272-11eb-ad82-f01898e87167", "tag": "TCA_Shame", "expanded": "True", "predecessor": {"2e1c8abc-d272-11eb-ad82-f01898e87167": "None", "6020c550-d272-11eb-ad82-f01898e87167": "None"}, "successors": {"2e1c8abc-d272-11eb-ad82-f01898e87167": [], "6020c550-d272-11eb-ad82-f01898e87167": []}, "data": {"description": "John meets his evil twin in a bar", "previous": "308fdfae-ca09-11eb-b437-f01898e87167", "next": "308fdfae-ca09-11eb-b437-f01898e87167", "text": "John walked into the bar. He pulled up a stool and sat down", "tags": ["main plot", "john", "evil twin"]}, "initial_tree_id": "2e1c8abc-d272-11eb-ad82-f01898e87167"}}, "root": "6020c438-d272-11eb-ad82-f01898e87167"}'
-    dictx = SimpleNamespace(** json.loads(str))
-    print(f"dictx:{dictx.root}")
 
-    # save_record = await return_latest_save(user)
-    # tree_to_load = save_record['tree'].replace("'", '"')
-    # tree_to_load = tree_to_load.replace("None", '""')
-    # print(f"tree root:{tree_to_load}")
-    # print(f"tree root:{type(tree_to_load)}")
-    # print(f"length:{len(tree_to_load)}")
-    # x = json.loads(tree_to_load)
-    # x = ast.literal_eval(tree_to_load)
-    # print(f"eval:{x}")
-    # print(f"tree root:{tree_to_load['tree']['root']}")
-    working_tree = Tree(tree=dictx)
-    #working_tree = tree_to_load
-    return working_tree
+    last_save = await return_latest_save(user=user)
+    # get the tree dict from the saved document
+    last_save_tree = last_save["tree"]
+    # get the root node id
+    root_node = last_save_tree["root"]
+    # get the root node properties from the _node dict in the tree strcture
+    name = last_save_tree["_nodes"][root_node]['_tag']
+    id = last_save_tree["_nodes"][root_node]['_identifier']
+    payload = last_save_tree["_nodes"][root_node]['data']
+
+    # todo: Now we've built the root node, we need to process each nodes children recursively
+
+    # todo: get the child list.
+    # todo: while child list of current node is not empty
+    # todo: get next child from _nodes[node_id
+    # todo: add node details
+
+    # add node function (id)
+    #   add node to tree
+    #   call add_node on all children
+    # if no children return None
+
+    # create the root node
+    new_tree = Tree(identifier=last_save_tree["_identifier"])
+    new_tree.create_node(tag=name, identifier=id, parent=None, data=payload)
+
+    return new_tree
