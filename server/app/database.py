@@ -54,31 +54,37 @@ async def return_latest_save(user: UserDetails) -> dict:
 
 async def load_latest_into_working_tree(user: UserDetails) -> Tree:
     """ return a tree containing the latest saved tree """
-
     last_save = await return_latest_save(user=user)
     # get the tree dict from the saved document
     last_save_tree = last_save["tree"]
     # get the root node id
     root_node = last_save_tree["root"]
-    # get the root node properties from the _node dict in the tree strcture
-    name = last_save_tree["_nodes"][root_node]['_tag']
-    id = last_save_tree["_nodes"][root_node]['_identifier']
-    payload = last_save_tree["_nodes"][root_node]['data']
-
-    # todo: Now we've built the root node, we need to process each nodes children recursively
-
-    # todo: get the child list.
-    # todo: while child list of current node is not empty
-    # todo: get next child from _nodes[node_id
-    # todo: add node details
-
-    # add node function (id)
-    #   add node to tree
-    #   call add_node on all children
-    # if no children return None
-
     # create the root node
     new_tree = Tree(identifier=last_save_tree["_identifier"])
-    new_tree.create_node(tag=name, identifier=id, parent=None, data=payload)
+    final_tree = add_a_node(last_save_tree["_identifier"], last_save_tree,
+                            new_tree, root_node, None)
+    return final_tree
+
+
+def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
+    """ Traverse the dict in mongo and rebuild the tree (recursive) """
+    print(f"tree: {loaded_tree['_nodes']}")
+    name = loaded_tree["_nodes"][node_id]["_tag"]
+    id = loaded_tree["_nodes"][node_id]["_identifier"]
+    payload = loaded_tree["_nodes"][node_id]["data"]
+    # for some reason the children of a node are stored under the tree_id key
+    children = loaded_tree["_nodes"][node_id]["_successors"][tree_id]
+
+    print(f"Children: {children}")
+
+    new_tree.create_node(tag=name, identifier=id,
+                         parent=parent_id, data=payload)
+    if children != None:
+        print(f"recursive call")
+        for child_id in children:
+            add_a_node(tree_id, loaded_tree, new_tree, child_id, id)
+    else:
+        print("base_case")
+        new_tree.show(line_type="ascii-em")
 
     return new_tree
