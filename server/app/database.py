@@ -4,6 +4,7 @@ from treelib import Tree, Node
 from fastapi.encoders import jsonable_encoder
 import json
 from bson import json_util
+from types import SimpleNamespace
 
 from .models import (
     UserDetails,
@@ -51,17 +52,23 @@ async def return_latest_save(user: UserDetails) -> dict:
     return saves_helper(last_save)
 
 
-async def load_latest_into_working_tree(user: UserDetails):
+async def load_latest_into_working_tree(user: UserDetails) -> dict:
+
     """ return a tree containing the latest saved tree """
-    tree_to_load = await return_latest_save(user)
-    print(f"tree_to_load:{tree_to_load['tree']}")
-    print(f"tree_to_load:{type(tree_to_load['tree'])}")
-    json_obj1 = tree_to_load['tree'].replace("'", '"')
-    print(f"json_obj1:{json_obj1}")
-    # json_obj2 = json.loads(json_obj1, strict=False)
-    # print(f"json_obj:{json_obj2}")
-    working_tree = Tree()
-    working_tree = tree_to_load
-    # working_tree.show(line_type="ascii-em")
+    str = '{"identifier": "2e1c8abc-d272-11eb-ad82-f01898e87167", "nodes": {"6020c438-d272-11eb-ad82-f01898e87167": {"identifier": "6020c438-d272-11eb-ad82-f01898e87167", "tag": "TCA_Shame", "expanded": "True", "predecessor": {"2e1c8abc-d272-11eb-ad82-f01898e87167": "None", "6020c550-d272-11eb-ad82-f01898e87167": "None"}, "successors": {"2e1c8abc-d272-11eb-ad82-f01898e87167": [], "6020c550-d272-11eb-ad82-f01898e87167": []}, "data": {"description": "John meets his evil twin in a bar", "previous": "308fdfae-ca09-11eb-b437-f01898e87167", "next": "308fdfae-ca09-11eb-b437-f01898e87167", "text": "John walked into the bar. He pulled up a stool and sat down", "tags": ["main plot", "john", "evil twin"]}, "initial_tree_id": "2e1c8abc-d272-11eb-ad82-f01898e87167"}}, "root": "6020c438-d272-11eb-ad82-f01898e87167"}'
+    dictx = SimpleNamespace(** json.loads(str))
+    print(f"dictx:{dictx.root}")
+
+    # save_record = await return_latest_save(user)
+    # tree_to_load = save_record['tree'].replace("'", '"')
+    # tree_to_load = tree_to_load.replace("None", '""')
+    # print(f"tree root:{tree_to_load}")
+    # print(f"tree root:{type(tree_to_load)}")
+    # print(f"length:{len(tree_to_load)}")
+    # x = json.loads(tree_to_load)
+    # x = ast.literal_eval(tree_to_load)
+    # print(f"eval:{x}")
+    # print(f"tree root:{tree_to_load['tree']['root']}")
+    working_tree = Tree(tree=dictx)
+    #working_tree = tree_to_load
     return working_tree
-# todo look at the object_id make sure that's not messing this up somehow

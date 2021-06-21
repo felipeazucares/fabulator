@@ -81,7 +81,7 @@ async def get() -> dict:
     return {"message": f"Fabulator {version}"}
 
 
-@ app.get("/nodes")
+@ app.get("/nodes/")
 async def get_all_nodes() -> dict:
     """ Get a list of all the nodes in the working tree"""
     if debug:
@@ -124,6 +124,7 @@ async def get_all_saves(user) -> dict:
 @ app.get("/save/{user}")
 async def get_latest_save(user) -> dict:
     """ Return the latest saved tree in the db collection"""
+    global tree
     tree = await load_latest_into_working_tree(user=user)
     if debug:
         print(f"get_latest_save()")
