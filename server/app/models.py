@@ -97,8 +97,8 @@ class UserDetails(BaseModel):
 
 
 class TreeSaveSchema():
-    def __init__(self, user: UserDetails, tree: Tree):
-        self.account_id = user.account_id
+    def __init__(self, account_id: str, tree: Tree):
+        self.account_id = account_id
         self.tree = tree
         self.date_time = datetime.utcnow()
 

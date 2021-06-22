@@ -23,7 +23,6 @@ from .database import (
     save_working_tree,
     list_all_saved_trees,
     delete_all_saves,
-    return_latest_save,
     load_latest_into_working_tree
 )
 
@@ -91,7 +90,7 @@ async def get_all_nodes() -> dict:
 
 
 @ app.get("/nodes/{id}")
-async def get_a_node() -> dict:
+async def get_a_node(id: str) -> dict:
     """ Return a node specified by supplied id"""
     if debug:
         print(f"get_a_node()")
@@ -99,10 +98,10 @@ async def get_a_node() -> dict:
     return tree.get_node(id)
 
 
-@ app.get("/saves/{user}")
-async def get_all_saves(user) -> dict:
+@ app.get("/saves/{account_id}")
+async def get_all_saves(account_id: str) -> dict:
     """ Return a dict of all the trees saved in the db collection """
-    all_saves = await list_all_saved_trees(user=user)
+    all_saves = await list_all_saved_trees(account_id=account_id)
     if debug:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
@@ -110,22 +109,11 @@ async def get_all_saves(user) -> dict:
     return jsonable_encoder(all_saves)
 
 
-# @ app.get("/save/{user}")
-# async def get_latest_save(user) -> dict:
-#     """ Return the latest saved tree in the db collection"""
-#     latest_save = await return_latest_save(user=user)
-#     if debug:
-#         print(f"get_latest_save()")
-#         print(f"latest:{latest_save}")
-
-#     return jsonable_encoder(latest_save)
-
-
-@ app.get("/save/{user}")
-async def get_latest_save(user) -> dict:
+@ app.get("/save/{account_id}")
+async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     global tree
-    tree = await load_latest_into_working_tree(user=user)
+    tree = await load_latest_into_working_tree(account_id=account_id)
     if debug:
         print(f"get_latest_save()")
         print(f"latest:{tree}")
@@ -133,8 +121,8 @@ async def get_latest_save(user) -> dict:
     return jsonable_encoder(tree)
 
 
-@ app.post("/nodes/{name}")
-async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
+@ app.post("/nodes/{account_id}/{name}")
+async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
     """ Add a node to the working tree using name supplied """
     # map the incoming fields from the https request to the fields required by the treelib API
     request = jsonable_encoder(request)
@@ -172,18 +160,48 @@ async def create_node(name: str, request: RequestAddSchema = Body(...)) -> dict:
             # end debug
         else:
             return {"message": "Tree already has a root node"}
-    save_result = await save_working_tree(tree=tree, user=user)
+    save_result = await save_working_tree(tree=tree, account_id=account_id)
     if debug:
         print(f"mongo save: {save_result}")
     return{new_node}
 
 
-@ app.put("/nodes/{id}")
-async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict:
+@ app.put("/nodes/{account_id}/{id}")
+async def update_node(account_id: str, id: str, request: RequestUpdateSchema = Body(...)) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
     if debug:
         print(f"req: {request}")
+
+    # get the node we will update so we can pull the data out of it
+    # node_to_update = await get_a_node(id)
+    # if debug:
+    #     print(f"req: {node_to_update}")
+    # payload = node_to_update.data
+
+    # check what values we have in the data object for the existing node
+    # if we don't then replace it with the existing value
+    # if(request.description):
+    #     description = request.description
+    # else:
+    #     description = payload.description
+    # if(request.previous):
+    #     previous = request.previous
+    # else:
+    #     previous = payload.previous
+    # if(request.next):
+    #     next = request.next
+    # else:
+    #     next = payload.next
+    # if(request.text):
+    #     text = request.text
+    # else:
+    #     text = payload.text
+    # if(request.tags):
+    #     tags = request.tags
+    # else:
+    #     tags = payload.tags
+
     node_payload = NodePayload(description=request.description,
                                previous=request.previous, next=request.next, tags=request.tags, text=request.text)
     if request.name:
@@ -192,13 +210,13 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...)) -> dict
     else:
         update_node = tree.update_node(
             id, data=node_payload)
-    await save_working_tree(tree)
+    await save_working_tree(tree=tree, account_id=account_id)
     if debug:
         print(f"updated node: {update_node }")
     return{update_node}
 
 
-@ app.delete("/nodes/{id}")
+@ app.delete("/nodes/{id}/")
 async def delete_node(id: str) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
@@ -208,10 +226,10 @@ async def delete_node(id: str) -> dict:
     return response
 
 
-@ app.delete("/saves/{user}")
-async def delete_node(user) -> dict:
+@ app.delete("/saves/{account_id}")
+async def delete_node(account_id: str) -> dict:
     """ Delete all saves from the db trees collection """
-    delete_result = await delete_all_saves(user=user)
+    delete_result = await delete_all_saves(account_id=account_id)
     result = ResponseModel(delete_result, "Documents removed")
     return result
 
