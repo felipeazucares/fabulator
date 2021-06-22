@@ -1,16 +1,16 @@
+import sys
 import motor.motor_asyncio
 from bson.objectid import ObjectId
 from treelib import Tree, Node
 from fastapi.encoders import jsonable_encoder
-import json
-from bson import json_util
-from types import SimpleNamespace
+
 
 from .models import (
     UserDetails,
     TreeSaveSchema,
     saves_helper
 )
+debug = True
 
 MONGO_DETAILS = "mongodb://localhost:27017"
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
@@ -26,40 +26,89 @@ async def save_working_tree(account_id: str, tree: Tree) -> dict:
     """ Save the current working tree to a document in the tree_collection for supplied account_id """
 
     tree_to_save = TreeSaveSchema(account_id=account_id, tree=tree)
-    save_response = await tree_collection.insert_one(jsonable_encoder(tree_to_save))
+    try:
+        save_response = await tree_collection.insert_one(jsonable_encoder(tree_to_save))
+    except Exception as e:
+        print("An error occured writing to the database.")
+        print(f"tree_to_save was: {tree_to_save}")
+        print(e)
+        sys.exit(1)
     return save_response
 
 
 async def list_all_saved_trees(account_id: str) -> dict:
     """ return a dict of all the saves in the tree_collection for supplied account_id """
     saves = []
-    async for save in tree_collection.find({"account_id": account_id}):
-        saves.append(saves_helper(save))
+    try:
+        async for save in tree_collection.find({"account_id": account_id}):
+            saves.append(saves_helper(save))
+    except Exception as e:
+        print("An error occured reading all database saves to the database.")
+        print(f"account_id was: {account_id}")
+        print(e)
+        sys.exit(1)
     return saves
 
 
 async def delete_all_saves(account_id: str) -> int:
     """ delete all the saved documents in the tree_collection for supplied account_id """
-    delete_result = await tree_collection.delete_many({"account_id": account_id})
-    # delete_result object contains a deleted_count & acknowledged properties
+    try:
+        delete_result = await tree_collection.delete_many({"account_id": account_id})
+        # delete_result object contains a deleted_count & acknowledged properties
+    except Exception as e:
+        print("An error occured deleting a save from the database.")
+        print(f"account_id was: {account_id}")
+        print(e)
+        sys.exit(1)
     return delete_result.deleted_count
 
 
 async def return_latest_save(account_id: str) -> dict:
     """ return the latest save document from the tree_collection for supplied account_id """
-    last_save = await tree_collection.find_one({"account_id": account_id}, sort=[("date_time", -1)])
+    try:
+        last_save = await tree_collection.find_one({"account_id": account_id}, sort=[("date_time", -1)])
+    except Exception as e:
+        print("An error occured retrieving latest save from the database.")
+        print(f"account_id was: {account_id}")
+        print(e)
+        sys.exit(1)
     return saves_helper(last_save)
 
 
 async def load_latest_into_working_tree(account_id: str) -> Tree:
     """ return a tree containing the latest saved tree """
-    last_save = await return_latest_save(account_id=account_id)
+    try:
+        last_save = await return_latest_save(account_id=account_id)
+    except Exception as e:
+        print("An error occured retrieving latest save from the database.")
+        print(f"account_id was: {account_id}")
+        print(e)
+        sys.exit(1)
     # get the tree dict from the saved document
-    last_save_tree = last_save["tree"]
+    try:
+        last_save_tree = last_save["tree"]
+    except Exception as e:
+        print("An error occured retrieving tree structure from last save.")
+        print(f"last_save: {last_save}")
+        print(e)
+        sys.exit(1)
     # get the root node id
-    root_node = last_save_tree["root"]
+    try:
+        root_node = last_save_tree["root"]
+    except Exception as e:
+        print("An error occured retrieving root object from last save.")
+        print(f"last_save: {last_save}")
+        print(e)
+        sys.exit(1)
     # create the root node
-    new_tree = Tree(identifier=last_save_tree["_identifier"])
+    try:
+        new_tree = Tree(identifier=last_save_tree["_identifier"])
+    except Exception as e:
+        print("An error occured creating new tree.")
+        print(f"_identifier:{last_save_tree['_identifier']}")
+        print(e)
+        sys.exit(1)
+
     final_tree = add_a_node(last_save_tree["_identifier"], last_save_tree,
                             new_tree, root_node, None)
     return final_tree
@@ -67,23 +116,73 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
 
 def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
     """ Traverse the dict in mongo and rebuild the tree (recursive) """
-    print(f"tree: {loaded_tree['_nodes']}")
-    name = loaded_tree["_nodes"][node_id]["_tag"]
-    id = loaded_tree["_nodes"][node_id]["_identifier"]
-    payload = loaded_tree["_nodes"][node_id]["data"]
+
+    if debug == True:
+        print(f"tree: {loaded_tree['_nodes']}")
+
+    try:
+        name = loaded_tree["_nodes"][node_id]["_tag"]
+    except Exception as e:
+        print("Unable to get node name")
+        print(
+            f"loaded_tree['_nodes'][node_id]['_tag']: {loaded_tree['_nodes'][node_id]['_tag']}")
+        print(e)
+        sys.exit(1)
+
+    try:
+        id = loaded_tree["_nodes"][node_id]["_identifier"]
+    except Exception as e:
+        print("Unable to get node id")
+        print(
+            f"loaded_tree['_nodes'][node_id]['_identifier']: {loaded_tree['_nodes'][node_id]['_identifier']}")
+        print(e)
+        sys.exit(1)
+
+    try:
+        payload = loaded_tree["_nodes"][node_id]["data"]
+    except Exception as e:
+        print("Unable to get node data")
+        print(
+            f"loaded_tree['_nodes'][node_id]['data']: {loaded_tree['_nodes'][node_id]['data']}")
+        print(e)
+        sys.exit(1)
+
     # for some reason the children of a node are stored under the tree_id key
-    children = loaded_tree["_nodes"][node_id]["_successors"][tree_id]
+    try:
+        children = loaded_tree["_nodes"][node_id]["_successors"][tree_id]
+    except Exception as e:
+        print("Unable to find nodes children")
+        print(
+            f"loaded_tree['_nodes'][node_id]['_successors'][tree_id]: {loaded_tree['_nodes'][node_id]['_successors'][tree_id]}")
+        print(e)
+        sys.exit(1)
 
-    print(f"Children: {children}")
+    if debug == True:
+        print(f"Children: {children}")
 
-    new_tree.create_node(tag=name, identifier=id,
-                         parent=parent_id, data=payload)
+    try:
+        new_tree.create_node(tag=name, identifier=id,
+                             parent=parent_id, data=payload)
+    except Exception as e:
+        print("An error occured adding a node to the working tree.")
+        print(
+            "name:{name}, identifier:{id}, data:{payload}, parent_d:{parent_id}")
+        print(e)
+        sys.exit(1)
+
     if children != None:
-        print(f"recursive call")
+
+        if debug == True:
+            print(f"recursive call")
+
         for child_id in children:
             add_a_node(tree_id, loaded_tree, new_tree, child_id, id)
+
     else:
-        print("base_case")
+
+        if debug == True:
+            print("base_case")
+
         new_tree.show(line_type="ascii-em")
 
     return new_tree

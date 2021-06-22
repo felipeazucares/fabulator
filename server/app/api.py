@@ -1,13 +1,11 @@
 
-import motor.motor_asyncio
+import sys
 import hashlib
 from typing import Optional
 from treelib import Tree
-from fastapi import FastAPI, Body, APIRouter
+from fastapi import FastAPI, Body
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from bson.objectid import ObjectId
-from pydantic import BaseModel, Field
 
 
 from .models import (
@@ -68,6 +66,7 @@ user = UserDetails(
 
 def initialise_tree():
     """ Create a new Tree and return it"""
+    global tree
     tree = Tree()
     return tree
 
@@ -83,15 +82,22 @@ async def get() -> dict:
 @ app.get("/nodes/")
 async def get_all_nodes() -> dict:
     """ Get a list of all the nodes in the working tree"""
+    global tree
     if debug:
         print(f"get_all_nodes()")
-    tree.show(line_type="ascii-em")
+    try:
+        tree.show(line_type="ascii-em")
+    except Exception as e:
+        print("Error occured calling tree.show on tree.")
+        print(e)
+        sys.exit(1)
     return tree.all_nodes()
 
 
 @ app.get("/nodes/{id}")
 async def get_a_node(id: str) -> dict:
     """ Return a node specified by supplied id"""
+    global tree
     if debug:
         print(f"get_a_node()")
         print(f"id:{id}")
@@ -101,7 +107,12 @@ async def get_a_node(id: str) -> dict:
 @ app.get("/saves/{account_id}")
 async def get_all_saves(account_id: str) -> dict:
     """ Return a dict of all the trees saved in the db collection """
-    all_saves = await list_all_saved_trees(account_id=account_id)
+    try:
+        all_saves = await list_all_saved_trees(account_id=account_id)
+    except Exception as e:
+        print("Error occured loading all saves")
+        print(e)
+        sys.exit(1)
     if debug:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
@@ -113,7 +124,12 @@ async def get_all_saves(account_id: str) -> dict:
 async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     global tree
-    tree = await load_latest_into_working_tree(account_id=account_id)
+    try:
+        tree = await load_latest_into_working_tree(account_id=account_id)
+    except Exception as e:
+        print("Error occured loading latest save into working tree")
+        print(e)
+        sys.exit(1)
     if debug:
         print(f"get_latest_save()")
         print(f"latest:{tree}")
@@ -125,7 +141,13 @@ async def get_latest_save(account_id: str) -> dict:
 async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
     """ Add a node to the working tree using name supplied """
     # map the incoming fields from the https request to the fields required by the treelib API
-    request = jsonable_encoder(request)
+    global tree
+    try:
+        request = jsonable_encoder(request)
+    except Exception as e:
+        print("Error occured encoding request with jsonable_encoder")
+        print(e)
+        sys.exit(1)
     if debug:
         print(f"create_node())")
         print(f"req: {request}")
@@ -143,24 +165,35 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         node_payload.tags = request["tags"]
 
     if request["parent"]:
-        new_node = tree.create_node(
-            name, parent=request["parent"], data=node_payload)
-        # debug
-        tree2 = Tree(tree)
-        print(f"tree2:{tree2}")
-        # end debug
+        try:
+            new_node = tree.create_node(
+                name, parent=request["parent"], data=node_payload)
+        except Exception as e:
+            print("Error occured adding child node to working tree")
+            print(
+                "request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
+            print(e)
+            sys.exit(1)
+
     else:
         # No parent so check if we already have a root
         if tree.root == None:
-            new_node = tree.create_node(
-                name, data=node_payload)
-            # debug
-            tree2 = Tree(tree)
-            print(f"tree2:{tree2}")
-            # end debug
+            try:
+                new_node = tree.create_node(
+                    name, data=node_payload)
+            except Exception as e:
+                print("Error occured adding root node to working tree")
+                print("request['name']:{request['name']}, data:{node_payload}")
+                print(e)
+                sys.exit(1)
         else:
             return {"message": "Tree already has a root node"}
-    save_result = await save_working_tree(tree=tree, account_id=account_id)
+    try:
+        save_result = await save_working_tree(tree=tree, account_id=account_id)
+    except Exception as e:
+        print("Error occured saving the working tree to the database")
+        print(e)
+        sys.exit(1)
     if debug:
         print(f"mongo save: {save_result}")
     return{new_node}
@@ -170,47 +203,37 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
 async def update_node(account_id: str, id: str, request: RequestUpdateSchema = Body(...)) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
+    global tree
     if debug:
         print(f"req: {request}")
-
-    # get the node we will update so we can pull the data out of it
-    # node_to_update = await get_a_node(id)
-    # if debug:
-    #     print(f"req: {node_to_update}")
-    # payload = node_to_update.data
-
-    # check what values we have in the data object for the existing node
-    # if we don't then replace it with the existing value
-    # if(request.description):
-    #     description = request.description
-    # else:
-    #     description = payload.description
-    # if(request.previous):
-    #     previous = request.previous
-    # else:
-    #     previous = payload.previous
-    # if(request.next):
-    #     next = request.next
-    # else:
-    #     next = payload.next
-    # if(request.text):
-    #     text = request.text
-    # else:
-    #     text = payload.text
-    # if(request.tags):
-    #     tags = request.tags
-    # else:
-    #     tags = payload.tags
 
     node_payload = NodePayload(description=request.description,
                                previous=request.previous, next=request.next, tags=request.tags, text=request.text)
     if request.name:
-        update_node = tree.update_node(
-            id, _tag=request.name, data=node_payload)
+        try:
+            update_node = tree.update_node(
+                id, _tag=request.name, data=node_payload)
+        except Exception as e:
+            print("Error occured updating node in the working tree")
+            print("id:{id}, request.name:{request.name}, data:{data}")
+            print(e)
+            sys.exit(1)
     else:
-        update_node = tree.update_node(
-            id, data=node_payload)
-    await save_working_tree(tree=tree, account_id=account_id)
+        try:
+            update_node = tree.update_node(
+                id, data=node_payload)
+        except Exception as e:
+            print("Error occured updating node in the working tree")
+            print("id:{id}, request.name:{request.name}, data:{data}")
+            print(e)
+            sys.exit(1)
+    try:
+        await save_working_tree(tree=tree, account_id=account_id)
+    except Exception as e:
+        print("Error occured saving the working_tree to the database")
+        print(e)
+        sys.exit(1)
+
     if debug:
         print(f"updated node: {update_node }")
     return{update_node}
@@ -221,16 +244,36 @@ async def delete_node(id: str) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
-    response = tree.remove_node(id)
-    await save_working_tree(tree)
+    global tree
+    try:
+        response = tree.remove_node(id)
+    except Exception as e:
+        print("Error occured removing a node from the working tree.")
+        print("id:{id}")
+        print(e)
+        sys.exit(1)
+    try:
+        await save_working_tree(tree)
+    except Exception as e:
+        print("Error occured saving the working tree to the database after delete.")
+        print("tree:{tree}")
+        print(e)
+        sys.exit(1)
     return response
 
 
 @ app.delete("/saves/{account_id}")
 async def delete_node(account_id: str) -> dict:
     """ Delete all saves from the db trees collection """
-    delete_result = await delete_all_saves(account_id=account_id)
-    result = ResponseModel(delete_result, "Documents removed")
+    global tree
+    try:
+        delete_result = await delete_all_saves(account_id=account_id)
+    except Exception as e:
+        print("Error occured updating node in the working tree.")
+        print("id:{account_id}")
+        print(e)
+        sys.exit(1)
+    result = ResponseModel(delete_result, "Documents removed.")
     return result
 
 
