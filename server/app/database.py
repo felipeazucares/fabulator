@@ -122,7 +122,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
 
     try:
         name = loaded_tree["_nodes"][node_id]["_tag"]
-    except Exception as e:
+    except KeyError as e:
         print("Unable to get node name")
         print(
             f"loaded_tree['_nodes'][node_id]['_tag']: {loaded_tree['_nodes'][node_id]['_tag']}")
@@ -131,7 +131,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
 
     try:
         id = loaded_tree["_nodes"][node_id]["_identifier"]
-    except Exception as e:
+    except KeyError as e:
         print("Unable to get node id")
         print(
             f"loaded_tree['_nodes'][node_id]['_identifier']: {loaded_tree['_nodes'][node_id]['_identifier']}")
@@ -140,20 +140,23 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
 
     try:
         payload = loaded_tree["_nodes"][node_id]["data"]
-    except Exception as e:
-        print("Unable to get node data")
+    except KeyError as e:
+        print("Error: unable to get node data")
         print(
             f"loaded_tree['_nodes'][node_id]['data']: {loaded_tree['_nodes'][node_id]['data']}")
         print(e)
         sys.exit(1)
 
     # for some reason the children of a node are stored under the tree_id key
+
     try:
         children = loaded_tree["_nodes"][node_id]["_successors"][tree_id]
+    except KeyError:
+        # sometimes the _successors field has no key - so if we can't find it set to None
+        children = None
     except Exception as e:
-        print("Unable to find nodes children")
-        print(
-            f"loaded_tree['_nodes'][node_id]['_successors'][tree_id]: {loaded_tree['_nodes'][node_id]['_successors'][tree_id]}")
+        print("Error: retrieving the _successors field")
+        print(f"id:{loaded_tree['_nodes'][node_id]['_identifier']}")
         print(e)
         sys.exit(1)
 
