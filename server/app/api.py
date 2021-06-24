@@ -1,12 +1,12 @@
 
 import sys
+import os
 import hashlib
-from typing import Optional
+import app.config  # loads the load_env lib to access .env file
 from treelib import Tree
 from fastapi import FastAPI, Body
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-
 
 from .models import (
     RequestAddSchema,
@@ -23,8 +23,9 @@ from .database import (
     load_latest_into_working_tree
 )
 
-# set debug flag
-debug = True
+# set DEBUG flag
+
+DEBUG = os.getenv(key="DEBUG")
 
 # ------------------------
 #      FABULATOR
@@ -73,7 +74,7 @@ def initialise_tree():
 @ app.get("/")
 async def get() -> dict:
     """ Return the API version """
-    if debug:
+    if DEBUG:
         print(f"get()")
     return {"message": f"Fabulator {version}"}
 
@@ -82,7 +83,7 @@ async def get() -> dict:
 async def get_all_nodes() -> dict:
     """ Get a list of all the nodes in the working tree"""
     global tree
-    if debug:
+    if DEBUG:
         print(f"get_all_nodes()")
     try:
         tree.show(line_type="ascii-em")
@@ -97,7 +98,7 @@ async def get_all_nodes() -> dict:
 async def get_a_node(id: str) -> dict:
     """ Return a node specified by supplied id"""
     global tree
-    if debug:
+    if DEBUG:
         print(f"get_a_node()")
         print(f"id:{id}")
     return ResponseModel(tree.get_node(id), "Success")
@@ -112,7 +113,7 @@ async def get_all_saves(account_id: str) -> dict:
         print("Error occured loading all saves")
         print(e)
         sys.exit(1)
-    if debug:
+    if DEBUG:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
 
@@ -129,7 +130,7 @@ async def get_latest_save(account_id: str) -> dict:
         print("Error occured loading latest save into working tree")
         print(e)
         sys.exit(1)
-    if debug:
+    if DEBUG:
         print(f"get_latest_save()")
         print(f"latest:{tree}")
 
@@ -147,7 +148,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         print("Error occured encoding request with jsonable_encoder")
         print(e)
         sys.exit(1)
-    if debug:
+    if DEBUG:
         print(f"create_node())")
         print(f"req: {request}")
     node_payload = NodePayload()
@@ -193,7 +194,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         print("Error occured saving the working tree to the database")
         print(e)
         sys.exit(1)
-    if debug:
+    if DEBUG:
         print(f"mongo save: {save_result}")
     return ResponseModel(new_node, "Success")
 
@@ -203,7 +204,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
     global tree
-    if debug:
+    if DEBUG:
         print(f"req: {request}")
 
     node_payload = NodePayload(description=request.description,
@@ -233,7 +234,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
         print(e)
         sys.exit(1)
 
-    if debug:
+    if DEBUG:
         print(f"updated node: {update_node }")
     return ResponseModel(update_node, "Success")
 
