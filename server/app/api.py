@@ -13,7 +13,6 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     ResponseModel,
-    ErrorResponseModel,
     UserDetails
 )
 
@@ -91,7 +90,7 @@ async def get_all_nodes() -> dict:
         print("Error occured calling tree.show on tree.")
         print(e)
         sys.exit(1)
-    return tree.all_nodes()
+    return ResponseModel(tree.all_nodes(), "Success")
 
 
 @ app.get("/nodes/{id}")
@@ -101,7 +100,7 @@ async def get_a_node(id: str) -> dict:
     if debug:
         print(f"get_a_node()")
         print(f"id:{id}")
-    return tree.get_node(id)
+    return ResponseModel(tree.get_node(id), "Success")
 
 
 @ app.get("/saves/{account_id}")
@@ -117,7 +116,7 @@ async def get_all_saves(account_id: str) -> dict:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
 
-    return jsonable_encoder(all_saves)
+    return ResponseModel(jsonable_encoder(all_saves), "Success")
 
 
 @ app.get("/save/{account_id}")
@@ -134,7 +133,7 @@ async def get_latest_save(account_id: str) -> dict:
         print(f"get_latest_save()")
         print(f"latest:{tree}")
 
-    return jsonable_encoder(tree)
+    return ResponseModel(jsonable_encoder(tree), "Success")
 
 
 @ app.post("/nodes/{account_id}/{name}")
@@ -196,7 +195,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         sys.exit(1)
     if debug:
         print(f"mongo save: {save_result}")
-    return{new_node}
+    return ResponseModel(new_node, "Success")
 
 
 @ app.put("/nodes/{account_id}/{id}")
@@ -236,7 +235,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
 
     if debug:
         print(f"updated node: {update_node }")
-    return{update_node}
+    return ResponseModel(update_node, "Success")
 
 
 @ app.delete("/nodes/{id}/")
@@ -259,7 +258,7 @@ async def delete_node(id: str) -> dict:
         print("tree:{tree}")
         print(e)
         sys.exit(1)
-    return response
+    return ResponseModel(response, "Documents Deleted")
 
 
 @ app.delete("/saves/{account_id}")

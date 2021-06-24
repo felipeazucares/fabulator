@@ -6,7 +6,6 @@ from fastapi.encoders import jsonable_encoder
 
 
 from .models import (
-    UserDetails,
     TreeSaveSchema,
     saves_helper
 )
