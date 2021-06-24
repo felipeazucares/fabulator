@@ -1,17 +1,18 @@
 import sys
+import os
 import motor.motor_asyncio
-from bson.objectid import ObjectId
-from treelib import Tree, Node
+from treelib import Tree
 from fastapi.encoders import jsonable_encoder
-
 
 from .models import (
     TreeSaveSchema,
     saves_helper
 )
-debug = True
 
-MONGO_DETAILS = "mongodb://localhost:27017"
+
+MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
+DEBUG = os.getenv(key="DEBUG")
+
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
 database = client.fabulator
 tree_collection = database.get_collection("tree_collection")
@@ -116,7 +117,7 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
 def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
     """ Traverse the dict in mongo and rebuild the tree (recursive) """
 
-    if debug == True:
+    if DEBUG == True:
         print(f"tree: {loaded_tree['_nodes']}")
 
     try:
@@ -159,7 +160,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print(e)
         sys.exit(1)
 
-    if debug == True:
+    if DEBUG == True:
         print(f"Children: {children}")
 
     try:
@@ -174,7 +175,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
 
     if children != None:
 
-        if debug == True:
+        if DEBUG == True:
             print(f"recursive call")
 
         for child_id in children:
@@ -182,7 +183,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
 
     else:
 
-        if debug == True:
+        if DEBUG == True:
             print("base_case")
 
         new_tree.show(line_type="ascii-em")
