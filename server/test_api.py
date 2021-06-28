@@ -2,6 +2,8 @@
 import pytest
 import httpx
 import app.api as api
+import hashlib
+import asyncio
 from typing import Optional
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
@@ -17,6 +19,23 @@ app = FastAPI()
 # application settings
 base_port = "8000"
 root_url = f"http://localhost:{base_port}"
+
+
+@pytest.fixture
+def event_loop():
+    loop = asyncio.get_event_loop()
+    yield loop
+    loop.close()
+
+
+def get_dummy_user_account_id():
+    # set up unit test user
+    username = "unittestuser"
+    firstname = "John"
+    surname = "Maginot"
+    username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+    print(f"account_id:{username_hash}")
+    return username_hash
 
 
 def test_tree_create():
@@ -71,8 +90,9 @@ async def test_root_path():
 
 @pytest.fixture
 @pytest.mark.asyncio
-async def test_create_root_node():
+async def test_create_root_node(event_loop):
     """ Create a root node and return it """
+    account_id = get_dummy_user_account_id()
     data = jsonable_encoder({
                             "description": "Unit test description",
                             "previous": "previous node",
@@ -82,7 +102,7 @@ async def test_create_root_node():
                             })
 
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post("http://127.0.0.1:8000/nodes/Unit test root node", json=data)
+        response = await ac.post(f"http://127.0.0.1:8000/nodes/{account_id}/Unit test root node", json=data)
     assert response.status_code == 200
     assert response.json()[0]["_tag"] == "Unit test root node"
     return(response.json()[0]["_identifier"])
