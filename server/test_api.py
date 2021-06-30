@@ -23,6 +23,37 @@ base_port = "8000"
 root_url = f"http://localhost:{base_port}"
 
 
+class MockResponse:
+    @staticmethod
+    def json():
+        {
+            "data": [
+                {
+                    "_identifier": "399a95ee-d9c7-11eb-b6de-f01898e87167",
+                    "_tag": "Automatic Shoes",
+                    "expanded": True,
+                    "_predecessor": {
+                        "64eb660e-d343-11eb-b051-f01898e87167": "8de508ee-d343-11eb-b051-f01898e87167"
+                    },
+                    "_successors": {},
+                    "data": {
+                        "description": "John gets an unexpected message from @TheRealEmpressSeb",
+                        "previous": None,
+                        "next": None,
+                        "text": "I stare at the glass like it’s bitten me. I should just ignore this, but like all good lab rats I know the buttons to push to get the good stuff.",
+                        "tags": [
+                            "Chapter",
+                            "Maginot"
+                        ]
+                    },
+                    "_initial_tree_id": "64eb660e-d343-11eb-b051-f01898e87167"
+                }
+            ],
+            "code": 200,
+            "message": "Success"
+        }
+
+
 @pytest.fixture
 def event_loop():
     loop = asyncio.get_event_loop()
