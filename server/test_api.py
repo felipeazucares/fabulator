@@ -22,6 +22,8 @@ app = FastAPI()
 base_port = "8000"
 root_url = f"http://localhost:{base_port}"
 
+# the mongo save returns a save object - but how do I deconstruct one of those
+
 
 class MockResponse:
     @staticmethod
