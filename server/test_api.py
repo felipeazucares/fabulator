@@ -1,9 +1,11 @@
 
 import pytest
+import os
 import asyncio
 import httpx
 import app.api as api
 import app.database as database
+import motor.motor_asyncio
 import hashlib
 import asyncio
 from typing import Optional
@@ -125,9 +127,9 @@ async def test_root_path():
 
 
 @pytest.mark.asyncio
-async def test_create_root_node(event_loop):
+async def test_create_root_node(account_id=get_dummy_user_account_id):
     """ Create a root node and return it """
-    account_id = get_dummy_user_account_id()
+    # account_id = get_dummy_user_account_id()
     data = jsonable_encoder({
                             "description": "Unit test description",
                             "previous": "previous node",
@@ -139,8 +141,8 @@ async def test_create_root_node(event_loop):
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post(f"http://127.0.0.1:8000/nodes/{account_id}/Unit test root node", json=data)
     assert response.status_code == 200
-    assert response.json()[0]["_tag"] == "Unit test root node"
-    return(response.json()[0]["_identifier"])
+    assert response.json()['data'][0]["_tag"] == "Unit test root node"
+    return(response.json()['data'][0]["_identifier"])
 
 
 # @ pytest.mark.asyncio
@@ -259,7 +261,17 @@ async def test_create_root_node(event_loop):
 #         response = await ac.delete("/nodes/" + test_create_root_node)
 
 
+@pytest.fixture
+def db(event_loop):
+    MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
+    client = motor.motor_asyncio.AsyncIOMotorClient(
+        MONGO_DETAILS, io_loop=event_loop)
+    # client = AsyncIOMotorClient('mongodb://localhost', io_loop=event_loop)
+    yield client['mydb']
+    client.close()
+
+
 @ pytest.mark.asyncio
-async def test_list_all_saved_trees(get_dummy_user_account_id):
-    saves = await database.list_all_saved_trees(get_dummy_user_account_id)
+async def test_save_working_tree(get_dummy_user_account_id):
+    saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
     assert saves == None

@@ -24,7 +24,9 @@ tree_collection = database.get_collection("tree_collection")
 
 async def save_working_tree(account_id: str, tree: Tree) -> dict:
     """ Save the current working tree to a document in the tree_collection for supplied account_id """
-
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    database = client.fabulator
+    tree_collection = database.get_collection("tree_collection")
     tree_to_save = TreeSaveSchema(account_id=account_id, tree=tree)
     try:
         save_response = await tree_collection.insert_one(jsonable_encoder(tree_to_save))
