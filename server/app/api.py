@@ -91,7 +91,7 @@ async def get_all_nodes() -> dict:
         print("Error occured calling tree.show on tree.")
         print(e)
         sys.exit(1)
-    return ResponseModel(tree.all_nodes(), "Success")
+    return {"code": 200, "data": [tree.all_nodes()], "message": "Success"}
 
 
 @ app.get("/nodes/{id}")
@@ -239,8 +239,8 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
     return ResponseModel(update_node, "Success")
 
 
-@ app.delete("/nodes/{id}/")
-async def delete_node(id: str) -> dict:
+@ app.delete("/nodes/{account_id}/{id}/")
+async def delete_node(id: str, account_id) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
@@ -253,7 +253,7 @@ async def delete_node(id: str) -> dict:
         print(e)
         sys.exit(1)
     try:
-        await save_working_tree(tree)
+        await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         print("Error occured saving the working tree to the database after delete.")
         print("tree:{tree}")

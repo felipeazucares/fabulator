@@ -66,6 +66,7 @@ def event_loop():
 
 
 @pytest.fixture
+@pytest.mark.asyncio
 def get_dummy_user_account_id():
     # set up unit test user
     username = "unittestuser"
@@ -127,9 +128,9 @@ async def test_root_path():
 
 
 @pytest.mark.asyncio
-async def test_create_root_node(account_id=get_dummy_user_account_id):
+@pytest.fixture
+async def test_create_root_node(get_dummy_user_account_id):
     """ Create a root node and return it """
-    # account_id = get_dummy_user_account_id()
     data = jsonable_encoder({
                             "description": "Unit test description",
                             "previous": "previous node",
@@ -139,20 +140,24 @@ async def test_create_root_node(account_id=get_dummy_user_account_id):
                             })
 
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://127.0.0.1:8000/nodes/{account_id}/Unit test root node", json=data)
+        response = await ac.post(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/Unit test root node", json=data)
+    print(f"create root node response:{response.json()}")
     assert response.status_code == 200
-    assert response.json()['data'][0]["_tag"] == "Unit test root node"
-    return(response.json()['data'][0]["_identifier"])
+    assert response.json()["data"][0]["_tag"] == "Unit test root node"
+    return(response.json()["data"][0]["_identifier"])
 
 
-# @ pytest.mark.asyncio
-# async def test_remove_node(test_create_root_node):
-#     """ generate a root node and remove it """
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-#         response = await ac.delete("/nodes/" + test_create_root_node)
-#     assert response.status_code == 200
-#     # test that the root node is removed as expected
-#     assert int(response.json()) == 1
+@ pytest.mark.asyncio
+async def test_remove_node(test_create_root_node)
+""" generate a root node and remove it """
+ print(f"test_create_root_node:{test_create_root_node}")
+  print(f"request: http://localhost:8000/nodes/{test_create_root_node}")
+   async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_create_root_node}")
+    assert response.status_code == 200
+    print(f"response:{response}")
+    # test that the root node is removed as expected
+    assert int(response.json()) == 1
 
 
 # @ pytest.mark.asyncio
@@ -193,24 +198,33 @@ async def test_create_root_node(account_id=get_dummy_user_account_id):
 #     assert response.status_code == 200
 
 
-# @ pytest.mark.asyncio
-# async def test_get_a_node(test_create_root_node):
-#     """ get a single node by id"""
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node) as ac:
-#         response = await ac.get("/nodes/")
-#     assert response.status_code == 200
-#     # test that the root node is configured as expected
-#     assert response.json()[0]["_identifier"] == test_create_root_node
-#     assert response.json()[0]["_tag"] == "Unit test root node"
-#     assert response.json()[0]["data"]["description"] == "Unit test description"
-#     assert response.json()[0]["data"]["previous"] == "previous node"
-#     assert response.json()[0]["data"]["next"] == "next node"
-#     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
-#     assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+@ pytest.mark.asyncio
+async def test_get_a_node(test_create_root_node):
+    """ get a single node by id"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node) as ac:
+        response = await ac.get("/nodes/")
+    print(f"get a node response:{response.json()}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"][0]["_tag"]["_identifier"] == test_create_root_node
+    assert response.json()[
+        "data"][0]["_tag"]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["_tag"]["description"] == "Unit test description"
+    assert response.json()[
+        "data"][0]["_tag"]["data"]["previous"] == "previous node"
+    assert response.json()[
+        "data"][0]["_tag"]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["_tag"]["data"]["text"] == "Unit test text for root node"
+    assert response.json()[
+        "data"][0]["_tag"]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
 
-#     # remove the root node we just created
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-#         response = await ac.delete("/nodes/" + test_create_root_node)
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
+        response = await ac.delete("/nodes/" + test_create_root_node)
 
 
 # @ pytest.mark.asyncio
@@ -241,37 +255,41 @@ async def test_create_root_node(account_id=get_dummy_user_account_id):
 #         response = await ac.delete("/nodes/" + test_create_root_node)
 
 
-# @ pytest.mark.asyncio
-# async def test_get_all_nodes(test_create_root_node):
-#     """ get all nodes and test the root"""
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-#         response = await ac.get("/nodes")
-#     assert response.status_code == 200
-#     # test that the root node is configured as expected
-#     assert response.json()[0]["_identifier"] == test_create_root_node
-#     assert response.json()[0]["_tag"] == "Unit test root node"
-#     assert response.json()[0]["data"]["description"] == "Unit test description"
-#     assert response.json()[0]["data"]["previous"] == "previous node"
-#     assert response.json()[0]["data"]["next"] == "next node"
-#     assert response.json()[0]["data"]["text"] == "Unit test text for root node"
-#     assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
-
-#     # remove the root node we just created
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-#         response = await ac.delete("/nodes/" + test_create_root_node)
-
-
-@pytest.fixture
-def db(event_loop):
-    MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
-    client = motor.motor_asyncio.AsyncIOMotorClient(
-        MONGO_DETAILS, io_loop=event_loop)
-    # client = AsyncIOMotorClient('mongodb://localhost', io_loop=event_loop)
-    yield client['mydb']
-    client.close()
-
-
 @ pytest.mark.asyncio
-async def test_save_working_tree(get_dummy_user_account_id):
-    saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
-    assert saves == None
+async def test_get_all_nodes(test_create_root_node):
+    """ get all nodes and test the root"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/nodes")
+    print(f"get all nodes response:{response.json()}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()["data"][0]["_identifier"] == test_create_root_node
+    assert response.json()["data"][0]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["data"]["description"] == "Unit test description"
+    assert response.json()["data"][0]["data"]["previous"] == "previous node"
+    assert response.json()["data"][0]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()["data"][0]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
+        response = await ac.delete("/nodes/" + test_create_root_node)
+
+
+# @pytest.fixture
+# def db(event_loop):
+#     MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
+#     client = motor.motor_asyncio.AsyncIOMotorClient(
+#         MONGO_DETAILS, io_loop=event_loop)
+#     # client = AsyncIOMotorClient('mongodb://localhost', io_loop=event_loop)
+#     yield client['mydb']
+#     client.close()
+
+
+# @ pytest.mark.asyncio
+# async def test_save_working_tree(get_dummy_user_account_id):
+#     saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
+#     assert saves == None
