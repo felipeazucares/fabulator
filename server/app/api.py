@@ -239,7 +239,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
     return ResponseModel(update_node, "Success")
 
 
-@ app.delete("/nodes/{account_id}/{id}/")
+@ app.delete("/nodes/{account_id}/{id}")
 async def delete_node(id: str, account_id) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
