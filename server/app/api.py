@@ -9,6 +9,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import (
+    ErrorResponseModel,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
@@ -26,6 +27,7 @@ from .database import (
 # set DEBUG flag
 
 DEBUG = os.getenv(key="DEBUG")
+
 
 # ------------------------
 #      FABULATOR
@@ -187,7 +189,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                 print(e)
                 sys.exit(1)
         else:
-            return {"message": "Tree already has a root node"}
+            return ErrorResponseModel("Unable to add node", 422, "Tree already has a root node")
     try:
         save_result = await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
@@ -240,26 +242,33 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
 
 
 @ app.delete("/nodes/{account_id}/{id}")
-async def delete_node(id: str, account_id) -> dict:
+async def delete_node(id: str, account_id: str = None) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
     global tree
-    try:
-        response = tree.remove_node(id)
-    except Exception as e:
-        print("Error occured removing a node from the working tree.")
-        print("id:{id}")
-        print(e)
-        sys.exit(1)
-    try:
-        await save_working_tree(tree=tree, account_id=account_id)
-    except Exception as e:
-        print("Error occured saving the working tree to the database after delete.")
-        print("tree:{tree}")
-        print(e)
-        sys.exit(1)
-    return ResponseModel(response, "Documents Deleted")
+    if tree.contains(id):
+        try:
+            response = tree.remove_node(id)
+            message = "Success"
+        except Exception as e:
+            print("Error occured removing a node from the working tree.")
+            print(f"id:{id}")
+            print(e)
+            raise
+        else:
+            try:
+                await save_working_tree(tree=tree, account_id=account_id)
+            except Exception as e:
+                print(
+                    "Error occured saving the working tree to the database after delete.")
+                print("tree:{tree}")
+                print(e)
+                raise
+    else:
+        message = "No nodes removed"
+        response = 0
+    return ResponseModel(response, message)
 
 
 @ app.delete("/saves/{account_id}")
