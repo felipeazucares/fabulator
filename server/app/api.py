@@ -92,7 +92,7 @@ async def get_all_nodes() -> dict:
     except Exception as e:
         print("Error occured calling tree.show on tree.")
         print(e)
-        sys.exit(1)
+        raise
     return {"code": 200, "data": [tree.all_nodes()], "message": "Success"}
 
 
@@ -114,7 +114,7 @@ async def get_all_saves(account_id: str) -> dict:
     except Exception as e:
         print("Error occured loading all saves")
         print(e)
-        sys.exit(1)
+        e
     if DEBUG:
         print(f"get_all_saves()")
         print(f"all_saves:{all_saves}")
@@ -131,7 +131,7 @@ async def get_latest_save(account_id: str) -> dict:
     except Exception as e:
         print("Error occured loading latest save into working tree")
         print(e)
-        sys.exit(1)
+        raise
     if DEBUG:
         print(f"get_latest_save()")
         print(f"latest:{tree}")
@@ -149,7 +149,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
     except Exception as e:
         print("Error occured encoding request with jsonable_encoder")
         print(e)
-        sys.exit(1)
+        raise
     if DEBUG:
         print(f"create_node())")
         print(f"req: {request}")
@@ -175,7 +175,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
             print(
                 "request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
             print(e)
-            sys.exit(1)
+            raise
 
     else:
         # No parent so check if we already have a root
@@ -187,7 +187,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                 print("Error occured adding root node to working tree")
                 print("request['name']:{request['name']}, data:{node_payload}")
                 print(e)
-                sys.exit(1)
+                raise
         else:
             return ErrorResponseModel("Unable to add node", 422, "Tree already has a root node")
     try:
@@ -195,7 +195,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
     except Exception as e:
         print("Error occured saving the working tree to the database")
         print(e)
-        sys.exit(1)
+        raise
     if DEBUG:
         print(f"mongo save: {save_result}")
     return ResponseModel(new_node, "Success")
@@ -219,7 +219,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             print("Error occured updating node in the working tree")
             print("id:{id}, request.name:{request.name}, data:{data}")
             print(e)
-            sys.exit(1)
+            raise
     else:
         try:
             update_node = tree.update_node(
@@ -228,13 +228,13 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             print("Error occured updating node in the working tree")
             print("id:{id}, request.name:{request.name}, data:{data}")
             print(e)
-            sys.exit(1)
+            raise
     try:
         await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         print("Error occured saving the working_tree to the database")
         print(e)
-        sys.exit(1)
+        raise
 
     if DEBUG:
         print(f"updated node: {update_node }")
@@ -281,7 +281,7 @@ async def delete_node(account_id: str) -> dict:
         print("Error occured updating node in the working tree.")
         print("id:{account_id}")
         print(e)
-        sys.exit(1)
+        raise
     result = ResponseModel(delete_result, "Documents removed.")
     return result
 
