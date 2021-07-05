@@ -228,32 +228,38 @@ async def test_get_a_node(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-# @ pytest.mark.asyncio
-# async def test_add_child_node(test_create_root_node):
-#     """ Add a child node"""
-#     data = jsonable_encoder({
-#         "parent": test_create_root_node,
-#         "description": "unit test child description",
-#         "previous": "previous child node",
-#         "next": "next child node",
-#         "text": "unit test text for child node",
-#         "tags": ['tag 1', 'tag 2', 'tag 3']
-#     })
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-#         response = await ac.post("/nodes/unit test child node", json=data)
-#     assert response.status_code == 200
-#     assert response.json()[0]["_tag"] == "unit test child node"
-#     assert response.json()[0][
-#         "data"]["description"] == "unit test child description"
-#     assert response.json()[0]["data"]["previous"] == "previous child node"
-#     assert response.json()[0]["data"]["next"] == "next child node"
-#     assert response.json()[
-#         0]["data"]["text"] == "unit test text for child node"
-#     assert response.json()[0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+@ pytest.mark.asyncio
+async def test_add_child_node(test_create_root_node):
+    """ Add a child node"""
+    data = jsonable_encoder({
+        "parent": test_create_root_node["node_id"],
+        "description": "unit test child description",
+        "previous": "previous child node",
+        "next": "next child node",
+        "text": "unit test text for child node",
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=data)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"][0]["_tag"] == "unit test child node"
+    assert response.json()[
+        "data"][0][
+        "data"]["description"] == "unit test child description"
+    assert response.json()[
+        "data"][0]["data"]["previous"] == "previous child node"
+    assert response.json()[
+        "data"][0]["data"]["next"] == "next child node"
+    assert response.json()[
+        "data"][0]["data"]["text"] == "unit test text for child node"
+    assert response.json()[
+        "data"][0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
-#     # remove the root & child node we just created
-#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000/") as ac:
-#         response = await ac.delete("/nodes/" + test_create_root_node)
+    # remove the root & child node we just created
+# remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
 @ pytest.mark.asyncio
