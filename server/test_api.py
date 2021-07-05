@@ -1,11 +1,14 @@
 
 import pytest
+# Standard library imports...
+from unittest.mock import patch
 import os
 import asyncio
 import httpx
 import app.api as api
 import app.database as database
 import motor.motor_asyncio
+from treelib import Tree
 import hashlib
 import asyncio
 from typing import Optional
@@ -70,10 +73,9 @@ def event_loop():
 def get_dummy_user_account_id():
     # set up unit test user
     username = "unittestuser"
-    firstname = "John"
-    surname = "Maginot"
+    # firstname = "John"
+    # surname = "Maginot"
     username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
-    print(f"account_id:{username_hash}")
     return username_hash
 
 
@@ -129,8 +131,15 @@ async def test_root_path():
 
 @pytest.mark.asyncio
 @pytest.fixture
-async def test_create_root_node(get_dummy_user_account_id):
+async def remove_previous_records(get_dummy_user_account_id):
+    await database.delete_all_saves(account_id=get_dummy_user_account_id)
+
+
+@pytest.mark.asyncio
+@pytest.fixture
+async def test_create_root_node(get_dummy_user_account_id, remove_previous_records):
     """ Create a root node and return it """
+
     data = jsonable_encoder({
                             "description": "Unit test description",
                             "previous": "previous node",
@@ -141,7 +150,6 @@ async def test_create_root_node(get_dummy_user_account_id):
 
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/Unit test root node", json=data)
-    print(f"create root node response:{response.json()}")
 
     assert response.status_code == 200
     assert response.json()["data"][0]["_tag"] == "Unit test root node"
@@ -180,7 +188,6 @@ async def test_update_node(test_create_root_node):
     # now get what we just created it updated
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node["node_id"]) as ac:
         response = await ac.get("/nodes/")
-    print(f"update:{response.json()}")
     assert response.status_code == 200
     # test that the root node is updated as expected
     assert response.json()["data"][
@@ -211,7 +218,6 @@ async def test_get_a_node(test_create_root_node):
     """ get a single node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=test_create_root_node["node_id"]) as ac:
         response = await ac.get("/nodes/")
-    print(f"get a node response:{response.json()}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -273,7 +279,6 @@ async def test_get_all_nodes(test_create_root_node):
     """ get all nodes and test the root"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/nodes")
-    print(f"get all nodes response:{response.json()}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -307,3 +312,20 @@ async def test_get_all_nodes(test_create_root_node):
 # async def test_save_working_tree(get_dummy_user_account_id):
 #     saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
 #     assert saves == None
+
+
+@ pytest.mark.asyncio
+async def test_list_all_saves(get_dummy_user_account_id):
+    """ generate a root node and remove it """
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/saves/{get_dummy_user_account_id}")
+    assert response.status_code == 200
+    # test that the root node is removed as expected
+    assert int(len(response.json()['data'][0])) > 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_teardown(get_dummy_user_account_id):
+    remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
+    assert remove_response != None

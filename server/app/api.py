@@ -152,7 +152,6 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         raise
     if DEBUG:
         print(f"create_node())")
-        print(f"req: {request}")
     node_payload = NodePayload()
 
     if request["description"]:
@@ -207,7 +206,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
     # generate a new id for the node if we have a parent
     global tree
     if DEBUG:
-        print(f"req: {request}")
+        print(f"update_node")
 
     node_payload = NodePayload(description=request.description,
                                previous=request.previous, next=request.next, tags=request.tags, text=request.text)

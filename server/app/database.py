@@ -34,12 +34,15 @@ async def save_working_tree(account_id: str, tree: Tree) -> dict:
         print("An error occured writing to the database.")
         print(f"tree_to_save was: {tree_to_save}")
         print(e)
-        sys.exit(1)
+        raise
     return save_response
 
 
 async def list_all_saved_trees(account_id: str) -> dict:
     """ return a dict of all the saves in the tree_collection for supplied account_id """
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    database = client.fabulator
+    tree_collection = database.get_collection("tree_collection")
     saves = []
     try:
         async for save in tree_collection.find({"account_id": account_id}):
@@ -48,12 +51,15 @@ async def list_all_saved_trees(account_id: str) -> dict:
         print("An error occured reading all database saves to the database.")
         print(f"account_id was: {account_id}")
         print(e)
-        sys.exit(1)
+        raise
     return saves
 
 
 async def delete_all_saves(account_id: str) -> int:
     """ delete all the saved documents in the tree_collection for supplied account_id """
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    database = client.fabulator
+    tree_collection = database.get_collection("tree_collection")
     try:
         delete_result = await tree_collection.delete_many({"account_id": account_id})
         # delete_result object contains a deleted_count & acknowledged properties
@@ -61,7 +67,7 @@ async def delete_all_saves(account_id: str) -> int:
         print("An error occured deleting a save from the database.")
         print(f"account_id was: {account_id}")
         print(e)
-        sys.exit(1)
+        raise
     return delete_result.deleted_count
 
 
@@ -73,7 +79,7 @@ async def return_latest_save(account_id: str) -> dict:
         print("An error occured retrieving latest save from the database.")
         print(f"account_id was: {account_id}")
         print(e)
-        sys.exit(1)
+        raise
     return saves_helper(last_save)
 
 
@@ -85,7 +91,7 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
         print("An error occured retrieving latest save from the database.")
         print(f"account_id was: {account_id}")
         print(e)
-        sys.exit(1)
+        raise
     # get the tree dict from the saved document
     try:
         last_save_tree = last_save["tree"]
@@ -93,7 +99,7 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
         print("An error occured retrieving tree structure from last save.")
         print(f"last_save: {last_save}")
         print(e)
-        sys.exit(1)
+        raise
     # get the root node id
     try:
         root_node = last_save_tree["root"]
@@ -101,7 +107,7 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
         print("An error occured retrieving root object from last save.")
         print(f"last_save: {last_save}")
         print(e)
-        sys.exit(1)
+        raise
     # create the root node
     try:
         new_tree = Tree(identifier=last_save_tree["_identifier"])
@@ -109,7 +115,7 @@ async def load_latest_into_working_tree(account_id: str) -> Tree:
         print("An error occured creating new tree.")
         print(f"_identifier:{last_save_tree['_identifier']}")
         print(e)
-        sys.exit(1)
+        raise
 
     final_tree = add_a_node(last_save_tree["_identifier"], last_save_tree,
                             new_tree, root_node, None)
@@ -129,7 +135,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print(
             f"loaded_tree['_nodes'][node_id]['_tag']: {loaded_tree['_nodes'][node_id]['_tag']}")
         print(e)
-        sys.exit(1)
+        raise
 
     try:
         id = loaded_tree["_nodes"][node_id]["_identifier"]
@@ -138,7 +144,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print(
             f"loaded_tree['_nodes'][node_id]['_identifier']: {loaded_tree['_nodes'][node_id]['_identifier']}")
         print(e)
-        sys.exit(1)
+        raise
 
     try:
         payload = loaded_tree["_nodes"][node_id]["data"]
@@ -147,7 +153,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print(
             f"loaded_tree['_nodes'][node_id]['data']: {loaded_tree['_nodes'][node_id]['data']}")
         print(e)
-        sys.exit(1)
+        raise
 
     # for some reason the children of a node are stored under the tree_id key
 
@@ -160,7 +166,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print("Error: retrieving the _successors field")
         print(f"id:{loaded_tree['_nodes'][node_id]['_identifier']}")
         print(e)
-        sys.exit(1)
+        raise
 
     if DEBUG == True:
         print(f"Children: {children}")
@@ -173,7 +179,7 @@ def add_a_node(tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
         print(
             "name:{name}, identifier:{id}, data:{payload}, parent_d:{parent_id}")
         print(e)
-        sys.exit(1)
+        raise
 
     if children != None:
 
