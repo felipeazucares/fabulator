@@ -1,4 +1,6 @@
 import sys
+import dns.resolver
+import urllib
 import os
 import motor.motor_asyncio
 from treelib import Tree
