@@ -340,9 +340,9 @@ async def test_get_latest_save(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_teardown(get_dummy_user_account_id):
+async def test_delete_all_saves(get_dummy_user_account_id):
     remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
-    assert remove_response != None
+    assert remove_response > 0
 
 # @pytest.fixture
 # def db(event_loop):
