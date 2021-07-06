@@ -1,10 +1,10 @@
 
-import sys
 import os
 import hashlib
 import app.config  # loads the load_env lib to access .env file
-from treelib import Tree
+from treelib import Tree, Node
 from fastapi import FastAPI, Body
+from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -81,19 +81,32 @@ async def get() -> dict:
     return {"message": f"Fabulator {version}"}
 
 
+def selector(node_to_test: Node):
+    """ Helper function to test given node for given value in tags"""
+# todo: this won't work for the function as it needs to accept only one argument
+# todo: which is the node itself
+    return True
+
+
 @ app.get("/nodes/")
-async def get_all_nodes() -> dict:
+async def get_all_nodes(filter: Optional[str] = None) -> dict:
     """ Get a list of all the nodes in the working tree"""
     global tree
-    if DEBUG:
-        print(f"get_all_nodes()")
-    try:
-        tree.show(line_type="ascii-em")
-    except Exception as e:
-        print("Error occured calling tree.show on tree.")
-        print(e)
-        raise
-    return {"code": 200, "data": [tree.all_nodes()], "message": "Success"}
+    if filter:
+        data = tree.filter_nodes(selector)
+        if DEBUG:
+            print(f"filter_nodes()")
+    else:
+        if DEBUG:
+            print(f"get_all_nodes()")
+        try:
+            tree.show(line_type="ascii-em")
+        except Exception as e:
+            print("Error occured calling tree.show on tree.")
+            print(e)
+            raise
+        data = tree.all_nodes()
+    return ResponseModel(data, "Success")
 
 
 @ app.get("/nodes/{id}")

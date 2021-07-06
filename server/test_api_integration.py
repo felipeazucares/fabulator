@@ -1,6 +1,4 @@
-
 import pytest
-# Standard library imports...
 import asyncio
 import httpx
 import app.api as api
@@ -12,7 +10,6 @@ from fastapi.encoders import jsonable_encoder
 
 
 app = FastAPI()
-
 
 # Main test suite for Fabulator
 # Philip Suggars
@@ -126,13 +123,7 @@ async def test_root_path():
 
 @pytest.mark.asyncio
 @pytest.fixture
-async def remove_previous_records(get_dummy_user_account_id):
-    await database.delete_all_saves(account_id=get_dummy_user_account_id)
-
-
-@pytest.mark.asyncio
-@pytest.fixture
-async def test_create_root_node(get_dummy_user_account_id, remove_previous_records):
+async def test_create_root_node(get_dummy_user_account_id):
     """ Create a root node and return it """
 
     data = jsonable_encoder({
@@ -294,6 +285,30 @@ async def test_get_all_nodes(test_create_root_node):
 
 
 @ pytest.mark.asyncio
+async def test_get_filtered_nodes(test_create_root_node):
+    """ get all nodes and test the root"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/nodes")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"][0][0]["_identifier"] == test_create_root_node["node_id"]
+    assert response.json()["data"][0][0]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0][0]["data"]["description"] == "Unit test description"
+    assert response.json()["data"][0][0]["data"]["previous"] == "previous node"
+    assert response.json()["data"][0][0]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0][0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()["data"][0][0]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@ pytest.mark.asyncio
 async def test_list_all_saves(get_dummy_user_account_id):
     """ generate a list of all the saved tries for given account_id"""
     async with httpx.AsyncClient(app=api.app) as client:
@@ -338,18 +353,3 @@ async def test_get_latest_save(test_create_root_node):
 async def test_delete_all_saves(get_dummy_user_account_id):
     remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0
-
-# @pytest.fixture
-# def db(event_loop):
-#     MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
-#     client = motor.motor_asyncio.AsyncIOMotorClient(
-#         MONGO_DETAILS, io_loop=event_loop)
-#     # client = AsyncIOMotorClient('mongodb://localhost', io_loop=event_loop)
-#     yield client['mydb']
-#     client.close()
-
-
-# @ pytest.mark.asyncio
-# async def test_save_working_tree(get_dummy_user_account_id):
-#     saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
-#     assert saves == None
