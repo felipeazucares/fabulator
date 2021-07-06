@@ -122,7 +122,7 @@ async def get_all_saves(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(all_saves), "Success")
 
 
-@ app.get("/save/{account_id}")
+@ app.get("/load/{account_id}")
 async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     global tree

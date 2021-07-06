@@ -73,6 +73,9 @@ async def delete_all_saves(account_id: str) -> int:
 
 async def return_latest_save(account_id: str) -> dict:
     """ return the latest save document from the tree_collection for supplied account_id """
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    database = client.fabulator
+    tree_collection = database.get_collection("tree_collection")
     try:
         last_save = await tree_collection.find_one({"account_id": account_id}, sort=[("date_time", -1)])
     except Exception as e:

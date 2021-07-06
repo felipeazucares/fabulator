@@ -298,6 +298,52 @@ async def test_get_all_nodes(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
+@ pytest.mark.asyncio
+async def test_list_all_saves(get_dummy_user_account_id):
+    """ generate a list of all the saved tries for given account_id"""
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/saves/{get_dummy_user_account_id}")
+    assert response.status_code == 200
+    # test that the root node is removed as expected
+    assert int(len(response.json()['data'][0])) > 0
+
+
+@ pytest.mark.asyncio
+async def test_get_latest_save(test_create_root_node):
+    """ load the latest save into the tree for a given user """
+
+    # the test_create_root_node fixture creates a new root node which gets saved
+    # now we've loaded that into the tree, we can get the node from the tree
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/load/{test_create_root_node['account_id']}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["_identifier"] == test_create_root_node["node_id"]
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["data"]["description"] == "Unit test description"
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["data"]["previous"] == "previous node"
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["data"]["text"] == "Unit test text for root node"
+    assert response.json()[
+        "data"][0]["_nodes"][test_create_root_node["node_id"]]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_teardown(get_dummy_user_account_id):
+    remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
+    assert remove_response != None
+
 # @pytest.fixture
 # def db(event_loop):
 #     MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
@@ -312,20 +358,3 @@ async def test_get_all_nodes(test_create_root_node):
 # async def test_save_working_tree(get_dummy_user_account_id):
 #     saves = await database.save_working_tree(account_id=get_dummy_user_account_id, tree=None)
 #     assert saves == None
-
-
-@ pytest.mark.asyncio
-async def test_list_all_saves(get_dummy_user_account_id):
-    """ generate a root node and remove it """
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/saves/{get_dummy_user_account_id}")
-    assert response.status_code == 200
-    # test that the root node is removed as expected
-    assert int(len(response.json()['data'][0])) > 0
-
-
-@pytest.mark.asyncio
-@pytest.mark.asyncio
-async def test_teardown(get_dummy_user_account_id):
-    remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
-    assert remove_response != None
