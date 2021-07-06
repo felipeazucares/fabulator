@@ -1,17 +1,12 @@
 
 import pytest
 # Standard library imports...
-from unittest.mock import patch
-import os
 import asyncio
 import httpx
 import app.api as api
 import app.database as database
-import motor.motor_asyncio
-from treelib import Tree
 import hashlib
 import asyncio
-from typing import Optional
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 

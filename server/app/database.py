@@ -1,6 +1,5 @@
-import sys
+
 import dns.resolver
-import urllib
 import os
 import motor.motor_asyncio
 from treelib import Tree
@@ -90,6 +89,7 @@ async def return_latest_save(account_id: str) -> dict:
 
 async def load_latest_into_working_tree(account_id: str) -> Tree:
     """ return a tree containing the latest saved tree """
+
     try:
         last_save = await return_latest_save(account_id=account_id)
     except Exception as e:
