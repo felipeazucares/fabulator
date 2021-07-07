@@ -287,8 +287,9 @@ async def test_get_all_nodes(test_create_root_node):
 @ pytest.mark.asyncio
 async def test_get_filtered_nodes(test_create_root_node):
     """ get all nodes and test the root"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/nodes")
+    params = {'filterval': 'value'}
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
+        response = await ac.get("/nodes/")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
