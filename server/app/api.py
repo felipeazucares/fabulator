@@ -81,19 +81,17 @@ async def get() -> dict:
     return {"message": f"Fabulator {version}"}
 
 
-def selector(node_to_test: Node):
-    """ Helper function to test given node for given value in tags"""
-# todo: this won't work for the function as it needs to accept only one argument
-# todo: which is the node itself
-    return True
-
-
 @ app.get("/nodes/")
-async def get_all_nodes(filter: Optional[str] = None) -> dict:
+async def get_all_nodes(filterval: Optional[str] = None) -> dict:
     """ Get a list of all the nodes in the working tree"""
     global tree
-    if filter:
-        data = tree.filter_nodes(selector)
+    if filterval:
+        data = []
+        for node in tree.all_nodes():
+            if filterval in node.data.tags:
+                data.append(node)
+                # todo: how do we deal with no nodes being returned?
+                # todo: maybe return the count as well as the nodes?
         if DEBUG:
             print(f"filter_nodes()")
     else:
