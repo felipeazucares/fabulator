@@ -287,16 +287,16 @@ async def test_get_all_nodes(test_create_root_node):
 @ pytest.mark.asyncio
 async def test_get_filtered_nodes(test_create_root_node):
     """ get all nodes and test the root"""
-    params = {"filterval": "tag x"}
+    params = {"filterval": "tag 1"}
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
         response = await ac.get("/nodes")
     print(f"filter:{response.json()}")
     assert response.status_code == 200
     # test that the root node is configured as expected
-    assert "_identifier" in response.json()[
-        "data"][0][0]
-    if response.json()[
-            "data"][0][0]["_identifier"]:
+    assert len(response.json()[
+        "data"][0]) == 1
+    if len(response.json()[
+            "data"][0]) == 1:
         assert response.json()[
             "data"][0][0]["_identifier"] == test_create_root_node["node_id"]
         assert response.json()["data"][0][0]["_tag"] == "Unit test root node"
