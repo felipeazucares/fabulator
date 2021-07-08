@@ -28,6 +28,35 @@ console_display = ConsoleDisplay()
 # ----------------------------------------------------
 
 
+class DatabaseStorage:
+
+    def __init__(self, collection_name):
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(
+            MONGO_DETAILS)
+        self.database = self.client.fabulator
+        self.collection_name = collection_name
+        self.collection = self.database.get_collection(self.collection_name)
+
+    async def save_working_tree(self, account_id: str, tree: Tree) -> dict:
+        """ Save the current working tree to a document in the tree_collection for supplied account_id """
+        self.account_id = account_id
+        self.tree = tree
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"save_working_tree({self.account_id}, tree) method called")
+        self.tree_to_save = TreeSaveSchema(
+            account_id=self.account_id, tree=self.tree)
+        try:
+            save_response = await self.collection.insert_one(jsonable_encoder(self.tree_to_save))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show="Exception occured writing to the database")
+            print(e)
+            raise
+        return save_response
+
+
 async def save_working_tree(account_id: str, tree: Tree) -> dict:
     """ Save the current working tree to a document in the tree_collection for supplied account_id """
     if DEBUG:

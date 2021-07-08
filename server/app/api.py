@@ -20,6 +20,7 @@ from .models import (
 )
 
 from .database import (
+    DatabaseStorage,
     save_working_tree,
     list_all_saved_trees,
     delete_all_saves,
@@ -247,7 +248,8 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         else:
             return ErrorResponseModel("Unable to add node", 422, "Tree already has a root node")
     try:
-        save_result = await save_working_tree(tree=tree, account_id=account_id)
+        db_storage = DatabaseStorage(collection_name="Tree_Collection")
+        save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working tree to the database")
