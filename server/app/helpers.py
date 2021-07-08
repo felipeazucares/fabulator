@@ -43,7 +43,7 @@ class ConsoleDisplay:
             message_to_show=self.__message_to_show, message_type=2)
 
     def show_exception_message(self, message_to_show: str = None):
-        """ Format & output exception message along with timestamp"""
+        """ Format & output exception message a long with timestamp"""
         self.__message_to_show = message_to_show
         self.__format_message(
             message_to_show=self.__message_to_show, message_type=3)
