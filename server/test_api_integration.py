@@ -121,10 +121,30 @@ async def test_root_path():
     assert response.json()["message"] != None
 
 
+@ pytest.mark.asyncio
+@pytest.fixture
+async def test_get_root_node():
+    """ get the root node if it exists"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/tree/root")
+    assert response.status_code == 200
+    # return id of root node or None
+    return response.json()[
+        "data"][0]
+
+
 @pytest.mark.asyncio
 @pytest.fixture
-async def test_create_root_node(get_dummy_user_account_id):
+async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
     """ Create a root node and return it """
+
+    # first test if there's already a root node - if there is remove it
+    if test_get_root_node != None:
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_get_root_node}")
+        assert response.status_code == 200
+        # test that the root node is removed as expected
+        assert int(response.json()['data'][0]) == 1
 
     data = jsonable_encoder({
                             "description": "Unit test description",
@@ -356,7 +376,7 @@ async def test_get_latest_save(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_delete_all_saves(get_dummy_user_account_id):
     remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0
