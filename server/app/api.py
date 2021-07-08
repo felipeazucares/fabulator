@@ -97,9 +97,9 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
                 data.append(node)
                 # todo: how do we deal with no nodes being returned?
                 # todo: maybe return the count as well as the nodes?
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"Nodes filtered on {filterval}")
+        if DEBUG:
+            console_display.show_debug_message(
+                message_to_show=f"Nodes filtered on {filterval}")
     else:
         try:
             tree.show(line_type="ascii-em")
