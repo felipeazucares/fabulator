@@ -1,7 +1,9 @@
 
 import os
 import hashlib
+from app.helpers import ConsoleDisplay
 import app.config  # loads the load_env lib to access .env file
+import app.helpers as helpers
 from treelib import Tree, Node
 from fastapi import FastAPI, Body
 from typing import Optional
@@ -27,7 +29,7 @@ from .database import (
 # set DEBUG flag
 
 DEBUG = os.getenv(key="DEBUG")
-
+console_display = helpers.ConsoleDisplay()
 
 # ------------------------
 #      FABULATOR
@@ -77,7 +79,8 @@ def initialise_tree():
 async def get() -> dict:
     """ Return the API version """
     if DEBUG:
-        print(f"get()")
+        console_display.show_debug_message(
+            message_to_show="debug message - Get() Called")
     return {"message": f"Fabulator {version}"}
 
 
@@ -85,6 +88,8 @@ async def get() -> dict:
 async def get_all_nodes(filterval: Optional[str] = None) -> dict:
     """ Get a list of all the nodes in the working tree"""
     global tree
+    console_display.show_debug_message(
+        message_to_show=f"get_all_nodes({filterval}) called")
     if filterval:
         data = []
         for node in tree.all_nodes():
@@ -92,15 +97,15 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
                 data.append(node)
                 # todo: how do we deal with no nodes being returned?
                 # todo: maybe return the count as well as the nodes?
-        if DEBUG:
-            print(f"filter_nodes()")
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"Nodes filtered on {filterval}")
     else:
-        if DEBUG:
-            print(f"get_all_nodes()")
         try:
             tree.show(line_type="ascii-em")
         except Exception as e:
-            print("Error occured calling tree.show on tree.")
+            console_display.show_exception_message(
+                message_to_show="Error occured calling tree.show on tree")
             print(e)
             raise
         data = tree.all_nodes()
@@ -112,8 +117,8 @@ async def get_a_node(id: str) -> dict:
     """ Return a node specified by supplied id"""
     global tree
     if DEBUG:
-        print(f"get_a_node()")
-        print(f"id:{id}")
+        console_display.show_debug_message(
+            message_to_show=f"get_a_node({id}) called")
     return ResponseModel(tree.get_node(id), "Success")
 
 
@@ -123,12 +128,13 @@ async def get_all_saves(account_id: str) -> dict:
     try:
         all_saves = await list_all_saved_trees(account_id=account_id)
     except Exception as e:
-        print("Error occured loading all saves")
+        console_display.show_exception_message(
+            message_to_show="Error occured loading all saves")
         print(e)
         e
     if DEBUG:
-        print(f"get_all_saves()")
-        print(f"all_saves:{all_saves}")
+        console_display.show_debug_message(
+            message_to_show=f"get_all_saves{account_id} called")
 
     return ResponseModel(jsonable_encoder(all_saves), "Success")
 
@@ -140,12 +146,13 @@ async def get_latest_save(account_id: str) -> dict:
     try:
         tree = await load_latest_into_working_tree(account_id=account_id)
     except Exception as e:
-        print("Error occured loading latest save into working tree")
+        console_display.show_exception_message(
+            message_to_show="Error occured loading latest save into working tree")
         print(e)
         raise
     if DEBUG:
-        print(f"get_latest_save()")
-        print(f"latest:{tree}")
+        console_display.show_debug_message(
+            message_to_show=f"get_latest_save({account_id} called")
 
     return ResponseModel(jsonable_encoder(tree), "Success")
 
@@ -154,15 +161,17 @@ async def get_latest_save(account_id: str) -> dict:
 async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
     """ Add a node to the working tree using name supplied """
     # map the incoming fields from the https request to the fields required by the treelib API
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"create_node({account_id},{name}) called")
     global tree
     try:
         request = jsonable_encoder(request)
     except Exception as e:
-        print("Error occured encoding request with jsonable_encoder")
+        console_display.show_exception_message(
+            message_to_show="Error occured encoding request with jsonable_encoder")
         print(e)
         raise
-    if DEBUG:
-        print(f"create_node())")
     node_payload = NodePayload()
 
     if request["description"]:
@@ -181,9 +190,10 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
             new_node = tree.create_node(
                 name, parent=request["parent"], data=node_payload)
         except Exception as e:
-            print("Error occured adding child node to working tree")
-            print(
-                "request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
+            console_display.show_exception_message(
+                message_to_show="Error occured adding child node to working tree")
+            console_display.show_exception_message(
+                message_to_show=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
             print(e)
             raise
 
@@ -194,8 +204,10 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                 new_node = tree.create_node(
                     name, data=node_payload)
             except Exception as e:
-                print("Error occured adding root node to working tree")
-                print("request['name']:{request['name']}, data:{node_payload}")
+                console_display.show_exception_message(
+                    message_to_show="Error occured adding root node to working tree")
+                console_display.show_exception_message(
+                    message_to_show=f"request['name']:{request['name']}, data:{node_payload}")
                 print(e)
                 raise
         else:
@@ -203,11 +215,13 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
     try:
         save_result = await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
-        print("Error occured saving the working tree to the database")
+        console_display.show_exception_message(
+            message_to_show="Error occured saving the working tree to the database")
         print(e)
         raise
     if DEBUG:
-        print(f"mongo save: {save_result}")
+        console_display.show_debug_message(
+            message_to_show=f"mongo save: {save_result}")
     return ResponseModel(new_node, "Success")
 
 
@@ -217,7 +231,8 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
     # generate a new id for the node if we have a parent
     global tree
     if DEBUG:
-        print(f"update_node")
+        console_display.show_debug_message(
+            f"update_node({account_id},{id}) called")
 
     node_payload = NodePayload(description=request.description,
                                previous=request.previous, next=request.next, tags=request.tags, text=request.text)
@@ -226,8 +241,10 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             update_node = tree.update_node(
                 id, _tag=request.name, data=node_payload)
         except Exception as e:
-            print("Error occured updating node in the working tree")
-            print("id:{id}, request.name:{request.name}, data:{data}")
+            console_display.show_exception_message(
+                message_to_show="Error occured updating node in the working tree")
+            console_display.show_exception_message(
+                message_to_show=f"id:{id}, request.name:{request.name}, data:{node_payload}")
             print(e)
             raise
     else:
@@ -235,19 +252,23 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             update_node = tree.update_node(
                 id, data=node_payload)
         except Exception as e:
-            print("Error occured updating node in the working tree")
-            print("id:{id}, request.name:{request.name}, data:{data}")
+            console_display.show_exception_message(
+                message_to_show="Error occured updating node in the working tree")
+            console_display.show_exception_message(
+                message_to_show=f"id:{id}, request.name:{request.name}, data:{node_payload}")
             print(e)
             raise
     try:
         await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
-        print("Error occured saving the working_tree to the database")
+        console_display.show_exception_message(
+            message_to_show="Error occured saving the working_tree to the database")
         print(e)
         raise
 
     if DEBUG:
-        print(f"updated node: {update_node }")
+        console_display.show_debug_message(
+            message_to_show=f"updated node: {update_node}")
     return ResponseModel(update_node, "Success")
 
 
@@ -256,23 +277,25 @@ async def delete_node(id: str, account_id: str = None) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
+    if DEBUG:
+        console_display.show_debug_message(
+            f"delete_node({account_id},{id}) called")
     global tree
     if tree.contains(id):
         try:
             response = tree.remove_node(id)
             message = "Success"
         except Exception as e:
-            print("Error occured removing a node from the working tree.")
-            print(f"id:{id}")
+            console_display.show_exception_message(
+                message_to_show="Error occured removing a node from the working tree. id: {id}")
             print(e)
             raise
         else:
             try:
                 await save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
-                print(
-                    "Error occured saving the working tree to the database after delete.")
-                print("tree:{tree}")
+                console_display.show_exception_message(
+                    message_to_show="Error occured saving the working tree to the database after delete.")
                 print(e)
                 raise
     else:
@@ -282,14 +305,17 @@ async def delete_node(id: str, account_id: str = None) -> dict:
 
 
 @ app.delete("/saves/{account_id}")
-async def delete_node(account_id: str) -> dict:
+async def delete_saves(account_id: str) -> dict:
     """ Delete all saves from the db trees collection """
+    if DEBUG:
+        console_display.show_debug_message(
+            f"delete_saves({account_id},{id}) called")
     global tree
     try:
         delete_result = await delete_all_saves(account_id=account_id)
     except Exception as e:
-        print("Error occured updating node in the working tree.")
-        print("id:{account_id}")
+        console_display.show_exception_message(
+            message_to_show="Error occured updating node in the working tree - account_id:{account_id}")
         print(e)
         raise
     result = ResponseModel(delete_result, "Documents removed.")
