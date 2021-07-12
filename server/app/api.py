@@ -20,11 +20,11 @@ from .models import (
 )
 
 from .database import (
-    DatabaseStorage,
-    save_working_tree,
-    list_all_saved_trees,
-    delete_all_saves,
-    load_latest_into_working_tree
+    DatabaseStorage
+    # save_working_tree,
+    # list_all_saved_trees,
+    # delete_all_saves,
+    # load_latest_into_working_tree
 )
 
 # set DEBUG flag
@@ -181,7 +181,8 @@ async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     global tree
     try:
-        tree = await load_latest_into_working_tree(account_id=account_id)
+        db_storage = DatabaseStorage(collection_name="tree_collection")
+        tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading latest save into working tree")
@@ -299,7 +300,8 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             print(e)
             raise
     try:
-        await save_working_tree(tree=tree, account_id=account_id)
+        db_storage = DatabaseStorage(collection_name="tree_collection")
+        await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working_tree to the database")
@@ -332,7 +334,8 @@ async def delete_node(id: str, account_id: str = None) -> dict:
             raise
         else:
             try:
-                await save_working_tree(tree=tree, account_id=account_id)
+                db_storage = DatabaseStorage(collection_name="tree_collection")
+                await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
                 console_display.show_exception_message(
                     message_to_show="Error occured saving the working tree to the database after delete.")

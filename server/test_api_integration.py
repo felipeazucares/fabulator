@@ -378,5 +378,7 @@ async def test_get_latest_save(test_create_root_node):
 
 @ pytest.mark.asyncio
 async def test_delete_all_saves(get_dummy_user_account_id):
-    remove_response = await database.delete_all_saves(account_id=get_dummy_user_account_id)
+    db_storage = database.DatabaseStorage(
+        collection_name="tree_collection")
+    remove_response = await db_storage.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0

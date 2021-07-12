@@ -15,19 +15,13 @@ class ConsoleDisplay:
         self._dt_date = datetime.datetime.now().strftime('%d/%m/%y %I:%M %S %p')
         if self.__message_type == 1:
             self.__message_to_show = f"{Fore.GREEN}{Style.BRIGHT}{self._dt_date} : {self.__message_to_show} {Style.RESET_ALL}"
-            # self.__message_padding = Fore.GREEN + "-" * \
-            #     (len(self.__message_to_show)-9) + Style.RESET_ALL
         elif self.__message_type == 2:
             self.__message_to_show = f"{Fore.CYAN}{Style.BRIGHT}{self._dt_date} : DEBUG :{self.__message_to_show} {Style.RESET_ALL}"
-            # self.__message_padding = Fore.CYAN + "-" * \
-            #     (len(self.__message_to_show)-9) + Style.RESET_ALL
         elif self.__message_type == 3:
             self.__message_to_show = f"{Fore.RED}{Style.BRIGHT}{self._dt_date} : EXCEPTION :{self.__message_to_show} {Style.RESET_ALL}"
             self.__message_padding = Fore.RED + "-" * \
                 (len(self.__message_to_show)-9) + Style.RESET_ALL
-        # print(self.__message_padding)
         print(self.__message_to_show)
-        # print(self.__message_padding)
 
     def show_message(self, message_to_show: str = None):
         """ Format & output standard message along with timestamp"""
