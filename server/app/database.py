@@ -35,25 +35,6 @@ class DatabaseStorage:
         self.database = self.client.fabulator
         self.tree_collection = self.database.get_collection(collection_name)
 
-    # async def save_working_tree_old(self, account_id: str, tree: Tree) -> dict:
-    #     """ Save the current working tree to a document in the tree_collection for supplied account_id """
-    #     self.account_id = account_id
-    #     self.tree = tree
-    #     self.console_display = ConsoleDisplay()
-    #     if DEBUG:
-    #         self.console_display.show_debug_message(
-    #             message_to_show=f"save_working_tree({self.account_id}, tree) method called")
-    #     self.tree_to_save = TreeSaveSchema(
-    #         account_id=self.account_id, tree=self.tree)
-    #     try:
-    #         self.save_response = await self.collection.insert_one(jsonable_encoder(self.tree_to_save))
-    #     except Exception as e:
-    #         self.console_display.show_exception_message(
-    #             message_to_show="Exception occured writing to the database")
-    #         print(e)
-    #         raise
-    #     return self.save_response
-
     async def save_working_tree(self, account_id: str, tree: Tree) -> dict:
         """ Save the current working tree to a document in the tree_collection for supplied account_id """
         self.account_id = account_id
@@ -72,6 +53,57 @@ class DatabaseStorage:
             print(e)
             raise
         return self.save_response
+
+    async def list_all_saved_trees(self, account_id: str) -> dict:
+        """ return a dict of all the saves in the tree_collection for supplied account_id """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"list_all_saved_trees({self.account_id}) called")
+        self.saves = []
+        try:
+            async for save in self.tree_collection.find({"account_id": self.account_id}):
+                self.saves.append(saves_helper(save))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured reading all database saves to the database account_id {self.account_id}")
+            print(e)
+            raise
+        return self.saves
+
+    async def delete_all_saves(self, account_id: str) -> int:
+        """ delete all the saved documents in the tree_collection for supplied account_id """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"delete_all_saves({self.account_id}) called")
+        try:
+            self.delete_result = await self.tree_collection.delete_many("account_id:{self.account_id}")
+            # delete_result object contains a deleted_count & acknowledged properties
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured deleting a save from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        return self.delete_result.deleted_count
+
+    async def return_latest_save(self, account_id: str) -> dict:
+        """ return the latest save document from the tree_collection for supplied account_id """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"return_latest_save({self.account_id}) called")
+        try:
+            self.last_save = await self.tree_collection.find_one({"account_id": account_id}, sort=[("date_time", -1)])
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        return saves_helper(self.last_save)
 
 
 async def save_working_tree(account_id: str, tree: Tree) -> dict:

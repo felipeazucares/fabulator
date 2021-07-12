@@ -161,7 +161,9 @@ async def get_a_node(id: str) -> dict:
 async def get_all_saves(account_id: str) -> dict:
     """ Return a dict of all the trees saved in the db collection """
     try:
-        all_saves = await list_all_saved_trees(account_id=account_id)
+        db_storage = DatabaseStorage(collection_name="tree_collection")
+        all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
+        # all_saves = await list_all_saved_trees(account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
@@ -350,7 +352,9 @@ async def delete_saves(account_id: str) -> dict:
             f"delete_saves({account_id},{id}) called")
     global tree
     try:
-        delete_result = await delete_all_saves(account_id=account_id)
+        db_storage = DatabaseStorage(collection_name="tree_collection")
+        # save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
+        delete_result = await db_storage.delete_all_saves(account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured updating node in the working tree - account_id:{account_id}")
