@@ -1,6 +1,8 @@
 import pytest
 import asyncio
 import httpx
+
+from app.models import UserDetails
 import app.api as api
 import app.database as database
 import hashlib
@@ -377,8 +379,44 @@ async def test_get_latest_save(test_create_root_node):
 
 
 @ pytest.mark.asyncio
+async def test_add_user():
+    """ Add a new user """
+    # set up unit test user
+    username = "unittestuser"
+    data = jsonable_encoder({
+        "name": {"firstname": "John", "surname": "Maginot"},
+        "username": username,
+        "account_id": None,
+        "email": "john_maginot@fictional.com"
+    })
+
+    print(f"add_user_data:{data}")
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 200
+    # assert response.json()[
+    #     "data"][0]["_tag"] == "unit test child node"
+    # assert response.json()[
+    #     "data"][0][
+    #     "data"]["description"] == "unit test child description"
+    # assert response.json()[
+    #     "data"][0]["data"]["previous"] == "previous child node"
+    # assert response.json()[
+    #     "data"][0]["data"]["next"] == "next child node"
+    # assert response.json()[
+    #     "data"][0]["data"]["text"] == "unit test text for child node"
+    # assert response.json()[
+    #     "data"][0]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+
+    # remove the root & child node we just created
+    # async with httpx.AsyncClient(app=api.app) as client:
+    #     response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@ pytest.mark.asyncio
 async def test_delete_all_saves(get_dummy_user_account_id):
-    db_storage = database.DatabaseStorage(
+    db_storage = database.TreeStorage(
         collection_name="tree_collection")
     remove_response = await db_storage.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0

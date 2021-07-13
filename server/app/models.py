@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from treelib import Tree
+from bson.objectid import ObjectId
 
 # -------------------------------------
 #   Classes for http requests
@@ -88,7 +89,36 @@ class Name(BaseModel):
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
-    account_id: str
+    account_id: Optional[str] = None
+    email: EmailStr
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": {"firstname": "Alexei", "surname": "Guinness"},
+                "username": "a_dummy_user",
+                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "email": "ben@kenobi.com"
+            }
+        }
+
+
+class RetrievedUserDetails(BaseModel):
+    id: str
+    name: Name  # use nested model definition
+    username: str
+    account_id: Optional[str] = None
+    email: EmailStr
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": {"firstname": "Alexei", "surname": "Guinness"},
+                "username": "a_dummy_user",
+                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "email": "ben@kenobi.com"
+            }
+        }
 
 # -------------------------------------
 #   Classes for mongo db storage
@@ -108,3 +138,14 @@ def saves_helper(save) -> dict:
         "tree": dict(save["tree"]),
         "date_time": str(save["date_time"])
     }
+
+
+def users_helper(result) -> dict:
+    return RetrievedUserDetails(
+        id=str(result["_id"]),
+        name=Name(firstname=str(result["name"]["firstname"]),
+                  surname=result["name"]["surname"]),
+        username=str(result["username"]),
+        account_id=str(result["account_id"]),
+        email=EmailStr(result["email"])
+    )

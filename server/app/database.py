@@ -1,14 +1,19 @@
 
-import dns.resolver
 import os
+import hashlib
+import dns.resolver
 import motor.motor_asyncio
 from treelib import Tree
 from fastapi.encoders import jsonable_encoder
 from app.helpers import ConsoleDisplay
+from bson.objectid import ObjectId
 
 from .models import (
+    UserDetails,
+    RetrievedUserDetails,
     TreeSaveSchema,
-    saves_helper
+    saves_helper,
+    users_helper
 )
 
 
@@ -28,7 +33,7 @@ console_display = ConsoleDisplay()
 # ----------------------------------------------------
 
 
-class DatabaseStorage:
+class TreeStorage:
 
     def __init__(self, collection_name):
         self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
@@ -235,3 +240,62 @@ class DatabaseStorage:
                     message_to_show="base_case")
 
         return self.new_tree
+
+
+class UserStorage:
+
+    def __init__(self, collection_name):
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+        self.database = self.client.fabulator
+        self.user_collection = self.database.get_collection(collection_name)
+
+    async def get_user_details(self, account_id: str):
+        """ return the a user's details given their account_id """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"get_user_details({self.account_id}) called")
+        try:
+            self.user_details = UserDetails(await self.user_collection.find_one({"account_id": account_id}))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        return self.user_details
+
+    async def save_user_details(self, user: UserDetails) -> dict:
+        """ save a user's details into the user collection """
+        self.username = user.username
+        self.firstname = user.name.firstname
+        self.surname = user.name.surname
+        self.email = user.email
+        self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
+                                username=self.username,
+                                account_id=hashlib.sha256(
+                                    self.username.encode('utf-8')).hexdigest(),
+                                email=self.email)
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"user: {self.user}")
+            self.console_display.show_debug_message(
+                message_to_show=f"save_user_details({self.user.account_id}) called")
+        try:
+            self.save_response = await self.user_collection.insert_one(jsonable_encoder(self.user))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured saving user details from the database account_id was: {self.user.account_id}")
+            print(e)
+            raise
+        try:
+            self.new_user = await self.user_collection.find_one({"_id": self.save_response.inserted_id})
+            print(f"self.new_user{self.new_user}")
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
+            print(e)
+            raise
+
+        return users_helper(self.new_user)

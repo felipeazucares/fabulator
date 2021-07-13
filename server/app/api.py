@@ -20,7 +20,8 @@ from .models import (
 )
 
 from .database import (
-    DatabaseStorage
+    TreeStorage,
+    UserStorage
     # save_working_tree,
     # list_all_saved_trees,
     # delete_all_saves,
@@ -62,7 +63,7 @@ surname = "Suggars"
 username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
 
 user = UserDetails(
-    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=username_hash)
+    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=username_hash, email="phil@red-robot.biz")
 
 # ------------------------
 #       API Routes
@@ -161,7 +162,7 @@ async def get_a_node(id: str) -> dict:
 async def get_all_saves(account_id: str) -> dict:
     """ Return a dict of all the trees saved in the db collection """
     try:
-        db_storage = DatabaseStorage(collection_name="tree_collection")
+        db_storage = TreeStorage(collection_name="tree_collection")
         all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
         # all_saves = await list_all_saved_trees(account_id=account_id)
     except Exception as e:
@@ -181,7 +182,7 @@ async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     global tree
     try:
-        db_storage = DatabaseStorage(collection_name="tree_collection")
+        db_storage = TreeStorage(collection_name="tree_collection")
         tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
@@ -251,7 +252,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         else:
             return ErrorResponseModel("Unable to add node", 422, "Tree already has a root node")
     try:
-        db_storage = DatabaseStorage(collection_name="tree_collection")
+        db_storage = TreeStorage(collection_name="tree_collection")
         save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
 
         # save_result = await save_working_tree(tree=tree, account_id=account_id)
@@ -300,7 +301,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             print(e)
             raise
     try:
-        db_storage = DatabaseStorage(collection_name="tree_collection")
+        db_storage = TreeStorage(collection_name="tree_collection")
         await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
@@ -334,7 +335,7 @@ async def delete_node(id: str, account_id: str = None) -> dict:
             raise
         else:
             try:
-                db_storage = DatabaseStorage(collection_name="tree_collection")
+                db_storage = TreeStorage(collection_name="tree_collection")
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
                 console_display.show_exception_message(
@@ -355,15 +356,35 @@ async def delete_saves(account_id: str) -> dict:
             f"delete_saves({account_id},{id}) called")
     global tree
     try:
-        db_storage = DatabaseStorage(collection_name="tree_collection")
+        db_storage = TreeStorage(collection_name="tree_collection")
         # save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
         delete_result = await db_storage.delete_all_saves(account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
-            message_to_show="Error occured updating node in the working tree - account_id:{account_id}")
+            message_to_show="Error occured deleting  all saves for account_id:{account_id}")
         print(e)
         raise
     result = ResponseModel(delete_result, "Documents removed.")
+    return result
+
+
+@ app.post("/users")
+async def save_user(request: UserDetails = Body(...)) -> dict:
+    """ save 
+    a user to users collection """
+    if DEBUG:
+        console_display.show_debug_message(
+            f"save_user({username},{request}) called")
+    global tree
+    try:
+        db_storage = UserStorage(collection_name="user_collection")
+        save_result = await db_storage.save_user_details(user=request)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured saving user details:{account_id}")
+        print(e)
+        raise
+    result = ResponseModel(save_result, "Documents removed.")
     return result
 
 
