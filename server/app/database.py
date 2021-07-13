@@ -13,7 +13,7 @@ from .models import (
     RetrievedUserDetails,
     TreeSaveSchema,
     saves_helper,
-    users_helper
+    users_saves_helper
 )
 
 
@@ -249,15 +249,31 @@ class UserStorage:
         self.database = self.client.fabulator
         self.user_collection = self.database.get_collection(collection_name)
 
-    async def get_user_details(self, account_id: str):
+    async def get_user_details_by_id(self, id: str):
+        """ return the a user's details given the document id """
+        self.id = id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"get_user_details_by_id({self.id}) called")
+        try:
+            self.user_details = await self.user_collection.find_one({"_id": ObjectId(self.id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.id}")
+            print(e)
+            raise
+        return users_saves_helper(self.user_details)
+
+    async def get_user_details_by_account_id(self, account_id: str):
         """ return the a user's details given their account_id """
         self.account_id = account_id
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"get_user_details({self.account_id}) called")
+                message_to_show=f"get_user_details_by_account({self.account_id}) called")
         try:
-            self.user_details = UserDetails(await self.user_collection.find_one({"account_id": account_id}))
+            self.user_details = UserDetails(await self.user_collection.find_one({"account_id": self.account_id}))
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
@@ -274,8 +290,8 @@ class UserStorage:
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username,
                                 account_id=hashlib.sha256(
-                                    self.username.encode('utf-8')).hexdigest(),
-                                email=self.email)
+            self.username.encode('utf-8')).hexdigest(),
+            email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
@@ -290,7 +306,7 @@ class UserStorage:
             print(e)
             raise
         try:
-            self.new_user = await self.user_collection.find_one({"_id": self.save_response.inserted_id})
+            self.new_user = await self.user_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
             print(f"self.new_user{self.new_user}")
         except Exception as e:
             self.console_display.show_exception_message(
@@ -298,4 +314,54 @@ class UserStorage:
             print(e)
             raise
 
-        return users_helper(self.new_user)
+        return users_saves_helper(self.new_user)
+
+    async def update_user_details(self, id: str, user: UserDetails) -> dict:
+        """ save a user's details into the user collection """
+        self.id_to_update = id
+        self.username = user.username
+        self.firstname = user.name.firstname
+        self.surname = user.name.surname
+        self.email = user.email
+        self.account_id = user.account_id
+        self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
+                                username=self.username,
+                                account_id=self.account_id,
+                                email=self.email)
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"update_user_details({self.user.account_id}) called")
+        try:
+            self.update_response = await self.user_collection.replace_one({"_id": ObjectId(self.id_to_update)}, jsonable_encoder(self.user))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured updating user details id was: {self.id_to_update}")
+            print(e)
+            raise
+        try:
+            self.updated_user = await self.user_collection.find_one({"_id": ObjectId(self.id_to_update)})
+            print(f"self.updated_user{self.updated_user}")
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.id_to_update}")
+            print(e)
+            raise
+        return users_saves_helper(self.updated_user)
+
+    async def delete_user_details(self, id: str) -> dict:
+        """ delete a user's details from the user collection """
+        self.id_to_delete = id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"delete_user_details({self.id_to_delete}) called")
+        try:
+            self.delete_response = await self.user_collection.delete_one({"_id": ObjectId(self.id_to_delete)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
+            print(e)
+            raise
+        print(f"self.delete_response:{self.delete_response.deleted_count}")
+        return self.delete_response.deleted_count

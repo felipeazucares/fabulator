@@ -120,6 +120,24 @@ class RetrievedUserDetails(BaseModel):
             }
         }
 
+
+class UpdateUserDetails(BaseModel):
+    id: str
+    name: Optional[Name]  # use nested model definition
+    username: Optional[str]
+    account_id: Optional[str] = None
+    email: Optional[EmailStr]
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": {"firstname": "Alexei", "surname": "Guinness"},
+                "username": "a_dummy_user",
+                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "email": "ben@kenobi.com"
+            }
+        }
+
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
@@ -140,7 +158,7 @@ def saves_helper(save) -> dict:
     }
 
 
-def users_helper(result) -> dict:
+def users_saves_helper(result) -> dict:
     return RetrievedUserDetails(
         id=str(result["_id"]),
         name=Name(firstname=str(result["name"]["firstname"]),

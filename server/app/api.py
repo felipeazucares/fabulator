@@ -368,7 +368,7 @@ async def delete_saves(account_id: str) -> dict:
     return result
 
 
-@ app.post("/users")
+@ app.post("/user")
 async def save_user(request: UserDetails = Body(...)) -> dict:
     """ save 
     a user to users collection """
@@ -382,11 +382,63 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving user details:{account_id}")
-        print(e)
         raise
-    result = ResponseModel(save_result, "Documents removed.")
+    result = ResponseModel(save_result, "new user added")
     return result
 
+
+@ app.get("/user/{id}")
+async def get_user(id: str) -> dict:
+    """ get a user's details from users collection """
+    if DEBUG:
+        console_display.show_debug_message(
+            f"get_user({id}) called")
+    global tree
+    try:
+        db_storage = UserStorage(collection_name="user_collection")
+        get_result = await db_storage.get_user_details_by_id(id=id)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured getting user details:{id}")
+        raise
+    result = ResponseModel(get_result, "user found")
+    return result
+
+
+@ app.put("/user/{id}")
+async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
+    """ update a user document """
+    if DEBUG:
+        console_display.show_debug_message(
+            f"update_user({username},{request}) called")
+    global tree
+    try:
+        db_storage = UserStorage(collection_name="user_collection")
+        update_result = await db_storage.update_user_details(id=id, user=request)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured updating user details:{account_id}")
+        raise
+    result = ResponseModel(update_result, f"user {id} updated")
+    return result
+
+
+@ app.delete("/user/{id}")
+async def delete_user(id: str) -> dict:
+    """ delete a user from users collection """
+    if DEBUG:
+        console_display.show_debug_message(
+            f"delete_user({id}) called")
+    global tree
+    try:
+        db_storage = UserStorage(collection_name="user_collection")
+        delete_result = await db_storage.delete_user_details(id=id)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured deleteing user details:{id}")
+        raise
+    result = ResponseModel(delete_result, "new user added")
+    return result
 
 # Create tree
 tree = initialise_tree()
