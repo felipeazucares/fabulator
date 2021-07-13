@@ -56,6 +56,8 @@ app.add_middleware(
 #    Dummy user details
 # ------------------------
 
+
+# async def initialise_user():
 # initialise dummy user details
 username = "felipeazucares"
 firstname = "Philip"
@@ -64,6 +66,15 @@ username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
 
 user = UserDetails(
     name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=username_hash, email="phil@red-robot.biz")
+
+# try:
+#     db_storage = UserStorage(collection_name="user_collection")
+#     await db_storage.save_user_details(user=user)
+# except Exception as e:
+#     console_display.show_exception_message(
+#         message_to_show="Error occured saving user details:{account_id}")
+#     raise
+# return
 
 # ------------------------
 #       API Routes
@@ -374,7 +385,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     a user to users collection """
     if DEBUG:
         console_display.show_debug_message(
-            f"save_user({username},{request}) called")
+            f"save_user({request}) called")
     global tree
     try:
         db_storage = UserStorage(collection_name="user_collection")
