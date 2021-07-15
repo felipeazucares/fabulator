@@ -52,6 +52,8 @@ class RequestUpdateSchema(BaseModel):
             }
         }
 
+# todo: convert to pydantic model
+
 
 def ResponseModel(data, message):
     return {
@@ -59,6 +61,8 @@ def ResponseModel(data, message):
         "code": 200,
         "message": message,
     }
+
+# todo: convert to pydantic model
 
 
 def ErrorResponseModel(error, code, message):
