@@ -1,6 +1,11 @@
+import logging
 import datetime
 from colorama import Fore, Style
 import colorama
+from app.config import (logfile_name, logfile_level)
+
+import logging
+logging.basicConfig(filename=logfile_name, level=logfile_level)
 
 
 class ConsoleDisplay:
@@ -15,12 +20,15 @@ class ConsoleDisplay:
         self._dt_date = datetime.datetime.now().strftime('%d/%m/%y %I:%M %S %p')
         if self.__message_type == 1:
             self.__message_to_show = f"{Fore.GREEN}{Style.BRIGHT}{self._dt_date} : {self.__message_to_show} {Style.RESET_ALL}"
+            logging.info(self.__message_to_show)
         elif self.__message_type == 2:
             self.__message_to_show = f"{Fore.CYAN}{Style.BRIGHT}{self._dt_date} : DEBUG :{self.__message_to_show} {Style.RESET_ALL}"
+            logging.debug(self.__message_to_show)
         elif self.__message_type == 3:
             self.__message_to_show = f"{Fore.RED}{Style.BRIGHT}{self._dt_date} : EXCEPTION :{self.__message_to_show} {Style.RESET_ALL}"
             self.__message_padding = Fore.RED + "-" * \
                 (len(self.__message_to_show)-9) + Style.RESET_ALL
+            logging.error(self.__message_to_show)
         print(self.__message_to_show)
 
     def show_message(self, message_to_show: str = None):
