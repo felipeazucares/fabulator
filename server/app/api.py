@@ -1,10 +1,8 @@
 
 import os
-import hashlib
-from app.helpers import ConsoleDisplay
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
-from treelib import Tree, Node
+from treelib import Tree
 from fastapi import FastAPI, Body
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
@@ -22,10 +20,6 @@ from .models import (
 from .database import (
     TreeStorage,
     UserStorage
-    # save_working_tree,
-    # list_all_saved_trees,
-    # delete_all_saves,
-    # load_latest_into_working_tree
 )
 
 # set DEBUG flag
@@ -53,30 +47,6 @@ app.add_middleware(
 )
 
 # ------------------------
-#    Dummy user details
-# ------------------------
-
-
-# async def initialise_user():
-# initialise dummy user details
-username = "felipeazucares"
-firstname = "Philip"
-surname = "Suggars"
-username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
-
-user = UserDetails(
-    name={"firstname": firstname, "surname": surname}, username="felipeazucares", account_id=username_hash, email="phil@red-robot.biz")
-
-# try:
-#     db_storage = UserStorage(collection_name="user_collection")
-#     await db_storage.save_user_details(user=user)
-# except Exception as e:
-#     console_display.show_exception_message(
-#         message_to_show="Error occured saving user details:{account_id}")
-#     raise
-# return
-
-# ------------------------
 #       API Routes
 # ------------------------
 
@@ -86,23 +56,6 @@ def initialise_tree():
     global tree
     tree = Tree()
     return tree
-
-
-@ app.get("/account")
-async def get_account_id(username) -> dict:
-    """ Return the API version """
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"Get_account_id ({username}) Called")
-        console_display.show_debug_message(
-            message_to_show=f"Using dummy vars for firstname and lastname")
-    firstname = "Philip"
-    surname = "Suggars"
-    username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
-    data = UserDetails(
-        name={"firstname": firstname, "surname": surname}, username="username", account_id=username_hash)
-
-    return ResponseModel(data, "Success")
 
 
 @ app.get("/")
@@ -386,7 +339,6 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     if DEBUG:
         console_display.show_debug_message(
             f"save_user({request}) called")
-    global tree
     try:
         db_storage = UserStorage(collection_name="user_collection")
         save_result = await db_storage.save_user_details(user=request)
@@ -404,7 +356,6 @@ async def get_user(id: str) -> dict:
     if DEBUG:
         console_display.show_debug_message(
             f"get_user({id}) called")
-    global tree
     try:
         db_storage = UserStorage(collection_name="user_collection")
         get_result = await db_storage.get_user_details_by_id(id=id)
@@ -421,8 +372,7 @@ async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
     """ update a user document """
     if DEBUG:
         console_display.show_debug_message(
-            f"update_user({username},{request}) called")
-    global tree
+            f"update_user({request}) called")
     try:
         db_storage = UserStorage(collection_name="user_collection")
         update_result = await db_storage.update_user_details(id=id, user=request)
@@ -440,7 +390,6 @@ async def delete_user(id: str) -> dict:
     if DEBUG:
         console_display.show_debug_message(
             f"delete_user({id}) called")
-    global tree
     try:
         db_storage = UserStorage(collection_name="user_collection")
         delete_result = await db_storage.delete_user_details(id=id)
