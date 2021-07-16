@@ -110,6 +110,22 @@ class TreeStorage:
             raise
         return saves_helper(self.last_save)
 
+    async def return_save(self, save_id: str) -> dict:
+        """ return save document from the tree_collection for supplied save_id """
+        self.save_id = save_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"return_save({self.save_id}) called")
+        try:
+            self.save = await self.tree_collection.find_one({"_id": ObjectId(self.save_id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving latest save from the database save_id was: {self.save_id}")
+            print(e)
+            raise
+        return saves_helper(self.self.save)
+
     async def load_latest_into_working_tree(self, account_id: str) -> Tree:
         """ return a tree containing the latest saved tree """
         self.account_id = account_id

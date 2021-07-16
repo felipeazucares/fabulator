@@ -1,4 +1,3 @@
-
 import os
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
@@ -9,12 +8,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import (
-    ErrorResponseModel,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
+    UserDetails,
     ResponseModel,
-    UserDetails
+    ErrorResponseModel
 )
 
 from .database import (
@@ -31,7 +30,7 @@ console_display = helpers.ConsoleDisplay()
 #      FABULATOR
 # ------------------------
 app = FastAPI()
-version = "v.0.0.1"
+version = "0.0.1"
 
 origins = [
     "http://localhost:8000",
@@ -64,7 +63,7 @@ async def get() -> dict:
     if DEBUG:
         console_display.show_debug_message(
             message_to_show="debug message - Get() Called")
-    return {"message": f"Fabulator {version}"}
+    return ResponseModel(data={"version": version}, message="Success")
 
 
 @ app.get("/tree/root")
@@ -81,7 +80,7 @@ async def get_tree_root() -> dict:
         print(e)
         raise
     data = root_node
-    return ResponseModel(data, "Success")
+    return ResponseModel(data={"root": data}, message="Success")
 
 
 @ app.get("/nodes/")
@@ -109,7 +108,7 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
             print(e)
             raise
         data = tree.all_nodes()
-    return ResponseModel(data, "Success")
+    return ResponseModel(data=data, message="Success")
 
 
 @ app.get("/nodes/{id}")
@@ -119,6 +118,8 @@ async def get_a_node(id: str) -> dict:
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_a_node({id}) called")
+        console_display.show_debug_message(
+            message_to_show=f"node: {tree.get_node(id)}")
     return ResponseModel(tree.get_node(id), "Success")
 
 
@@ -158,6 +159,25 @@ async def get_latest_save(account_id: str) -> dict:
             message_to_show=f"get_latest_save({account_id} called")
 
     return ResponseModel(jsonable_encoder(tree), "Success")
+
+
+# @ app.get("/saves/{account_id}/{save_id}")
+# async def get_a_save(account_id: str, save_id: str) -> dict:
+#     """ Return the specfied saved tree in the db collection"""
+#     global tree
+#     try:
+#         db_storage = TreeStorage(collection_name="tree_collection")
+#         tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
+#     except Exception as e:
+#         console_display.show_exception_message(
+#             message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+#         print(e)
+#         raise
+#     if DEBUG:
+#         console_display.show_debug_message(
+#             message_to_show=f"get_a_save({account_id}/{save_id} called")
+
+#     return ResponseModel(jsonable_encoder(tree), "Success")
 
 
 @ app.post("/nodes/{account_id}/{name}")
@@ -332,7 +352,7 @@ async def delete_saves(account_id: str) -> dict:
     return result
 
 
-@ app.post("/user")
+@ app.post("/users")
 async def save_user(request: UserDetails = Body(...)) -> dict:
     """ save 
     a user to users collection """
@@ -350,7 +370,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     return result
 
 
-@ app.get("/user/{id}")
+@ app.get("/users/{id}")
 async def get_user(id: str) -> dict:
     """ get a user's details from users collection """
     if DEBUG:
@@ -367,7 +387,7 @@ async def get_user(id: str) -> dict:
     return result
 
 
-@ app.put("/user/{id}")
+@ app.put("/users/{id}")
 async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
     """ update a user document """
     if DEBUG:
@@ -384,7 +404,7 @@ async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
     return result
 
 
-@ app.delete("/user/{id}")
+@ app.delete("/users/{id}")
 async def delete_user(id: str) -> dict:
     """ delete a user from users collection """
     if DEBUG:
