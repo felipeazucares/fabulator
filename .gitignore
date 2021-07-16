@@ -5,3 +5,4 @@ __pycache__
 .vscode
 .vscode/settings.json
 server/fab.log
+server/fab.log
