@@ -161,9 +161,9 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
         response = await ac.post(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/Unit test root node", json=data)
 
     assert response.status_code == 200
-    assert response.json()["data"]["_tag"] == "Unit test root node"
+    assert response.json()["data"]["node"]["_tag"] == "Unit test root node"
     return({
-        "node_id": response.json()["data"]["_identifier"],
+        "node_id": response.json()["data"]["node"]["_identifier"],
         "account_id": get_dummy_user_account_id
     })
 
@@ -193,6 +193,7 @@ async def test_update_node(test_create_root_node):
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}", json=data)
     assert response.status_code == 200
+    assert response.json()["data"]["object_id"] != None
 
     # now get what we just created it updated
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -265,18 +266,18 @@ async def test_add_child_node(test_create_root_node):
         response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=data)
     assert response.status_code == 200
     assert response.json()[
-        "data"]["_tag"] == "unit test child node"
+        "data"]["node"]["_tag"] == "unit test child node"
     assert response.json()[
-        "data"][
+        "data"]["node"][
         "data"]["description"] == "unit test child description"
     assert response.json()[
-        "data"]["data"]["previous"] == "previous child node"
+        "data"]["node"]["data"]["previous"] == "previous child node"
     assert response.json()[
-        "data"]["data"]["next"] == "next child node"
+        "data"]["node"]["data"]["next"] == "next child node"
     assert response.json()[
-        "data"]["data"]["text"] == "unit test text for child node"
+        "data"]["node"]["data"]["text"] == "unit test text for child node"
     assert response.json()[
-        "data"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+        "data"]["node"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app) as client:

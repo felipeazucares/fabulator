@@ -2235,3 +2235,315 @@ INFO:uvicorn.error:Finished server process [80727]
 INFO:uvicorn.error:Started server process [80766]
 INFO:uvicorn.error:Waiting for application startup.
 INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Started server process [81566]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81566]
+INFO:uvicorn.error:Started server process [81585]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81585]
+INFO:uvicorn.error:Started server process [81908]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81908]
+INFO:uvicorn.error:Started server process [81936]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81936]
+INFO:uvicorn.error:Started server process [81946]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81946]
+INFO:uvicorn.error:Started server process [81976]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [81976]
+INFO:uvicorn.error:Started server process [82101]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82101]
+INFO:uvicorn.error:Started server process [82267]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82267]
+INFO:uvicorn.error:Started server process [82301]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82301]
+INFO:uvicorn.error:Started server process [82320]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82320]
+INFO:uvicorn.error:Started server process [82844]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82844]
+INFO:uvicorn.error:Started server process [82903]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [82903]
+INFO:uvicorn.error:Started server process [83066]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83066]
+INFO:uvicorn.error:Started server process [83114]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83114]
+INFO:uvicorn.error:Started server process [83227]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83227]
+INFO:uvicorn.error:Started server process [83344]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83344]
+INFO:uvicorn.error:Started server process [83385]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83385]
+INFO:uvicorn.error:Started server process [83472]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83472]
+INFO:uvicorn.error:Started server process [83486]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83486]
+INFO:uvicorn.error:Started server process [83594]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83594]
+INFO:uvicorn.error:Started server process [83661]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83661]
+INFO:uvicorn.error:Started server process [83832]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83832]
+INFO:uvicorn.error:Started server process [83866]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [83866]
+INFO:uvicorn.error:Started server process [84094]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84094]
+INFO:uvicorn.error:Started server process [84265]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84265]
+INFO:uvicorn.error:Started server process [84306]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84306]
+INFO:uvicorn.error:Started server process [84350]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['c7f3162c-e007-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['83f02990-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['ade6e2ca-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['51235fa4-e00a-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['bb406d5a-e00a-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['0fd5d792-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['52795042-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['aac19732-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['dbdc30b6-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['0041b85e-e00c-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['901cb4de-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['be7c72ec-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['e08a3162-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['8546f068-e008-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['f5c63b50-e008-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['16cf9fa8-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: ['32811722-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m16/07/21 06:06 31 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m16/07/21 06:07 58 PM : DEBUG :update_node(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9,7b9173fa-e007-11eb-9e7e-f01898e87167) called [0m
+DEBUG:root:[36m[1m16/07/21 06:07 58 PM : DEBUG :save_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9, tree) called [0m
+DEBUG:root:[36m[1m16/07/21 06:07 59 PM : DEBUG :save_result: None [0m
+DEBUG:root:[36m[1m16/07/21 06:08 54 PM : DEBUG :update_node(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9,7b9173fa-e007-11eb-9e7e-f01898e87167) called [0m
+DEBUG:root:[36m[1m16/07/21 06:08 54 PM : DEBUG :save_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9, tree) called [0m
+DEBUG:root:[36m[1m16/07/21 06:08 54 PM : DEBUG :save_result: None [0m
+DEBUG:root:[36m[1m16/07/21 06:09 17 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84350]
+INFO:uvicorn.error:Started server process [84798]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84798]
+INFO:uvicorn.error:Started server process [84846]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [84846]
+INFO:uvicorn.error:Started server process [85004]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85004]
+INFO:uvicorn.error:Started server process [85130]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85130]
+INFO:uvicorn.error:Started server process [85142]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85142]
+INFO:uvicorn.error:Started server process [85215]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85215]
+INFO:uvicorn.error:Started server process [85246]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85246]
+INFO:uvicorn.error:Started server process [85320]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [85320]
+INFO:uvicorn.error:Started server process [85351]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.

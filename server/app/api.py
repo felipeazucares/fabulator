@@ -6,6 +6,7 @@ from fastapi import FastAPI, Body
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from bson.objectid import ObjectId
 
 from .models import (
     RequestAddSchema,
@@ -161,23 +162,23 @@ async def get_latest_save(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(tree), "Success")
 
 
-# @ app.get("/saves/{account_id}/{save_id}")
-# async def get_a_save(account_id: str, save_id: str) -> dict:
-#     """ Return the specfied saved tree in the db collection"""
-#     global tree
-#     try:
-#         db_storage = TreeStorage(collection_name="tree_collection")
-#         tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
-#     except Exception as e:
-#         console_display.show_exception_message(
-#             message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
-#         print(e)
-#         raise
-#     if DEBUG:
-#         console_display.show_debug_message(
-#             message_to_show=f"get_a_save({account_id}/{save_id} called")
+@ app.get("/load/{account_id}/{save_id}")
+async def get_a_save(account_id: str, save_id: str) -> dict:
+    """ Return the specfied saved tree in the db collection"""
+    global tree
+    try:
+        db_storage = TreeStorage(collection_name="tree_collection")
+        tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+        print(e)
+        raise
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_a_save({account_id}/{save_id} called")
 
-#     return ResponseModel(jsonable_encoder(tree), "Success")
+    return ResponseModel(jsonable_encoder(tree), "Success")
 
 
 @ app.post("/nodes/{account_id}/{name}")
@@ -248,7 +249,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"mongo save: {save_result}")
-    return ResponseModel(new_node, "Success")
+    return ResponseModel({"node": new_node, "object_id": save_result}, "Success")
 
 
 @ app.put("/nodes/{account_id}/{id}")
@@ -286,7 +287,7 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             raise
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
-        await db_storage.save_working_tree(tree=tree, account_id=account_id)
+        save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working_tree to the database")
@@ -295,8 +296,8 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
 
     if DEBUG:
         console_display.show_debug_message(
-            message_to_show=f"updated node: {update_node}")
-    return ResponseModel(update_node, "Success")
+            message_to_show=f"save_result: {update_node}")
+    return ResponseModel({"object_id": save_result}, "Success")
 
 
 @ app.delete("/nodes/{account_id}/{id}")
