@@ -2547,3 +2547,140 @@ INFO:uvicorn.error:Finished server process [85320]
 INFO:uvicorn.error:Started server process [85351]
 INFO:uvicorn.error:Waiting for application startup.
 INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Started server process [28267]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m17/07/21 08:20 14 PM : DEBUG :update_node(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9,7b9173fa-e007-11eb-9e7e-f01898e87167) called [0m
+ERROR:root:[31m[1m17/07/21 08:20 14 PM : EXCEPTION :Error occured updating node in the working tree [0m
+ERROR:root:[31m[1m17/07/21 08:20 14 PM : EXCEPTION :id:7b9173fa-e007-11eb-9e7e-f01898e87167, request.name:An updated node name, data:description='A description' previous='' next='' text='No text at this level' tags=['Project'] [0m
+ERROR:uvicorn.error:Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/uvicorn/protocols/http/h11_impl.py", line 369, in run_asgi
+    result = await app(self.scope, self.receive, self.send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/uvicorn/middleware/proxy_headers.py", line 59, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/fastapi/applications.py", line 199, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/middleware/errors.py", line 181, in __call__
+    raise exc from None
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/middleware/errors.py", line 159, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/middleware/cors.py", line 86, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/middleware/cors.py", line 142, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/exceptions.py", line 82, in __call__
+    raise exc from None
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/exceptions.py", line 71, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/routing.py", line 580, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/routing.py", line 241, in handle
+    await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/starlette/routing.py", line 52, in app
+    response = await func(request)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/fastapi/routing.py", line 202, in app
+    dependant=dependant, values=values, is_coroutine=is_coroutine
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/fastapi/routing.py", line 148, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/donfelipe/Sites/fabulator/server/app/api.py", line 269, in update_node
+    id, _tag=request.name, data=node_payload)
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/treelib/tree.py", line 932, in update_node
+    cn = self[nid]
+  File "/Users/donfelipe/Sites/fabulator/py3/lib/python3.7/site-packages/treelib/tree.py", line 151, in __getitem__
+    raise NodeIDAbsentError("Node '%s' is not in the tree" % key)
+treelib.exceptions.NodeIDAbsentError: Node '7b9173fa-e007-11eb-9e7e-f01898e87167' is not in the tree
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['c7f3162c-e007-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['83f02990-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['ade6e2ca-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['51235fa4-e00a-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['bb406d5a-e00a-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['0fd5d792-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['52795042-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['aac19732-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['dbdc30b6-e00b-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['0041b85e-e00c-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['901cb4de-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['be7c72ec-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['e08a3162-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['8546f068-e008-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['f5c63b50-e008-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['16cf9fa8-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: ['32811722-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :Node children: [] [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m17/07/21 08:22 08 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 20 PM : DEBUG :get_all_nodes(None) called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 53 PM : DEBUG :update_node(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9,7b9173fa-e007-11eb-9e7e-f01898e87167) called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 53 PM : DEBUG :save_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9, tree) called [0m
+DEBUG:root:[36m[1m17/07/21 08:22 54 PM : DEBUG :save_result: None [0m
+DEBUG:root:[36m[1m17/07/21 08:26 31 PM : DEBUG :create_node(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9,A new node) called [0m
+DEBUG:root:[36m[1m17/07/21 08:26 31 PM : DEBUG :save_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9, tree) called [0m
+DEBUG:root:[36m[1m17/07/21 08:26 31 PM : DEBUG :mongo save: 60f32ee730a365e44b5a28fc [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [28267]
+INFO:uvicorn.error:Started server process [28823]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [28823]
+INFO:uvicorn.error:Started server process [28902]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [28902]
+INFO:uvicorn.error:Started server process [29009]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [29009]
+INFO:uvicorn.error:Started server process [29138]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.

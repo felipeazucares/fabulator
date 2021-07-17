@@ -164,7 +164,8 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
     assert response.json()["data"]["node"]["_tag"] == "Unit test root node"
     return({
         "node_id": response.json()["data"]["node"]["_identifier"],
-        "account_id": get_dummy_user_account_id
+        "account_id": get_dummy_user_account_id,
+        "save_id": response.json()["data"]["object_id"]
     })
 
 
@@ -355,6 +356,35 @@ async def test_get_latest_save(test_create_root_node):
     # now we've loaded that into the tree, we can get the node from the tree
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.get(f"http://localhost:8000/load/{test_create_root_node['account_id']}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["_identifier"] == test_create_root_node["node_id"]
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["data"]["description"] == "Unit test description"
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["data"]["previous"] == "previous node"
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["data"]["text"] == "Unit test text for root node"
+    assert response.json()[
+        "data"]["_nodes"][test_create_root_node["node_id"]]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_save(test_create_root_node):
+    """ load the named save into the tree for a given user """
+
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/load/{test_create_root_node['account_id']}/{test_create_root_node['save_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
