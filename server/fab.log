@@ -2828,3 +2828,363 @@ DEBUG:root:[36m[1m19/07/21 12:35 09 PM : DEBUG :Node children: None [0m
 DEBUG:root:[36m[1m19/07/21 12:35 09 PM : DEBUG :base_case [0m
 DEBUG:root:[36m[1m19/07/21 12:35 09 PM : DEBUG :get_a_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9/60e7271f2fd9d946ea7bcd72 called [0m
 DEBUG:root:[36m[1m19/07/21 12:35 12 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Started server process [57853]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57853]
+INFO:uvicorn.error:Started server process [58360]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58360]
+INFO:uvicorn.error:Started server process [58459]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :Node children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :Node children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 12:52 36 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 45 PM : DEBUG :get_all_nodes(None) called [0m
+DEBUG:root:[36m[1m19/07/21 12:52 46 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58459]
+INFO:uvicorn.error:Started server process [58570]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58570]
+INFO:uvicorn.error:Started server process [58779]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58779]
+INFO:uvicorn.error:Started server process [58887]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:01 18 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 18 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Node children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current Node is: TCA_child_1 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current id is: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current Node is: TCA_child_2 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current id is: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current Node is: TCA_child_3 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current id is: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :TCA_child_3's children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Node children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current Node is: TCA_grandchild _1 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Current id is: d4c07a60-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:01 19 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m19/07/21 01:01 27 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58887]
+INFO:uvicorn.error:Started server process [59191]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59191]
+INFO:uvicorn.error:Started server process [59218]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59218]
+INFO:uvicorn.error:Started server process [59371]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59371]
+INFO:uvicorn.error:Started server process [59456]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59456]
+INFO:uvicorn.error:Started server process [59590]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59590]
+INFO:uvicorn.error:Started server process [59782]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59782]
+INFO:uvicorn.error:Started server process [59787]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59787]
+INFO:uvicorn.error:Started server process [59805]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:14 31 PM : DEBUG :get_all_nodes(None) called [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :Node children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:14 47 PM : DEBUG :recursive call [0m
+ERROR:root:[31m[1m19/07/21 01:14 47 PM : EXCEPTION :Error occured loading latest save into working tree [0m
+ERROR:uvicorn.error:Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/uvicorn/protocols/http/h11_impl.py", line 369, in run_asgi
+    result = await app(self.scope, self.receive, self.send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/uvicorn/middleware/proxy_headers.py", line 59, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/fastapi/applications.py", line 199, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/middleware/errors.py", line 181, in __call__
+    raise exc from None
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/middleware/errors.py", line 159, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/middleware/cors.py", line 78, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/exceptions.py", line 82, in __call__
+    raise exc from None
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/exceptions.py", line 71, in __call__
+    await self.app(scope, receive, sender)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/routing.py", line 580, in __call__
+    await route.handle(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/routing.py", line 241, in handle
+    await self.app(scope, receive, send)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/starlette/routing.py", line 52, in app
+    response = await func(request)
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/fastapi/routing.py", line 201, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/donfelipe/Sites/fabulator/api/py3/lib/python3.8/site-packages/fastapi/routing.py", line 148, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/donfelipe/Sites/fabulator/server/app/api.py", line 152, in get_latest_save
+    tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
+  File "/Users/donfelipe/Sites/fabulator/server/app/database.py", line 219, in load_latest_into_working_tree
+    self.final_tree = self.add_a_node(tree_id=self.last_save_tree["_identifier"], loaded_tree=self.last_save_tree,
+  File "/Users/donfelipe/Sites/fabulator/server/app/database.py", line 314, in add_a_node
+    self.add_a_node(tree_id=self.tree_id, loaded_tree=self.loaded_tree,
+TypeError: add_a_node() got an unexpected keyword argument 'parent'
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59805]
+INFO:uvicorn.error:Started server process [59847]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:15 06 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 06 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Node children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current Node is: TCA_child_1 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current id is: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :TCA_child_1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current Node is: TCA_child_2 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current id is: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :TCA_child_2's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current Node is: TCA_child_3 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current id is: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :TCA_child_3's children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Node children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current Node is: TCA_grandchild _1 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Current id is: d4c07a60-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :TCA_grandchild _1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :Node children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:15 07 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m19/07/21 01:15 37 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [59847]
+INFO:uvicorn.error:Started server process [61413]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [61413]
+INFO:uvicorn.error:Started server process [61418]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+ERROR:root:[31m[1m19/07/21 01:49 18 PM : EXCEPTION :creating node with - name: TCA_Root, identifier: a79e1146-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['main plot', 'john', 'evil twin']}, parent_d: None [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current Node is: TCA_child_1 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current id is: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :TCA_child_1's children: None [0m
+ERROR:root:[31m[1m19/07/21 01:49 18 PM : EXCEPTION :creating node with - name: TCA_child_1, identifier: c10bf076-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current Node is: TCA_child_2 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current id is: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :TCA_child_2's children: None [0m
+ERROR:root:[31m[1m19/07/21 01:49 18 PM : EXCEPTION :creating node with - name: TCA_child_2, identifier: c5c5fa6c-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current Node is: TCA_child_3 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current id is: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :TCA_child_3's children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+ERROR:root:[31m[1m19/07/21 01:49 18 PM : EXCEPTION :creating node with - name: TCA_child_3, identifier: c83f0fd6-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current Node is: TCA_grandchild _1 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :Current id is: d4c07a60-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :TCA_grandchild _1's children: None [0m
+ERROR:root:[31m[1m19/07/21 01:49 18 PM : EXCEPTION :creating node with - name: TCA_grandchild _1, identifier: d4c07a60-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 18 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [61418]
+INFO:uvicorn.error:Started server process [61515]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :creating node with - name: TCA_Root, identifier: a79e1146-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['main plot', 'john', 'evil twin']}, parent_d: None [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current Node is: TCA_child_1 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current id is: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :TCA_child_1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :creating node with - name: TCA_child_1, identifier: c10bf076-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current Node is: TCA_child_2 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current id is: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :TCA_child_2's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :creating node with - name: TCA_child_2, identifier: c5c5fa6c-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current Node is: TCA_child_3 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current id is: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :TCA_child_3's children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :creating node with - name: TCA_child_3, identifier: c83f0fd6-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current Node is: TCA_grandchild _1 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :Current id is: d4c07a60-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :TCA_grandchild _1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :creating node with - name: TCA_grandchild _1, identifier: d4c07a60-e7ab-11eb-92e1-f01898e87167, data: {'description': 'John meets his evil twin in a bar', 'previous': None, 'next': None, 'text': 'John walked into the bar. He pulled up a stool and sat down', 'tags': ['child']}, parent_d: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:49 45 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [61515]
+INFO:uvicorn.error:Started server process [61601]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current Node is: TCA_Root [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current id is: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :TCA_Root's children: ['c10bf076-e7ab-11eb-92e1-f01898e87167', 'c5c5fa6c-e7ab-11eb-92e1-f01898e87167', 'c83f0fd6-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :creating node with - name: TCA_Root, identifier: a79e1146-e7ab-11eb-92e1-f01898e87167, parent_id: None [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current Node is: TCA_child_1 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current id is: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :TCA_child_1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :creating node with - name: TCA_child_1, identifier: c10bf076-e7ab-11eb-92e1-f01898e87167, parent_id: a79e1146-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current Node is: TCA_child_2 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current id is: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :TCA_child_2's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :creating node with - name: TCA_child_2, identifier: c5c5fa6c-e7ab-11eb-92e1-f01898e87167, parent_id: c10bf076-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current Node is: TCA_child_3 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current id is: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :TCA_child_3's children: ['d4c07a60-e7ab-11eb-92e1-f01898e87167'] [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :creating node with - name: TCA_child_3, identifier: c83f0fd6-e7ab-11eb-92e1-f01898e87167, parent_id: c5c5fa6c-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current Node is: TCA_grandchild _1 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :Current id is: d4c07a60-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :TCA_grandchild _1's children: None [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :creating node with - name: TCA_grandchild _1, identifier: d4c07a60-e7ab-11eb-92e1-f01898e87167, parent_id: c83f0fd6-e7ab-11eb-92e1-f01898e87167 [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m19/07/21 01:50 26 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m

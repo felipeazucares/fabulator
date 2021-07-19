@@ -212,16 +212,16 @@ class TreeStorage:
             self.new_tree = Tree(identifier=self.last_save_tree["_identifier"])
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured creating new tree. _identifier:{self.last_save_tree['_identifier']}")
+                message_to_show=f"Exception occured creating new tree with _identifier:{self.last_save_tree['_identifier']}")
             print(e)
             raise
 
-        self.final_tree = self.add_a_node(self.last_save_tree["_identifier"], self.last_save_tree,
-                                          self.new_tree, self.root_node, None)
+        self.final_tree = self.add_a_node(tree_id=self.last_save_tree["_identifier"], loaded_tree=self.last_save_tree,
+                                          new_tree=self.new_tree, node_id=self.root_node, parent_id=None)
         return self.final_tree
 
     def add_a_node(self, tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
-        """ Traverse the dict in mongo and rebuild the tree (recursive) """
+        """ Traverse the dict in mongo and rebuild the tree a node at a time (recursive) """
         self.tree_id = tree_id
         self.loaded_tree = loaded_tree
         self.new_tree = new_tree
@@ -232,8 +232,12 @@ class TreeStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"add_a_node() called")
 
+        # get name of node that's been passed to the routine
         try:
             self.name = self.loaded_tree["_nodes"][node_id]["_tag"]
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"Current Node is: {self.name}")
         except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred unable to find _tag for {self.loaded_tree['_nodes'][node_id]}")
@@ -241,9 +245,12 @@ class TreeStorage:
                 message_to_show=f"loaded_tree['_nodes'][node_id]['_tag']: {self.loaded_tree['_nodes'][node_id]['_tag']}")
             print(e)
             raise
-
+        # get the id of the current node
         try:
             self.id = self.loaded_tree["_nodes"][node_id]["_identifier"]
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"Current id is: {self.id}")
         except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred unable to find _identifier for {self.loaded_tree['_nodes'][node_id]}")
@@ -251,7 +258,7 @@ class TreeStorage:
                 message_to_show=f"loaded_tree['_nodes'][node_id]['_identifier']: {self.loaded_tree['_nodes'][node_id]['_identifier']}")
             print(e)
             raise
-
+        # set payload for new node to what's in the current node
         try:
             self.payload = self.loaded_tree["_nodes"][node_id]["data"]
         except KeyError as e:
@@ -266,9 +273,15 @@ class TreeStorage:
 
         try:
             self.children = self.loaded_tree["_nodes"][node_id]["_successors"][tree_id]
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"{self.name}'s children: {self.children}")
         except KeyError:
             # sometimes the _successors field has no key - so if we can't find it set to None
             self.children = None
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"{self.name}'s children: None")
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred retrieving the _successors field")
@@ -279,7 +292,7 @@ class TreeStorage:
 
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"Node children: {self.children}")
+                message_to_show=f"creating node with - name: {self.name}, identifier: {self.id}, parent_id: {self.parent_id}")
 
         try:
             self.new_tree.create_node(tag=self.name, identifier=self.id,
@@ -298,8 +311,8 @@ class TreeStorage:
                 self.console_display.show_debug_message(
                     message_to_show=f"recursive call")
             for self.child_id in self.children:
-                self.add_a_node(self.tree_id, self.loaded_tree,
-                                self.new_tree, self.child_id, self.id)
+                self.add_a_node(tree_id=self.tree_id, loaded_tree=self.loaded_tree,
+                                new_tree=self.new_tree, node_id=self.child_id, parent_id=self.id)
 
         else:
             if DEBUG:
