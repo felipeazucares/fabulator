@@ -217,16 +217,15 @@ class TreeStorage:
             raise
 
         self.final_tree = self.add_a_node(tree_id=self.last_save_tree["_identifier"], loaded_tree=self.last_save_tree,
-                                          new_tree=self.new_tree, node_id=self.root_node, parent_id=None)
+                                          new_tree=self.new_tree, node_id=self.root_node)
         return self.final_tree
 
-    def add_a_node(self, tree_id, loaded_tree, new_tree, node_id, parent_id) -> Tree:
+    def add_a_node(self, tree_id, loaded_tree, new_tree, node_id) -> Tree:
         """ Traverse the dict in mongo and rebuild the tree a node at a time (recursive) """
         self.tree_id = tree_id
         self.loaded_tree = loaded_tree
         self.new_tree = new_tree
         self.node_id = node_id
-        self.parent_id = parent_id
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
@@ -292,16 +291,16 @@ class TreeStorage:
 
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"creating node with - name: {self.name}, identifier: {self.id}, parent_id: {self.parent_id}")
+                message_to_show=f"creating node with - name: {self.name}, identifier: {self.id}")
 
         try:
             self.new_tree.create_node(tag=self.name, identifier=self.id,
-                                      parent=self.parent_id, data=self.payload)
+                                      parent=self.loaded_tree["_nodes"][node_id]["_predecessor"][tree_id], data=self.payload)
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred adding a node to the working tree.")
             self.console_display.show_exception_message(
-                message_to_show=f"name: {self.name}, identifier: {self.id}, data: {self.payload}, parent_d: {self.parent_id}")
+                message_to_show=f"name: {self.name}, identifier: {self.id}, data: {self.payload}")
             print(e)
             raise
 
@@ -312,7 +311,7 @@ class TreeStorage:
                     message_to_show=f"recursive call")
             for self.child_id in self.children:
                 self.add_a_node(tree_id=self.tree_id, loaded_tree=self.loaded_tree,
-                                new_tree=self.new_tree, node_id=self.child_id, parent_id=self.id)
+                                new_tree=self.new_tree, node_id=self.child_id)
 
         else:
             if DEBUG:
