@@ -6,7 +6,6 @@ from fastapi import FastAPI, Body
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from bson.objectid import ObjectId
 
 from .models import (
     RequestAddSchema,
@@ -24,8 +23,14 @@ from .database import (
 
 # set DEBUG flag
 
-DEBUG = os.getenv(key="DEBUG")
+DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 console_display = helpers.ConsoleDisplay()
+
+if DEBUG:
+    console_display.show_debug_message(
+        message_to_show=f"Environment variable DEBUG is :{DEBUG}")
+    console_display.show_debug_message(
+        message_to_show=f"Environment variable DEBUG is type :{type(DEBUG)}")
 
 # ------------------------
 #      FABULATOR
@@ -61,6 +66,7 @@ def initialise_tree():
 @ app.get("/")
 async def get() -> dict:
     """ Return the API version """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             message_to_show="debug message - Get() Called")
@@ -70,6 +76,7 @@ async def get() -> dict:
 @ app.get("/tree/root")
 async def get_tree_root() -> dict:
     """ return the id of the root node on current tree if there is one"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     console_display.show_debug_message(
         message_to_show=f"get_tree_root() called")
@@ -87,6 +94,7 @@ async def get_tree_root() -> dict:
 @ app.get("/nodes/")
 async def get_all_nodes(filterval: Optional[str] = None) -> dict:
     """ Get a list of all the nodes in the working tree"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     console_display.show_debug_message(
         message_to_show=f"get_all_nodes({filterval}) called")
@@ -115,6 +123,7 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
 @ app.get("/nodes/{id}")
 async def get_a_node(id: str) -> dict:
     """ Return a node specified by supplied id"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     if DEBUG:
         console_display.show_debug_message(
@@ -127,6 +136,7 @@ async def get_a_node(id: str) -> dict:
 @ app.get("/saves/{account_id}")
 async def get_all_saves(account_id: str) -> dict:
     """ Return a dict of all the trees saved in the db collection """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
         all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
@@ -146,6 +156,7 @@ async def get_all_saves(account_id: str) -> dict:
 @ app.get("/load/{account_id}")
 async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
@@ -165,6 +176,7 @@ async def get_latest_save(account_id: str) -> dict:
 @ app.get("/load/{account_id}/{save_id}")
 async def get_a_save(account_id: str, save_id: str) -> dict:
     """ Return the specfied saved tree in the db collection"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
@@ -184,6 +196,7 @@ async def get_a_save(account_id: str, save_id: str) -> dict:
 @ app.post("/nodes/{account_id}/{name}")
 async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
     """ Add a node to the working tree using name supplied """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # map the incoming fields from the https request to the fields required by the treelib API
     if DEBUG:
         console_display.show_debug_message(
@@ -256,6 +269,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
 async def update_node(account_id: str, id: str, request: RequestUpdateSchema = Body(...)) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     if DEBUG:
         console_display.show_debug_message(
@@ -305,6 +319,7 @@ async def delete_node(id: str, account_id: str = None) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"delete_node({account_id},{id}) called")
@@ -336,6 +351,7 @@ async def delete_node(id: str, account_id: str = None) -> dict:
 @ app.delete("/saves/{account_id}")
 async def delete_saves(account_id: str) -> dict:
     """ Delete all saves from the db trees collection """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"delete_saves({account_id},{id}) called")
@@ -355,6 +371,7 @@ async def delete_saves(account_id: str) -> dict:
 
 @ app.post("/users")
 async def save_user(request: UserDetails = Body(...)) -> dict:
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     """ save 
     a user to users collection """
     if DEBUG:
@@ -374,6 +391,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
 @ app.get("/users/{id}")
 async def get_user(id: str) -> dict:
     """ get a user's details from users collection """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"get_user({id}) called")
@@ -391,6 +409,7 @@ async def get_user(id: str) -> dict:
 @ app.put("/users/{id}")
 async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
     """ update a user document """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"update_user({request}) called")
@@ -408,6 +427,7 @@ async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
 @ app.delete("/users/{id}")
 async def delete_user(id: str) -> dict:
     """ delete a user from users collection """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"delete_user({id}) called")

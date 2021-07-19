@@ -17,9 +17,7 @@ from .models import (
 
 
 MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
-DEBUG = os.getenv(key="DEBUG")
-
-DEBUG = True
+DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
 database = client.fabulator
