@@ -369,7 +369,7 @@ async def test_get_latest_save(test_create_root_node):
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/load/{test_create_root_node['account_id']}")
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -401,7 +401,7 @@ async def test_get_latest_save_for_non_existent_user():
     # now we've loaded that into the tree, we can get the node from the tree
     with pytest.raises(TypeError) as e:
         async with httpx.AsyncClient(app=api.app) as client:
-            await client.get(f"http://localhost:8000/load/XXXX")
+            await client.get(f"http://localhost:8000/loads/XXXX")
     print(f"e.value:{e.value}")
     assert str(e.value) == "'NoneType' object is not subscriptable"
     # test that the root node is configured as expected
@@ -412,7 +412,7 @@ async def test_get_save(test_create_root_node):
     """ load the named save into the tree for a given user """
 
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/load/{test_create_root_node['account_id']}/{test_create_root_node['save_id']}")
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/{test_create_root_node['save_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
