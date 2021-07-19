@@ -173,8 +173,8 @@ class TreeStorage:
             print(e)
             raise
 
-        self.final_tree = self.add_a_node(self.save_tree["_identifier"], self.save_tree,
-                                          self.new_tree, self.root_node, None)
+        self.final_tree = self.add_a_node(tree_id=self.save_tree["_identifier"], loaded_tree=self.save_tree,
+                                          new_tree=self.new_tree, node_id=self.root_node)
         return self.final_tree
 
     async def load_latest_into_working_tree(self, account_id: str) -> Tree:

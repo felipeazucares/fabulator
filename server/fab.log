@@ -4050,3 +4050,24 @@ DEBUG:root:[36m[1m19/07/21 02:22 07 PM : DEBUG :creating node with - name: Qui
 DEBUG:root:[36m[1m19/07/21 02:22 07 PM : DEBUG :recursive call [0m
 DEBUG:root:[36m[1m19/07/21 02:22 07 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
 DEBUG:root:[36m[1m19/07/21 02:22 12 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [62928]
+INFO:uvicorn.error:Started server process [63572]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [63572]
+INFO:uvicorn.error:Started server process [63643]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [63643]
+INFO:uvicorn.error:Started server process [63812]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
