@@ -130,7 +130,7 @@ class TreeStorage:
                 message_to_show=f"Exception occured retrieving latest save from the database save_id was: {self.save_id}")
             print(e)
             raise
-        return saves_helper(self.self.save)
+        return saves_helper(self.save)
 
     async def load_save_into_working_tree(self, save_id: str) -> Tree:
         """ return a tree containing the latest saved tree """
