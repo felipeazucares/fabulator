@@ -5889,3 +5889,71 @@ DEBUG:root:[36m[1m19/07/21 07:13 23 PM : DEBUG :Environment variable DEBUG is 
 INFO:uvicorn.error:Started server process [53189]
 INFO:uvicorn.error:Waiting for application startup.
 INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m19/07/21 08:18 57 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:18 57 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57396]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57396]
+DEBUG:root:[36m[1m19/07/21 08:19 40 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:19 40 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57449]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57449]
+DEBUG:root:[36m[1m19/07/21 08:21 17 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:21 17 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57641]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57641]
+DEBUG:root:[36m[1m19/07/21 08:21 45 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:21 45 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57735]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57735]
+DEBUG:root:[36m[1m19/07/21 08:24 39 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:24 39 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57980]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57980]
+DEBUG:root:[36m[1m19/07/21 08:24 49 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:24 49 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [58001]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58001]
+DEBUG:root:[36m[1m19/07/21 08:25 05 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:25 05 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [58018]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [58018]
+DEBUG:root:[36m[1m19/07/21 08:26 56 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m19/07/21 08:26 56 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [58186]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.

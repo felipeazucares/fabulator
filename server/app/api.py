@@ -153,7 +153,7 @@ async def get_all_saves(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(all_saves), "Success")
 
 
-@ app.get("/load/{account_id}")
+@ app.get("/loads/{account_id}")
 async def get_latest_save(account_id: str) -> dict:
     """ Return the latest saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
@@ -173,7 +173,7 @@ async def get_latest_save(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(tree), "Success")
 
 
-@ app.get("/load/{account_id}/{save_id}")
+@ app.get("/loads/{account_id}/{save_id}")
 async def get_a_save(account_id: str, save_id: str) -> dict:
     """ Return the specfied saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
