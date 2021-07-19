@@ -1,4 +1,5 @@
 from pydantic.main import BaseModel
+from pydantic.typing import NoneType
 import pytest
 import asyncio
 import httpx
@@ -253,6 +254,19 @@ async def test_get_a_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
+async def test_get_a_non_existent_node():
+    """ get a non-existent node by id"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/nodes/333")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"] == None
+    assert response.json()[
+        "message"] == "Success"
+
+
+@pytest.mark.asyncio
 async def test_add_child_node(test_create_root_node):
     """ Add a child node"""
     data = jsonable_encoder({
@@ -377,6 +391,20 @@ async def test_get_latest_save(test_create_root_node):
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_latest_save_for_non_existent_user():
+    """ load the latest save into the tree for a given user """
+
+    # the test_create_root_node fixture creates a new root node which gets saved
+    # now we've loaded that into the tree, we can get the node from the tree
+    with pytest.raises(TypeError) as e:
+        async with httpx.AsyncClient(app=api.app) as client:
+            await client.get(f"http://localhost:8000/load/XXXX")
+    print(f"e.value:{e.value}")
+    assert str(e.value) == "'NoneType' object is not subscriptable"
+    # test that the root node is configured as expected
 
 
 @pytest.mark.asyncio
