@@ -2,7 +2,7 @@ import os
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from treelib import Tree
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, HTTPException, Body
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,8 +78,9 @@ async def get_tree_root() -> dict:
     """ return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
-    console_display.show_debug_message(
-        message_to_show=f"get_tree_root() called")
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_tree_root() called")
     try:
         root_node = tree.root
     except Exception as e:
@@ -96,8 +97,9 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
     """ Get a list of all the nodes in the working tree"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
-    console_display.show_debug_message(
-        message_to_show=f"get_all_nodes({filterval}) called")
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_all_nodes({filterval}) called")
     if filterval:
         data = []
         for node in tree.all_nodes():
@@ -114,7 +116,6 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
         except Exception as e:
             console_display.show_exception_message(
                 message_to_show="Error occured calling tree.show on tree")
-            print(e)
             raise
         data = tree.all_nodes()
     return ResponseModel(data=data, message="Success")
@@ -130,7 +131,12 @@ async def get_a_node(id: str) -> dict:
             message_to_show=f"get_a_node({id}) called")
         console_display.show_debug_message(
             message_to_show=f"node: {tree.get_node(id)}")
-    return ResponseModel(tree.get_node(id), "Success")
+        if tree.contains(id):
+            node = tree.get_node(id)
+        else:
+            raise HTTPException(
+                status_code=404, detail="Node not found in current tree")
+    return ResponseModel(node, "Success")
 
 
 @ app.get("/saves/{account_id}")
@@ -144,8 +150,6 @@ async def get_all_saves(account_id: str) -> dict:
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
-        print(e)
-        e
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_all_saves{account_id} called")
