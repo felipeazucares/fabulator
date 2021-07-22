@@ -257,13 +257,11 @@ async def test_get_a_node(test_create_root_node):
 async def test_get_a_non_existent_node():
     """ get a non-existent node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes/333")
-    assert response.status_code == 200
-    # test that the root node is configured as expected
+        response = await ac.get(f"/nodes/xxx")
+    assert response.status_code == 404
+    # test that an error state is generated as expected
     assert response.json()[
-        "data"] == None
-    assert response.json()[
-        "message"] == "Success"
+        "detail"] == "Node not found in current tree"
 
 
 @pytest.mark.asyncio

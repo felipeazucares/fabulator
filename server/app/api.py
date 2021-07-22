@@ -116,7 +116,8 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
         except Exception as e:
             console_display.show_exception_message(
                 message_to_show="Error occured calling tree.show on tree")
-            raise
+            raise HTTPException(
+                status_code=500, detail="Error occured calling tree.show on tree")
         data = tree.all_nodes()
     return ResponseModel(data=data, message="Success")
 
@@ -150,6 +151,8 @@ async def get_all_saves(account_id: str) -> dict:
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
+        raise HTTPException(
+            status_code=500, detail="Error occured loading all saves")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_all_saves{account_id} called")
@@ -169,7 +172,8 @@ async def get_latest_save(account_id: str) -> dict:
         console_display.show_exception_message(
             message_to_show="Error occured loading latest save into working tree")
         print(e)
-        raise
+        raise HTTPException(
+            status_code=500, detail="Error occured loading latest save into working tree")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_latest_save({account_id} called")
@@ -189,7 +193,8 @@ async def get_a_save(account_id: str, save_id: str) -> dict:
         console_display.show_exception_message(
             message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
         print(e)
-        raise
+        raise HTTPException(
+            status_code=500, detail=f"Error occured loading specified save into working tree. save_id:{save_id}")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_a_save({account_id}/{save_id} called")
@@ -212,7 +217,8 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         console_display.show_exception_message(
             message_to_show="Error occured encoding request with jsonable_encoder")
         print(e)
-        raise
+        raise HTTPException(
+            status_code=500, detail="Error occured encoding request with jsonable_encoder")
     node_payload = NodePayload()
 
     if request["description"]:
@@ -236,8 +242,8 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
             console_display.show_exception_message(
                 message_to_show=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
             print(e)
-            raise
-
+            raise HTTPException(
+                status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
     else:
         # No parent so check if we already have a root
         if tree.root == None:
@@ -250,7 +256,8 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                 console_display.show_exception_message(
                     message_to_show=f"request['name']:{request['name']}, data:{node_payload}")
                 print(e)
-                raise
+                raise HTTPException(
+                    status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}")
         else:
             return ErrorResponseModel("Unable to add node", 422, "Tree already has a root node")
     try:
@@ -262,7 +269,8 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
         console_display.show_exception_message(
             message_to_show="Error occured saving the working tree to the database")
         print(e)
-        raise
+        raise HTTPException(
+            status_code=500, detail="Error occured saving the working tree to the database")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"mongo save: {save_result}")
