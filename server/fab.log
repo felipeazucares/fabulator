@@ -5957,3 +5957,340 @@ DEBUG:root:[36m[1m19/07/21 08:26 56 PM : DEBUG :Environment variable DEBUG is 
 INFO:uvicorn.error:Started server process [58186]
 INFO:uvicorn.error:Waiting for application startup.
 INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m22/07/21 07:01 36 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:01 36 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [56777]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [56777]
+DEBUG:root:[36m[1m22/07/21 07:02 14 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:02 14 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [56822]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: The Chaperone Academy [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :The Chaperone Academy's children: ['c7f3162c-e007-11eb-9e7e-f01898e87167', '8546f068-e008-11eb-9e7e-f01898e87167', 'f5c63b50-e008-11eb-9e7e-f01898e87167', '16cf9fa8-e009-11eb-9e7e-f01898e87167', '32811722-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: The Chaperone Academy, identifier: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Primary [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Primary's children: ['83f02990-e009-11eb-9e7e-f01898e87167', 'ade6e2ca-e009-11eb-9e7e-f01898e87167', '51235fa4-e00a-11eb-9e7e-f01898e87167', 'bb406d5a-e00a-11eb-9e7e-f01898e87167', '0fd5d792-e00b-11eb-9e7e-f01898e87167', '52795042-e00b-11eb-9e7e-f01898e87167', 'aac19732-e00b-11eb-9e7e-f01898e87167', 'dbdc30b6-e00b-11eb-9e7e-f01898e87167', '0041b85e-e00c-11eb-9e7e-f01898e87167', '901cb4de-e015-11eb-9e7e-f01898e87167', 'be7c72ec-e015-11eb-9e7e-f01898e87167', 'e08a3162-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Primary, identifier: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Burning Man [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Burning Man's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Burning Man, identifier: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: "The Witch is Coming" [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: ade6e2ca-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :"The Witch is Coming"'s children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: "The Witch is Coming", identifier: ade6e2ca-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Relentless, Clockwork, Inevitable [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 51235fa4-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Relentless, Clockwork, Inevitable's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Relentless, Clockwork, Inevitable, identifier: 51235fa4-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Automatic Shoes [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: bb406d5a-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Automatic Shoes's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Automatic Shoes, identifier: bb406d5a-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: New Bridge, Old Water [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 0fd5d792-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :New Bridge, Old Water's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: New Bridge, Old Water, identifier: 0fd5d792-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Orbital [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 52795042-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Orbital's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Orbital, identifier: 52795042-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: The Chaperone Academy [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: aac19732-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :The Chaperone Academy's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: The Chaperone Academy, identifier: aac19732-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: It seems like I've been here before [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: dbdc30b6-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :It seems like I've been here before's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: It seems like I've been here before, identifier: dbdc30b6-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Orange Red With Blue-Black Lines [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 0041b85e-e00c-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Orange Red With Blue-Black Lines's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Orange Red With Blue-Black Lines, identifier: 0041b85e-e00c-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: A.Yantzy [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 901cb4de-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :A.Yantzy's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: A.Yantzy, identifier: 901cb4de-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Panopticon [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: be7c72ec-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Panopticon's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Panopticon, identifier: be7c72ec-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: "Fuck Off" [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: e08a3162-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :"Fuck Off"'s children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: "Fuck Off", identifier: e08a3162-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Secondary [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Secondary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Secondary, identifier: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Tertiary [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Tertiary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Tertiary, identifier: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Quartinery [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Quartinery's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Quartinery, identifier: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current Node is: Quinary [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Current id is: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :Quinary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :creating node with - name: Quinary, identifier: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:02 27 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m22/07/21 07:02 36 PM : DEBUG :get_all_nodes(None) called [0m
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [56822]
+DEBUG:root:[36m[1m22/07/21 07:03 51 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:03 51 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [56943]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [56943]
+DEBUG:root:[36m[1m22/07/21 07:05 16 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:05 16 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57026]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57026]
+DEBUG:root:[36m[1m22/07/21 07:05 31 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:05 31 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57055]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57055]
+DEBUG:root:[36m[1m22/07/21 07:06 00 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:06 00 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57082]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57082]
+DEBUG:root:[36m[1m22/07/21 07:06 09 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:06 09 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57096]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+INFO:uvicorn.error:Shutting down
+INFO:uvicorn.error:Waiting for application shutdown.
+INFO:uvicorn.error:Application shutdown complete.
+INFO:uvicorn.error:Finished server process [57096]
+DEBUG:root:[36m[1m22/07/21 07:06 56 PM : DEBUG :Environment variable DEBUG is :True [0m
+DEBUG:root:[36m[1m22/07/21 07:06 56 PM : DEBUG :Environment variable DEBUG is type :<class 'bool'> [0m
+INFO:uvicorn.error:Started server process [57173]
+INFO:uvicorn.error:Waiting for application startup.
+INFO:uvicorn.error:Application startup complete.
+DEBUG:root:[36m[1m22/07/21 07:07 59 PM : DEBUG :load_latest_into_working_tree(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m22/07/21 07:07 59 PM : DEBUG :return_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9) called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: The Chaperone Academy [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :The Chaperone Academy's children: ['c7f3162c-e007-11eb-9e7e-f01898e87167', '8546f068-e008-11eb-9e7e-f01898e87167', 'f5c63b50-e008-11eb-9e7e-f01898e87167', '16cf9fa8-e009-11eb-9e7e-f01898e87167', '32811722-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: The Chaperone Academy, identifier: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Primary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Primary's children: ['83f02990-e009-11eb-9e7e-f01898e87167', 'ade6e2ca-e009-11eb-9e7e-f01898e87167', '51235fa4-e00a-11eb-9e7e-f01898e87167', 'bb406d5a-e00a-11eb-9e7e-f01898e87167', '0fd5d792-e00b-11eb-9e7e-f01898e87167', '52795042-e00b-11eb-9e7e-f01898e87167', 'aac19732-e00b-11eb-9e7e-f01898e87167', 'dbdc30b6-e00b-11eb-9e7e-f01898e87167', '0041b85e-e00c-11eb-9e7e-f01898e87167', '901cb4de-e015-11eb-9e7e-f01898e87167', 'be7c72ec-e015-11eb-9e7e-f01898e87167', 'e08a3162-e015-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Primary, identifier: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Burning Man [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Burning Man's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Burning Man, identifier: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: "The Witch is Coming" [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: ade6e2ca-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :"The Witch is Coming"'s children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: "The Witch is Coming", identifier: ade6e2ca-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Relentless, Clockwork, Inevitable [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 51235fa4-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Relentless, Clockwork, Inevitable's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Relentless, Clockwork, Inevitable, identifier: 51235fa4-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Automatic Shoes [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: bb406d5a-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Automatic Shoes's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Automatic Shoes, identifier: bb406d5a-e00a-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: New Bridge, Old Water [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 0fd5d792-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :New Bridge, Old Water's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: New Bridge, Old Water, identifier: 0fd5d792-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Orbital [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 52795042-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Orbital's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Orbital, identifier: 52795042-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: The Chaperone Academy [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: aac19732-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :The Chaperone Academy's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: The Chaperone Academy, identifier: aac19732-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: It seems like I've been here before [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: dbdc30b6-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :It seems like I've been here before's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: It seems like I've been here before, identifier: dbdc30b6-e00b-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Orange Red With Blue-Black Lines [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 0041b85e-e00c-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Orange Red With Blue-Black Lines's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Orange Red With Blue-Black Lines, identifier: 0041b85e-e00c-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: A.Yantzy [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 901cb4de-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :A.Yantzy's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: A.Yantzy, identifier: 901cb4de-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Panopticon [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: be7c72ec-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Panopticon's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Panopticon, identifier: be7c72ec-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: "Fuck Off" [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: e08a3162-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :"Fuck Off"'s children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: "Fuck Off", identifier: e08a3162-e015-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Secondary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Secondary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Secondary, identifier: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Tertiary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Tertiary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Tertiary, identifier: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Quartinery [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Quartinery's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Quartinery, identifier: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current Node is: Quinary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Current id is: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :Quinary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :creating node with - name: Quinary, identifier: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 00 PM : DEBUG :get_latest_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9 called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :load_save_into_working_tree(60e727a72fd9d946ea7bcd74) called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :return_save(60e727a72fd9d946ea7bcd74) called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: The Chaperone Academy [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :The Chaperone Academy's children: ['c7f3162c-e007-11eb-9e7e-f01898e87167', '8546f068-e008-11eb-9e7e-f01898e87167', 'f5c63b50-e008-11eb-9e7e-f01898e87167', '16cf9fa8-e009-11eb-9e7e-f01898e87167', '32811722-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: The Chaperone Academy, identifier: 7b9173fa-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Primary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Primary's children: ['83f02990-e009-11eb-9e7e-f01898e87167'] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Primary, identifier: c7f3162c-e007-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Burning Man [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Burning Man's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Burning Man, identifier: 83f02990-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Secondary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Secondary's children: [] [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Secondary, identifier: 8546f068-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :recursive call [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Tertiary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Tertiary's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Tertiary, identifier: f5c63b50-e008-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Quartinery [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Quartinery's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Quartinery, identifier: 16cf9fa8-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :add_a_node() called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current Node is: Quinary [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Current id is: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :Quinary's children: None [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :creating node with - name: Quinary, identifier: 32811722-e009-11eb-9e7e-f01898e87167 [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :base_case [0m
+DEBUG:root:[36m[1m22/07/21 07:08 24 PM : DEBUG :get_a_save(a5c62c297598ff64ab5a00ac1ffba86c5d0f846178a2d84fb257d87fcb34e4f9/60e727a72fd9d946ea7bcd74 called [0m
+DEBUG:root:[36m[1m22/07/21 07:08 35 PM : DEBUG :get_all_nodes(None) called [0m

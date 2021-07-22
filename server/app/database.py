@@ -132,8 +132,6 @@ class TreeStorage:
 
     async def load_save_into_working_tree(self, save_id: str) -> Tree:
         """ return a tree containing the latest saved tree """
-        # todo: refactor this into 2 functions one which fetches a tree by save_id and returns a tree structure
-        # todo: and a second which takes a given tree dict and rebuilds it ito a Tree
         self.save_id = save_id
         self.console_display = ConsoleDisplay()
         if DEBUG:
@@ -154,69 +152,8 @@ class TreeStorage:
                 message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.save}")
             print(e)
             raise
-        # get the root node id
-        try:
-            self.root_node = self.save_tree["root"]
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving root object from last save, last_save: {self.save}")
-            print(e)
-            raise
-        # create the root node
-        try:
-            self.new_tree = Tree(identifier=self.save_tree["_identifier"])
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured creating new tree. _identifier:{self.save_tree['_identifier']}")
-            print(e)
-            raise
 
-        self.final_tree = self.add_a_node(tree_id=self.save_tree["_identifier"], loaded_tree=self.save_tree,
-                                          new_tree=self.new_tree, node_id=self.root_node)
-        return self.final_tree
-
-    async def old_load_latest_into_working_tree(self, account_id: str) -> Tree:
-        """ return a tree containing the latest saved tree """
-        self.account_id = account_id
-        self.console_display = ConsoleDisplay()
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"load_latest_into_working_tree({self.account_id}) called")
-        try:
-            self.last_save = await self.return_latest_save(account_id=self.account_id)
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
-            print(e)
-            raise
-        # get the tree dict from the saved document
-        try:
-            self.last_save_tree = self.last_save["tree"]
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.last_save}")
-            print(e)
-            raise
-        # get the root node id
-        try:
-            self.root_node = self.last_save_tree["root"]
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving root object from last save, last_save: {self.last_save}")
-            print(e)
-            raise
-        # create the root node
-        try:
-            self.new_tree = Tree(identifier=self.last_save_tree["_identifier"])
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured creating new tree with _identifier:{self.last_save_tree['_identifier']}")
-            print(e)
-            raise
-
-        self.final_tree = self.add_a_node(tree_id=self.last_save_tree["_identifier"], loaded_tree=self.last_save_tree,
-                                          new_tree=self.new_tree, node_id=self.root_node)
-        return self.final_tree
+        return self.build_tree_from_dict(tree_dict=self.save_tree)
 
     async def load_latest_into_working_tree(self, account_id: str) -> Tree:
         """ return a tree containing the latest saved tree """
@@ -241,30 +178,9 @@ class TreeStorage:
             print(e)
             raise
 
-        return self.build_tree_from_dict(self.last_save["tree"])
+        return self.build_tree_from_dict(tree_dict=self.last_save_tree)
 
-        # get the root node id
-        # try:
-        #     self.root_node = self.last_save_tree["root"]
-        # except Exception as e:
-        #     self.console_display.show_exception_message(
-        #         message_to_show=f"Exception occured retrieving root object from last save, last_save: {self.last_save}")
-        #     print(e)
-        #     raise
-        # # create the root node
-        # try:
-        #     self.new_tree = Tree(identifier=self.last_save_tree["_identifier"])
-        # except Exception as e:
-        #     self.console_display.show_exception_message(
-        #         message_to_show=f"Exception occured creating new tree with _identifier:{self.last_save_tree['_identifier']}")
-        #     print(e)
-        #     raise
-
-        # self.final_tree = self.add_a_node(tree_id=self.last_save_tree["_identifier"], loaded_tree=self.last_save_tree,
-        #                                   new_tree=self.new_tree, node_id=self.root_node)
-        # return self.final_tree
-
-    async def build_tree_from_dict(self, tree_dict: dict) -> Tree:
+    def build_tree_from_dict(self, tree_dict: dict) -> Tree:
         """ return a tree built from provided dict structure  """
         self.tree_dict = tree_dict
         try:
