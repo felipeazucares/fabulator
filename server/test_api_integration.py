@@ -394,15 +394,11 @@ async def test_get_latest_save(test_create_root_node):
 @pytest.mark.asyncio
 async def test_get_latest_save_for_non_existent_user():
     """ load the latest save into the tree for a given user """
-
-    # the test_create_root_node fixture creates a new root node which gets saved
-    # now we've loaded that into the tree, we can get the node from the tree
-    with pytest.raises(TypeError) as e:
-        async with httpx.AsyncClient(app=api.app) as client:
-            await client.get(f"http://localhost:8000/loads/XXXX")
-    print(f"e.value:{e.value}")
-    assert str(e.value) == "'NoneType' object is not subscriptable"
-    # test that the root node is configured as expected
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads/XXXX")
+    assert response.status_code == 404
+    assert response.json()[
+        'detail'] == "Unable to locate saves for account_id:XXXX"
 
 
 @pytest.mark.asyncio
