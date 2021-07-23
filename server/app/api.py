@@ -132,11 +132,11 @@ async def get_a_node(id: str) -> dict:
             message_to_show=f"get_a_node({id}) called")
         console_display.show_debug_message(
             message_to_show=f"node: {tree.get_node(id)}")
-        if tree.contains(id):
-            node = tree.get_node(id)
-        else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree")
+    if tree.contains(id):
+        node = tree.get_node(id)
+    else:
+        raise HTTPException(
+            status_code=404, detail="Node not found in current tree")
     return ResponseModel(node, "Success")
 
 
@@ -152,7 +152,7 @@ async def get_all_saves(account_id: str) -> dict:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
         raise HTTPException(
-            status_code=500, detail="Error occured loading all saves")
+            status_code=500, detail="Error occured loading all saves: {e}")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_all_saves{account_id} called")
@@ -180,7 +180,7 @@ async def get_latest_save(account_id: str) -> dict:
             message_to_show=f"Error occured retrieving count of saves for {account_id}")
         print(e)
         raise HTTPException(
-            status_code=500, detail=f"Error occured retrieving count of save documents for {account_id}")
+            status_code=500, detail=f"Error occured retrieving count of save documents for {account_id} : {e}")
     if number_saves > 0:
         try:
             tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
@@ -189,7 +189,7 @@ async def get_latest_save(account_id: str) -> dict:
                 message_to_show="Error occured loading latest save into working tree")
             print(e)
             raise HTTPException(
-                status_code=500, detail="Error occured loading latest save into working tree")
+                status_code=500, detail=f"Error occured loading latest save into working tree: {e}")
     else:
         raise HTTPException(
             status_code=404, detail=f"Unable to locate saves for account_id:{account_id}")
@@ -251,7 +251,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
             message_to_show="Error occured encoding request with jsonable_encoder")
         print(e)
         raise HTTPException(
-            status_code=500, detail="Error occured encoding request with jsonable_encoder")
+            status_code=500, detail="Error occured encoding request with jsonable_encoder: {e}")
     node_payload = NodePayload()
 
     if request["description"]:
@@ -276,7 +276,7 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                 message_to_show=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
             print(e)
             raise HTTPException(
-                status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}")
+                status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}:{e} ")
     else:
         # No parent so check if we already have a root
         if tree.root == None:
@@ -290,21 +290,19 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
                     message_to_show=f"request['name']:{request['name']}, data:{node_payload}")
                 print(e)
                 raise HTTPException(
-                    status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}")
+                    status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}:{e}")
         else:
             raise HTTPException(
                 status_code=422, detail="tree already has a root node")
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
         save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
-
-        # save_result = await save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working tree to the database")
         print(e)
         raise HTTPException(
-            status_code=500, detail="Error occured saving the working tree to the database")
+            status_code=500, detail=f"Error occured saving the working tree to the database: {e}")
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"mongo save: {save_result}")
