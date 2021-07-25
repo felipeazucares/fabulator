@@ -105,8 +105,6 @@ async def get_all_nodes(filterval: Optional[str] = None) -> dict:
         for node in tree.all_nodes():
             if filterval in node.data.tags:
                 data.append(node)
-                # todo: how do we deal with no nodes being returned?
-                # todo: maybe return the count as well as the nodes?
         if DEBUG:
             console_display.show_debug_message(
                 message_to_show=f"Nodes filtered on {filterval}")
@@ -203,34 +201,48 @@ async def get_a_save(account_id: str, save_id: str) -> dict:
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     db_storage = TreeStorage(collection_name="tree_collection")
-    # todo: check for account_id existence too - also make sure 500 messages are passed back in message too
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_a_save({account_id}/{save_id} called")
     try:
-        number_saves = await db_storage.check_if_document_exists(save_id=save_id)
+        number_saves_account = await db_storage.number_of_saves_for_account(account_id=account_id)
         if DEBUG:
             console_display.show_debug_message(
-                message_to_show=f"check_if_document_exists returned: {number_saves}")
+                message_to_show=f"number_of_saves_for_account returned: {number_saves_account}")
     except Exception as e:
         console_display.show_exception_message(
-            message_to_show=f"Error occured retrieving count of saves for {save_id}")
+            message_to_show=f"Error occured retrieving count of saves for {account_id}")
         print(e)
         raise HTTPException(
-            status_code=500, detail=f"Error occured retrieving count of save documents for {save_id}: {e}")
-    if number_saves > 0:
+            status_code=500, detail=f"Error occured retrieving count of save documents for account_id: {account_id} : {e}")
+    if number_saves_account > 0:
         try:
-            db_storage = TreeStorage(collection_name="tree_collection")
-            tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+            number_saves = await db_storage.check_if_document_exists(save_id=save_id)
+            if DEBUG:
+                console_display.show_debug_message(
+                    message_to_show=f"check_if_document_exists returned: {number_saves}")
         except Exception as e:
             console_display.show_exception_message(
-                message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+                message_to_show=f"Error occured retrieving count of saves for {save_id}")
             print(e)
             raise HTTPException(
-                status_code=500, detail=f"Error occured loading specified save into working tree. save_id:{save_id}")
-        if DEBUG:
-            console_display.show_debug_message(
-                message_to_show=f"get_a_save({account_id}/{save_id} called")
+                status_code=500, detail=f"Error occured retrieving count of save documents for document save_id: {save_id}: {e}")
+        if number_saves > 0:
+            try:
+                db_storage = TreeStorage(collection_name="tree_collection")
+                tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+                print(e)
+                raise HTTPException(
+                    status_code=500, detail=f"Error occured loading specified save into working tree. save_id: {save_id}: {e}")
+        else:
+            raise HTTPException(
+                status_code=404, detail=f"Unable to retrieve document with id: {save_id}")
     else:
         raise HTTPException(
-            status_code=404, detail=f"Unab le to retrieve document with id: {save_id}")
+            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
     return ResponseModel(jsonable_encoder(tree), "Success")
 

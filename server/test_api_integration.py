@@ -431,6 +431,33 @@ async def test_get_save(test_create_root_node):
 
 
 @pytest.mark.asyncio
+async def test_get_a_save_for_non_existent_user(test_create_root_node):
+    """ try and load a specified save for an invalid account_id"""
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads/XXXX/{test_create_root_node['save_id']}")
+    assert response.status_code == 404
+    assert response.json()[
+        'detail'] == "Unable to retrieve documents with account_id: XXXX"
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node):
+    """ try and load a save for a valid account_id but invalid document id """
+    # note this is a random 24 char hex string - should not exist in the target db
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/16c361eff3b15de33f6a66b8")
+    assert response.status_code == 404
+    assert response.json()[
+        'detail'] == "Unable to retrieve document with id: 16c361eff3b15de33f6a66b8"
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
 async def test_delete_all_saves(get_dummy_user_account_id):
     db_storage = database.TreeStorage(
         collection_name="tree_collection")
