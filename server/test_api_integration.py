@@ -181,6 +181,52 @@ async def test_remove_node(test_create_root_node: list):
 
 
 @pytest.mark.asyncio
+async def test_add_another_root_node(test_create_root_node: list):
+    """ generate a root node then try to add another"""
+    data = jsonable_encoder({
+        "description": "Unit test description for second root node",
+        "previous": "previous node",
+        "next": "next node",
+        "text": "Unit test text for adding another root node",
+                            "tags": ['tag 1', 'tag 2', 'tag 3']
+                            })
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/this should fail", json=data)
+    assert response.status_code == 422
+    # test that the root node is removed as expected
+    assert response.json()["detail"] == "Tree already has a root node"
+
+
+@pytest.mark.asyncio
+async def test_remove_non_existent_node(test_create_root_node: list):
+    """ generate a root node and remove it """
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/XXXX")
+    assert response.status_code == 404
+    # test that the root node is removed as expected
+    assert response.json()["detail"] == "Node not found in current tree"
+    # now remove the node we just added
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_remove_node_for_non_existent_user(test_create_root_node: list):
+    """ generate a root node and remove it """
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/XXXX/{test_create_root_node['node_id']}")
+    assert response.status_code == 404
+    # test that the root node is removed as expected
+    assert response.json()[
+        "detail"] == "Unable to retrieve documents with account_id: XXXX"
+    # now remove the node we just added
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_update_node(test_create_root_node):
     """ generate a root node and update it"""
     data = jsonable_encoder({
@@ -218,7 +264,98 @@ async def test_update_node(test_create_root_node):
         'updated tag 1', 'updated tag 2', 'updated tag 3']
 
     # now remove the node we just added
-# remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_node_for_non_existent_account(test_create_root_node):
+    """ generate a root node and update it"""
+    data = jsonable_encoder({
+        "name": "Unit test root node updated name",
+        "description": "Unit test updated description",
+        "previous": "previous updated node",
+        "next": "next updated node",
+        "text": "Unit test text for updated node",
+        "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
+    })
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.put(f"http://localhost:8000/nodes/XXXX/{test_create_root_node['node_id']}", json=data)
+    assert response.status_code == 404
+    assert response.json()[
+        'detail'] == "Unable to retrieve documents with account_id: XXXX"
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_node_for_non_existent_node(test_create_root_node):
+    """ generate a root node and update it"""
+    data = jsonable_encoder({
+        "name": "Unit test root node updated name",
+        "description": "Unit test updated description",
+        "previous": "previous updated node",
+        "next": "next updated node",
+        "text": "Unit test text for updated node",
+        "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
+    })
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/XXXX", json=data)
+    assert response.status_code == 404
+    # test that an error state is generated as expected
+    assert response.json()[
+        "detail"] == "Node not found in current tree"
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_node_with_bad_payload(test_create_root_node):
+    """ update a node with a bad payload"""
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+    assert response.status_code == 422
+    # test that an error state is generated as expected
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_node_with_non_existent_parent(test_create_root_node):
+    """ generate a root node and update it with a non existent parent"""
+    data = jsonable_encoder({
+        "parent": "XXXX",
+        "name": "Unit test root node updated name",
+        "description": "Unit test updated description",
+        "previous": "previous updated node",
+        "next": "next updated node",
+        "text": "Unit test text for updated node",
+        "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
+    })
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}", json=data)
+    assert response.status_code == 422
+    assert response.json()[
+        'detail'] == "Parent XXXX is missing from tree"
+
+    # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
@@ -291,6 +428,28 @@ async def test_add_child_node(test_create_root_node):
         "data"]["node"]["data"]["text"] == "unit test text for child node"
     assert response.json()[
         "data"]["node"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
+
+    # remove the root & child node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_add_child_node_with_invalid_parent(test_create_root_node):
+    """ Add a child node with invalid parent"""
+    data = jsonable_encoder({
+        "parent": "XXXX",
+        "description": "unit test child description",
+        "previous": "previous child node",
+        "next": "next child node",
+        "text": "unit test text for child node",
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=data)
+    assert response.status_code == 422
+    assert response.json()[
+        "detail"] == "Parent XXXX is missing from tree"
 
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app) as client:
@@ -446,12 +605,12 @@ async def test_get_a_save_for_non_existent_user(test_create_root_node):
 @pytest.mark.asyncio
 async def test_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node):
     """ try and load a save for a valid account_id but non-existent document id """
-    # note this is a random 24 char hex string - should not exist in the target db
+    # note this is a random 24 char hex string - should not exist in the target db - 16c361eff3b15de33f6a66b8
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/16c361eff3b15de33f6a66b8")
     assert response.status_code == 404
     assert response.json()[
-        'detail'] == "Unable to retrieve document with id: 16c361eff3b15de33f6a66b8"
+        'detail'] == "Unable to retrieve save document with id: 16c361eff3b15de33f6a66b8"
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
@@ -551,6 +710,22 @@ async def test_get_user(test_add_user, dummy_user_to_add):
 
 
 @pytest.mark.asyncio
+async def test_get_non_existent_user(test_add_user):
+    """ test reading a user document from the collection """
+    # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/users/16c361eff3b15de33f6a66b8")
+    assert response.status_code == 404
+    assert response.json()[
+        "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/{test_add_user}")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+
+
+@pytest.mark.asyncio
 async def test_update_user(test_add_user, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     # set up unit test user
@@ -582,6 +757,38 @@ async def test_update_user(test_add_user, dummy_user_update):
 
 
 @pytest.mark.asyncio
+async def test_update_user_with_bad_payload(test_add_user):
+    """ Add a new user so that we can update it and delete it"""
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/users/{test_add_user}")
+    assert response.status_code == 422
+
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/{test_add_user}")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+
+
+@pytest.mark.asyncio
+async def test_update_non_existent_user(test_add_user, dummy_user_update):
+    """ test updating a non_existing user document from the collection """
+    data = jsonable_encoder(dummy_user_update)
+    # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/users/16c361eff3b15de33f6a66b8", json=data)
+    assert response.status_code == 404
+    assert response.json()[
+        "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/{test_add_user}")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+
+
+@pytest.mark.asyncio
 async def test_delete_user(test_add_user):
     """ delete a user """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -589,3 +796,19 @@ async def test_delete_user(test_add_user):
     assert response.status_code == 200
     assert response.json()[
         "data"] == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_non_existent_user(test_add_user):
+    """ test deleting a non_existing user document from the collection """
+    # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/16c361eff3b15de33f6a66b8")
+    assert response.status_code == 404
+    assert response.json()[
+        "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/{test_add_user}")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1

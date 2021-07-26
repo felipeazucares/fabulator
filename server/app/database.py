@@ -459,3 +459,19 @@ class UserStorage:
             raise
         print(f"self.delete_response:{self.delete_response.deleted_count}")
         return self.delete_response.deleted_count
+
+    async def check_if_user_exists(self, user_id: str) -> int:
+        """ return count of save documents in the user_collection for supplied user_id """
+        self.user_id = user_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"check_if_user_exists({self.user_id}) called")
+        try:
+            self.user_count = await self.user_collection.count_documents({"_id": ObjectId(self.user_id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user document count user_id was: {self.user_id}")
+            print(e)
+            raise
+        return self.user_count
