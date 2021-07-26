@@ -1,5 +1,4 @@
 import os
-from app.helpers import ConsoleDisplay
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from treelib import Tree
@@ -13,8 +12,7 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     UserDetails,
-    ResponseModel,
-    ErrorResponseModel
+    ResponseModel
 )
 
 from .database import (
