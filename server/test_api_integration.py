@@ -445,13 +445,27 @@ async def test_get_a_save_for_non_existent_user(test_create_root_node):
 
 @pytest.mark.asyncio
 async def test_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node):
-    """ try and load a save for a valid account_id but invalid document id """
+    """ try and load a save for a valid account_id but non-existent document id """
     # note this is a random 24 char hex string - should not exist in the target db
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/16c361eff3b15de33f6a66b8")
     assert response.status_code == 404
     assert response.json()[
         'detail'] == "Unable to retrieve document with id: 16c361eff3b15de33f6a66b8"
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_a_save_for_an_invalid_account_with_invalid_document(test_create_root_node):
+    """ try and load a save for a valid account_id but invalid document id """
+    # note this is a random 24 char hex string - should not exist in the target db
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/xxxx")
+    assert response.status_code == 500
+    assert response.json()[
+        'detail'] == "Error occured retrieving count of save documents for document save_id: xxxx: 'xxxx' is not a valid ObjectId, it must be a 12-byte input or a 24-character hex string"
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")

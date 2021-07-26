@@ -1,4 +1,5 @@
 import os
+from app.helpers import ConsoleDisplay
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from treelib import Tree
@@ -54,6 +55,37 @@ app.add_middleware(
 # ------------------------
 #       API Routes
 # ------------------------
+
+
+class RoutesHelper():
+    """ helper class containg API route utility functions"""
+
+    def __init__(self):
+        # probably create an instance of db_storeage
+        self.db_storage = TreeStorage(collection_name="tree_collection")
+        self.console_display = helpers.ConsoleDisplay()
+        self.DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+
+    async def account_id_exists(self, account_id):
+        self.account_id = account_id
+        if self.DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"account_id_exists({self.account_id}) called")
+        try:
+            number_saves = await self.db_storage.number_of_saves_for_account(account_id=self.account_id)
+            if self.DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"number_of_saves_for_account returned: {number_saves}")
+            if number_saves > 0:
+                return True
+            else:
+                return False
+        except Exception as e:
+            console_display.show_exception_message(
+                message_to_show=f"Error occured retrieving count of saves for {self.account_id}")
+            print(e)
+            raise HTTPException(
+                status_code=500, detail=f"Error occured retrieving count of save documents for {account_id} : {e}")
 
 
 def initialise_tree():
@@ -168,18 +200,19 @@ async def get_latest_save(account_id: str) -> dict:
     global tree
     # check to see if the account_id exists in the db
     db_storage = TreeStorage(collection_name="tree_collection")
-    try:
-        number_saves = await db_storage.number_of_saves_for_account(account_id=account_id)
-        if DEBUG:
-            console_display.show_debug_message(
-                message_to_show=f"number_of_saves_for_account returned: {number_saves}")
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show=f"Error occured retrieving count of saves for {account_id}")
-        print(e)
-        raise HTTPException(
-            status_code=500, detail=f"Error occured retrieving count of save documents for {account_id} : {e}")
-    if number_saves > 0:
+    routes_helper = RoutesHelper()
+    # try:
+    #     number_saves = await db_storage.number_of_saves_for_account(account_id=account_id)
+    #     if DEBUG:
+    #         console_display.show_debug_message(
+    #             message_to_show=f"number_of_saves_for_account returned: {number_saves}")
+    # except Exception as e:
+    #     console_display.show_exception_message(
+    #         message_to_show=f"Error occured retrieving count of saves for {account_id}")
+    #     print(e)
+    #     raise HTTPException(
+    #         status_code=500, detail=f"Error occured retrieving count of save documents for {account_id} : {e}")
+    if routes_helper.account_id_exists(account_id):
         try:
             tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
         except Exception as e:
