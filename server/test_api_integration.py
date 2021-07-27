@@ -245,7 +245,7 @@ async def test_update_node(test_create_root_node):
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
     assert response.status_code == 200
     # test that the root node is updated as expected
-    print(response.json()["data"])
+
     assert response.json()[
         "data"]["_identifier"] == test_create_root_node["node_id"]
     assert response.json()[
