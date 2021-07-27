@@ -51,7 +51,7 @@ app.add_middleware(
 )
 
 # ------------------------
-#       API Routes
+#     API Helper Class
 # ------------------------
 
 
@@ -128,6 +128,14 @@ class RoutesHelper():
             raise HTTPException(
                 status_code=500, detail=f"Error occured retrieving count of user documents user_id: {self.user_id}: {e}")
 
+# ------------------------
+#       API Routes
+# ------------------------
+
+# ------------------------
+#         Misc
+# ------------------------
+
 
 def initialise_tree():
     """ Create a new Tree and return it"""
@@ -145,8 +153,12 @@ async def get() -> dict:
             message_to_show="debug message - Get() Called")
     return ResponseModel(data={"version": version}, message="Success")
 
+# ------------------------
+#         Trees
+# ------------------------
 
-@ app.get("/tree/root")
+
+@ app.get("/trees/root")
 async def get_tree_root() -> dict:
     """ return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
@@ -165,133 +177,110 @@ async def get_tree_root() -> dict:
     return ResponseModel(data={"root": data}, message="Success")
 
 
-@ app.get("/nodes/")
-async def get_all_nodes(filterval: Optional[str] = None) -> dict:
-    """ Get a list of all the nodes in the working tree"""
+@ app.get("/trees/{account_id}/{id}")
+async def prune_subtree(account_id: str, id: str) -> dict:
+    """ get a node & children specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_all_nodes({filterval}) called")
-    if filterval:
-        data = []
-        for node in tree.all_nodes():
-            if filterval in node.data.tags:
-                data.append(node)
+    # first check if the account_id exists - if it doesn't do nothing
+    routes_helper = RoutesHelper()
+    global tree
+    if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             console_display.show_debug_message(
-                message_to_show=f"Nodes filtered on {filterval}")
-    else:
-        try:
-            tree.show(line_type="ascii-em")
-        except Exception as e:
-            console_display.show_exception_message(
-                message_to_show="Error occured calling tree.show on tree")
-            raise HTTPException(
-                status_code=500, detail="Error occured calling tree.show on tree")
-        data = tree.all_nodes()
-    return ResponseModel(data=data, message="Success")
-
-
-@ app.get("/nodes/{id}")
-async def get_a_node(id: str) -> dict:
-    """ Return a node specified by supplied id"""
-    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    global tree
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_a_node({id}) called")
-        console_display.show_debug_message(
-            message_to_show=f"node: {tree.get_node(id)}")
-    if tree.contains(id):
-        node = tree.get_node(id)
-    else:
-        raise HTTPException(
-            status_code=404, detail="Node not found in current tree")
-    return ResponseModel(node, "Success")
-
-
-@ app.get("/saves/{account_id}")
-async def get_all_saves(account_id: str) -> dict:
-    """ Return a dict of all the trees saved in the db collection """
-    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    try:
-        db_storage = TreeStorage(collection_name="tree_collection")
-        all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
-        # all_saves = await list_all_saved_trees(account_id=account_id)
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show="Error occured loading all saves")
-        raise HTTPException(
-            status_code=500, detail="Error occured loading all saves: {e}")
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_all_saves{account_id} called")
-
-    return ResponseModel(jsonable_encoder(all_saves), "Success")
-
-
-@ app.get("/loads/{account_id}")
-async def get_latest_save(account_id: str) -> dict:
-    """ Return the latest saved tree in the db collection"""
-    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_latest_save({account_id} called")
-    global tree
-    # check to see if the account_id exists in the db
-    db_storage = TreeStorage(collection_name="tree_collection")
-    routes_helper = RoutesHelper()
-    if await routes_helper.account_id_exists(account_id=account_id):
-        try:
-            tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
-        except Exception as e:
-            console_display.show_exception_message(
-                message_to_show="Error occured loading latest save into working tree")
-            print(e)
-            raise HTTPException(
-                status_code=500, detail=f"Error occured loading latest save into working tree: {e}")
-    else:
-        raise HTTPException(
-            status_code=404, detail=f"Unable to locate saves for account_id:{account_id}")
-
-    return ResponseModel(jsonable_encoder(tree), "Success")
-
-
-@ app.get("/loads/{account_id}/{save_id}")
-async def get_a_save(account_id: str, save_id: str) -> dict:
-    """ Return the specfied saved tree in the db collection"""
-    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_a_save({account_id}/{save_id} called")
-    global tree
-    db_storage = TreeStorage(collection_name="tree_collection")
-    routes_helper = RoutesHelper()
-    if await routes_helper.account_id_exists(account_id=account_id):
-        if await routes_helper.save_document_exists(document_id=save_id):
+                f"prune_subtree({account_id},{id}) called")
+        if tree.contains(id):
             try:
-                db_storage = TreeStorage(collection_name="tree_collection")
-                tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+                response = tree.remove_subtree(id)
+                message = "Success"
             except Exception as e:
                 console_display.show_exception_message(
-                    message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+                    message_to_show="Error occured removing a subtree from the working tree. id: {id}")
                 print(e)
-                raise HTTPException(
-                    status_code=500, detail=f"Error occured loading specified save into working tree. save_id: {save_id}: {e}")
+                raise
+            else:
+                try:
+                    db_storage = TreeStorage(
+                        collection_name="tree_collection")
+                    await db_storage.save_working_tree(tree=tree, account_id=account_id)
+                except Exception as e:
+                    console_display.show_exception_message(
+                        message_to_show="Error occured saving the working tree to the database after delete.")
+                    print(e)
+                    raise
         else:
             raise HTTPException(
-                status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
+                status_code=404, detail="Node not found in current tree")
+        return ResponseModel(response, message)
     else:
         raise HTTPException(
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
-    return ResponseModel(jsonable_encoder(tree), "Success")
+# ------------------------
+#          Nodes
+# ------------------------
+
+
+@ app.get("/nodes/{account_id}")
+async def get_all_nodes(account_id: str, filterval: Optional[str] = None) -> dict:
+    """ Get a list of all the nodes in the working tree"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    global tree
+    routes_helper = RoutesHelper()
+    if await routes_helper.account_id_exists(account_id=account_id):
+        if DEBUG:
+            console_display.show_debug_message(
+                message_to_show=f"get_all_nodes({filterval}) called")
+        if filterval:
+            data = []
+            for node in tree.all_nodes():
+                if filterval in node.data.tags:
+                    data.append(node)
+            if DEBUG:
+                console_display.show_debug_message(
+                    message_to_show=f"Nodes filtered on {filterval}")
+        else:
+            try:
+                tree.show(line_type="ascii-em")
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show="Error occured calling tree.show on tree")
+                raise HTTPException(
+                    status_code=500, detail="Error occured calling tree.show on tree")
+            data = tree.all_nodes()
+        return ResponseModel(data=data, message="Success")
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
+
+
+@ app.get("/nodes/{account_id}/{id}")
+async def get_a_node(account_id: str, id: str) -> dict:
+    """ Return a node specified by supplied id"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    global tree
+    routes_helper = RoutesHelper()
+    if await routes_helper.account_id_exists(account_id=account_id):
+        if DEBUG:
+            console_display.show_debug_message(
+                message_to_show=f"get_a_node({id}) called")
+            console_display.show_debug_message(
+                message_to_show=f"node: {tree.get_node(id)}")
+        if tree.contains(id):
+            node = tree.get_node(id)
+        else:
+            raise HTTPException(
+                status_code=404, detail="Node not found in current tree")
+        return ResponseModel(node, "Success")
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
 @ app.post("/nodes/{account_id}/{name}")
 async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
     """ Add a node to the working tree using name supplied """
+    # todo: check for pre-existence of account
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # map the incoming fields from the https request to the fields required by the treelib API
     if DEBUG:
@@ -490,6 +479,93 @@ async def delete_node(id: str, account_id: str = None) -> dict:
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
+# ------------------------
+#          Loads
+# ------------------------
+
+
+@ app.get("/loads/{account_id}")
+async def get_latest_save(account_id: str) -> dict:
+    """ Return the latest saved tree in the db collection"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_latest_save({account_id} called")
+    global tree
+    # check to see if the account_id exists in the db
+    db_storage = TreeStorage(collection_name="tree_collection")
+    routes_helper = RoutesHelper()
+    if await routes_helper.account_id_exists(account_id=account_id):
+        try:
+            tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
+        except Exception as e:
+            console_display.show_exception_message(
+                message_to_show="Error occured loading latest save into working tree")
+            print(e)
+            raise HTTPException(
+                status_code=500, detail=f"Error occured loading latest save into working tree: {e}")
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unable to locate saves for account_id:{account_id}")
+
+    return ResponseModel(jsonable_encoder(tree), "Success")
+
+
+@ app.get("/loads/{account_id}/{save_id}")
+async def get_a_save(account_id: str, save_id: str) -> dict:
+    """ Return the specfied saved tree in the db collection"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_a_save({account_id}/{save_id} called")
+    global tree
+    db_storage = TreeStorage(collection_name="tree_collection")
+    routes_helper = RoutesHelper()
+    if await routes_helper.account_id_exists(account_id=account_id):
+        if await routes_helper.save_document_exists(document_id=save_id):
+            try:
+                db_storage = TreeStorage(collection_name="tree_collection")
+                tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
+                print(e)
+                raise HTTPException(
+                    status_code=500, detail=f"Error occured loading specified save into working tree. save_id: {save_id}: {e}")
+        else:
+            raise HTTPException(
+                status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
+
+    return ResponseModel(jsonable_encoder(tree), "Success")
+
+# ------------------------
+#          Saves
+# ------------------------
+
+
+@ app.get("/saves/{account_id}")
+async def get_all_saves(account_id: str) -> dict:
+    """ Return a dict of all the trees saved in the db collection """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    try:
+        db_storage = TreeStorage(collection_name="tree_collection")
+        all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
+        # all_saves = await list_all_saved_trees(account_id=account_id)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured loading all saves")
+        raise HTTPException(
+            status_code=500, detail="Error occured loading all saves: {e}")
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"get_all_saves{account_id} called")
+
+    return ResponseModel(jsonable_encoder(all_saves), "Success")
+
+
 @ app.delete("/saves/{account_id}")
 async def delete_saves(account_id: str) -> dict:
     """ Delete all saves from the db trees collection """
@@ -509,6 +585,10 @@ async def delete_saves(account_id: str) -> dict:
     result = ResponseModel(delete_result, "Documents removed.")
     return result
 
+
+# ------------------------
+#          Users
+# ------------------------
 
 @ app.post("/users")
 async def save_user(request: UserDetails = Body(...)) -> dict:
@@ -597,5 +677,6 @@ async def delete_user(id: str) -> dict:
         raise HTTPException(
             status_code=404, detail=f"No user record found for id:{id}")
 
-# Create tree
+# Create global tree & subtrees
 tree = initialise_tree()
+sub_tree = tree

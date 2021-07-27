@@ -1,10 +1,7 @@
-from pydantic.main import BaseModel
-from pydantic.typing import NoneType
+
 import pytest
 import asyncio
 import httpx
-
-from app.models import UserDetails
 import app.api as api
 import app.database as database
 import hashlib
@@ -131,7 +128,7 @@ async def test_root_path():
 async def test_get_root_node():
     """ get the root node if it exists"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/tree/root")
+        response = await ac.get("/trees/root")
     assert response.status_code == 200
     # return id of root node or None
     return response.json()["data"]["root"]
@@ -366,7 +363,7 @@ async def test_update_node_with_non_existent_parent(test_create_root_node):
 async def test_get_a_node(test_create_root_node):
     """ get a single node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
+        response = await ac.get(f"/nodes//nodes{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -394,7 +391,7 @@ async def test_get_a_node(test_create_root_node):
 async def test_get_a_non_existent_node():
     """ get a non-existent node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes/xxx")
+        response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/xxx")
     assert response.status_code == 404
     # test that an error state is generated as expected
     assert response.json()[
@@ -457,10 +454,82 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
 
 
 @pytest.mark.asyncio
+async def test_remove_subtree(test_create_root_node):
+    """ Add a child node"""
+    child_data = jsonable_encoder({
+        "parent": test_create_root_node["node_id"],
+        "description": "unit test child description",
+        "previous": "previous child node",
+        "next": "next child node",
+        "text": "unit test text for child node",
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
+
+    # add child node to root
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=child_data)
+    assert response.status_code == 200
+    child_node_id = response.json()["data"]["node"]["_identifier"]
+    # now build grandchild data using item returned from above post
+
+    grandchild_data = jsonable_encoder({
+        "parent": child_node_id,
+        "description": "unit test grandchild description",
+        "previous": "nothing",
+        "next": "nothing",
+        "text": "unit test text for grandchild node",
+        "tags": ['tag 4', 'tag 5', 'tag 6']
+    })
+    # create grandchild node
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test grandchild node", json=grandchild_data)
+    assert response.status_code == 200
+    grandchild_node_id = response.json()["data"]["node"]["_identifier"]
+
+    # now remove the child & grandchild subtree
+
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_node_id}")
+    assert response.status_code == 200
+
+    assert child_node_id in response.json()[
+        "data"]["_nodes"]
+    assert grandchild_node_id in response.json()[
+        "data"]["_nodes"]
+    assert response.json()["data"]["root"] == child_node_id
+    assert response.json()[
+        "data"]["_nodes"][child_node_id][
+        "data"]["description"] == child_data["description"]
+    assert response.json()[
+        "data"]["_nodes"][child_node_id]["data"]["previous"] == child_data["previous"]
+    assert response.json()[
+        "data"]["_nodes"][child_node_id]["data"]["next"] == child_data["next"]
+    assert response.json()[
+        "data"]["_nodes"][child_node_id]["data"]["text"] == child_data["text"]
+    assert response.json()[
+        "data"]["_nodes"][child_node_id]["data"]["tags"] == child_data["tags"]
+
+    assert response.json()[
+        "data"]["_nodes"][grandchild_node_id][
+        "data"]["description"] == grandchild_data["description"]
+    assert response.json()[
+        "data"]["_nodes"][grandchild_node_id]["data"]["previous"] == grandchild_data["previous"]
+    assert response.json()[
+        "data"]["_nodes"][grandchild_node_id]["data"]["next"] == grandchild_data["next"]
+    assert response.json()[
+        "data"]["_nodes"][grandchild_node_id]["data"]["text"] == grandchild_data["text"]
+    assert response.json()[
+        "data"]["_nodes"][grandchild_node_id]["data"]["tags"] == grandchild_data["tags"]
+    # remove the root & child node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
 async def test_get_all_nodes(test_create_root_node):
     """ get all nodes and test the root"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/nodes")
+        response = await ac.get(f"/nodes{test_create_root_node['account_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -485,7 +554,7 @@ async def test_get_filtered_nodes(test_create_root_node):
     """ get all nodes and test the root"""
     params = {"filterval": "tag 1"}
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
-        response = await ac.get("/nodes")
+        response = await ac.get(f"/nodes{test_create_root_node['account_id']}")
     print(f"filter:{response.json()}")
     assert response.status_code == 200
     # test that the root node is configured as expected
