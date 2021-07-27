@@ -13,8 +13,7 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     UserDetails,
-    ResponseModel,
-    ErrorResponseModel
+    ResponseModel
 )
 
 from .database import (
