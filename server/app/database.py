@@ -98,6 +98,22 @@ class TreeStorage:
             raise
         return self.delete_result.deleted_count
 
+    async def number_of_saves_for_account(self, account_id: str) -> int:
+        """ return count of save documents in the tree_collection for supplied account_id """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"number_of_saves_for_account({self.account_id}) called")
+        try:
+            self.save_count = await self.tree_collection.count_documents({"account_id": self.account_id})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving document count account_id was: {self.account_id}")
+            print(e)
+            raise
+        return self.save_count
+
     async def return_latest_save(self, account_id: str) -> dict:
         """ return the latest save document from the tree_collection for supplied account_id """
         self.account_id = account_id
@@ -106,13 +122,29 @@ class TreeStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"return_latest_save({self.account_id}) called")
         try:
-            self.last_save = await self.tree_collection.find_one({"account_id": account_id}, sort=[("date_time", -1)])
+            self.last_save = await self.tree_collection.find_one({"account_id": self.account_id}, sort=[("date_time", -1)])
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
             print(e)
             raise
         return saves_helper(self.last_save)
+
+    async def check_if_document_exists(self, save_id: str) -> int:
+        """ return count of save documents in the tree_collection for supplied save_id """
+        self.save_id = save_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"check_if_document_exists({self.save_id}) called")
+        try:
+            self.save_count = await self.tree_collection.count_documents({"_id": ObjectId(self.save_id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving document count save_id was: {self.save_id}")
+            print(e)
+            raise
+        return self.save_count
 
     async def return_save(self, save_id: str) -> dict:
         """ return save document from the tree_collection for supplied save_id """
@@ -125,7 +157,7 @@ class TreeStorage:
             self.save = await self.tree_collection.find_one({"_id": ObjectId(self.save_id)})
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving latest save from the database save_id was: {self.save_id}")
+                message_to_show=f"Exception occured retrieving save from the database save_id was: {self.save_id}")
             print(e)
             raise
         return saves_helper(self.save)
@@ -427,3 +459,19 @@ class UserStorage:
             raise
         print(f"self.delete_response:{self.delete_response.deleted_count}")
         return self.delete_response.deleted_count
+
+    async def check_if_user_exists(self, user_id: str) -> int:
+        """ return count of save documents in the user_collection for supplied user_id """
+        self.user_id = user_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"check_if_user_exists({self.user_id}) called")
+        try:
+            self.user_count = await self.user_collection.count_documents({"_id": ObjectId(self.user_id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user document count user_id was: {self.user_id}")
+            print(e)
+            raise
+        return self.user_count
