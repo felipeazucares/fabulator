@@ -35,7 +35,7 @@ if DEBUG:
 #      FABULATOR
 # ------------------------
 app = FastAPI()
-version = "0.0.1"
+version = "0.0.7"
 
 origins = [
     "http://localhost:8000",

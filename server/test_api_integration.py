@@ -537,6 +537,8 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
 #   Remove Subtree Tests
 # ------------------------
 
+# todo: make pruning into a fixture and feed into both prune and graft tests
+
 
 @pytest.mark.asyncio
 async def test_remove_subtree(test_create_root_node):
@@ -743,9 +745,8 @@ async def test_delete_all_saves(get_dummy_user_account_id):
     assert remove_response > 0
 
 # ------------------------
-#   User Tests
+#   User Tests fixtures
 # ------------------------
-
 
 @pytest.fixture
 def dummy_user_to_add():
@@ -793,6 +794,9 @@ async def test_add_user(dummy_user_to_add):
     # return id of record created
     return(response.json()["data"]["id"])
 
+# ------------------------
+#       User Tests 
+# ------------------------
 
 @pytest.mark.asyncio
 async def test_get_user(test_add_user, dummy_user_to_add):
