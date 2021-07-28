@@ -133,6 +133,10 @@ async def test_get_root_node():
     # return id of root node or None
     return response.json()["data"]["root"]
 
+# ------------------------
+#      Node Fixtures
+# ------------------------
+
 
 @pytest.mark.asyncio
 @pytest.fixture
@@ -166,15 +170,9 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
         "save_id": response.json()["data"]["object_id"]
     })
 
-
-@pytest.mark.asyncio
-async def test_remove_node(test_create_root_node: list):
-    """ generate a root node and remove it """
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
-    assert response.status_code == 200
-    # test that the root node is removed as expected
-    assert int(response.json()["data"]) > 0
+# ------------------------
+#      Root Node Tests
+# ------------------------
 
 
 @pytest.mark.asyncio
@@ -192,6 +190,20 @@ async def test_add_another_root_node(test_create_root_node: list):
     assert response.status_code == 422
     # test that the root node is removed as expected
     assert response.json()["detail"] == "Tree already has a root node"
+
+# ------------------------
+#      Remove Node Tests
+# ------------------------
+
+
+@pytest.mark.asyncio
+async def test_remove_node(test_create_root_node: list):
+    """ generate a root node and remove it """
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+    assert response.status_code == 200
+    # test that the root node is removed as expected
+    assert int(response.json()["data"]) > 0
 
 
 @pytest.mark.asyncio
@@ -222,6 +234,10 @@ async def test_remove_node_for_non_existent_user(test_create_root_node: list):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
     assert response.status_code == 200
 
+# ------------------------
+#   Update Node Tests
+# ------------------------
+
 
 @pytest.mark.asyncio
 async def test_update_node(test_create_root_node):
@@ -240,9 +256,9 @@ async def test_update_node(test_create_root_node):
     assert response.status_code == 200
     assert response.json()["data"]["object_id"] != None
 
-    # now get what we just created it updated
+    # now get what we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
+        response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
     assert response.status_code == 200
     # test that the root node is updated as expected
 
@@ -358,12 +374,16 @@ async def test_update_node_with_non_existent_parent(test_create_root_node):
 
     assert response.status_code == 200
 
+# ------------------------
+#   Get Node Tests
+# ------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_a_node(test_create_root_node):
     """ get a single node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes//nodes{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+        response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -388,7 +408,7 @@ async def test_get_a_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_get_a_non_existent_node():
+async def test_get_a_non_existent_node(test_create_root_node):
     """ get a non-existent node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/xxx")
@@ -396,6 +416,67 @@ async def test_get_a_non_existent_node():
     # test that an error state is generated as expected
     assert response.json()[
         "detail"] == "Node not found in current tree"
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_all_nodes(test_create_root_node):
+    """ get all nodes and test the root"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/nodes/{test_create_root_node['account_id']}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"][0]["_identifier"] == test_create_root_node["node_id"]
+    assert response.json()["data"][0]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["data"]["description"] == "Unit test description"
+    assert response.json()["data"][0]["data"]["previous"] == "previous node"
+    assert response.json()["data"][0]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()["data"][0]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+
+@pytest.mark.asyncio
+async def test_get_filtered_nodes(test_create_root_node):
+    """ get all nodes and test the root"""
+    params = {"filterval": "tag 1"}
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
+        response = await ac.get(f"/nodes/{test_create_root_node['account_id']}")
+    print(f"filter:{response.json()}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert len(response.json()[
+        "data"]) == 1
+    assert response.json()[
+        "data"][0]["_identifier"] == test_create_root_node["node_id"]
+    assert response.json()["data"][0]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["data"]["description"] == "Unit test description"
+    assert response.json()[
+        "data"][0]["data"]["previous"] == "previous node"
+    assert response.json()["data"][0]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()["data"][0]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+# ------------------------
+#   Add Node Tests
+# ------------------------
 
 
 @pytest.mark.asyncio
@@ -451,6 +532,10 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
     # remove the root & child node we just created
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+
+# ------------------------
+#   Remove Subtree Tests
+# ------------------------
 
 
 @pytest.mark.asyncio
@@ -524,58 +609,9 @@ async def test_remove_subtree(test_create_root_node):
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
-
-@pytest.mark.asyncio
-async def test_get_all_nodes(test_create_root_node):
-    """ get all nodes and test the root"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes{test_create_root_node['account_id']}")
-    assert response.status_code == 200
-    # test that the root node is configured as expected
-    assert response.json()[
-        "data"][0]["_identifier"] == test_create_root_node["node_id"]
-    assert response.json()["data"][0]["_tag"] == "Unit test root node"
-    assert response.json()[
-        "data"][0]["data"]["description"] == "Unit test description"
-    assert response.json()["data"][0]["data"]["previous"] == "previous node"
-    assert response.json()["data"][0]["data"]["next"] == "next node"
-    assert response.json()[
-        "data"][0]["data"]["text"] == "Unit test text for root node"
-    assert response.json()["data"][0]["data"]["tags"] == [
-        'tag 1', 'tag 2', 'tag 3']
-
-    # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
-
-
-@pytest.mark.asyncio
-async def test_get_filtered_nodes(test_create_root_node):
-    """ get all nodes and test the root"""
-    params = {"filterval": "tag 1"}
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
-        response = await ac.get(f"/nodes{test_create_root_node['account_id']}")
-    print(f"filter:{response.json()}")
-    assert response.status_code == 200
-    # test that the root node is configured as expected
-    assert len(response.json()[
-        "data"]) == 1
-    assert response.json()[
-        "data"][0]["_identifier"] == test_create_root_node["node_id"]
-    assert response.json()["data"][0]["_tag"] == "Unit test root node"
-    assert response.json()[
-        "data"][0]["data"]["description"] == "Unit test description"
-    assert response.json()[
-        "data"][0]["data"]["previous"] == "previous node"
-    assert response.json()["data"][0]["data"]["next"] == "next node"
-    assert response.json()[
-        "data"][0]["data"]["text"] == "Unit test text for root node"
-    assert response.json()["data"][0]["data"]["tags"] == [
-        'tag 1', 'tag 2', 'tag 3']
-
-    # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+# ------------------------
+#   Saves Tests
+# ------------------------
 
 
 @pytest.mark.asyncio
@@ -705,6 +741,10 @@ async def test_delete_all_saves(get_dummy_user_account_id):
         collection_name="tree_collection")
     remove_response = await db_storage.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0
+
+# ------------------------
+#   User Tests
+# ------------------------
 
 
 @pytest.fixture
