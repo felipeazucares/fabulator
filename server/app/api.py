@@ -1,3 +1,4 @@
+from logging import exception
 import os
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
@@ -222,46 +223,27 @@ async def prune_subtree(account_id: str, id: str) -> dict:
 @ app.post("/trees/{account_id}/{id}")
 async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) -> dict:
     """ paste a subtree & beneath the node specified"""
-
-    class Struct(object):
-        def __init__(self, adict):
-            """Convert a dictionary to a class
-
-            @param :adict Dictionary
-            """
-            self.__dict__.update(adict)
-            for k, v in adict.items():
-                if isinstance(v, dict):
-                    self.__dict__[k] = Struct(v)
-
-    def get_object(adict):
-        """Convert a dictionary to a class
-
-        @param :adict Dictionary
-        @return :class:Struct
-        """
-        return Struct(adict)
-
-    class Struct2():
-        def __init__(self, **entries):
-            self.__dict__.update(entries)
-
-    sub_tree_obj = Struct2(**request.sub_tree)
-    print("pprint;")
-    pprint.pprint(vars(sub_tree_obj))
-
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
-    new_tree = Tree(tree=sub_tree_obj, deep=True)
+    #new_tree = Tree(tree=sub_tree_obj, deep=True)
     # first check if the account_id exists - if it doesn't do nothing
     routes_helper = RoutesHelper()
+    db_storage = TreeStorage(collection_name="tree_collection")
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             console_display.show_debug_message(
                 f"graft_subtree({account_id},{id}) called")
         if tree.contains(id):
+            # turn dict object into a Tree
             try:
-                response = tree.paste(nid=id, new_tree=new_tree, deep=True)
+                sub_tree = db_storage.build_tree_from_dict(
+                    tree_dict=request.sub_tree)
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=500, detail="Error occured converting dict object in request payload into Tree")
+            try:
+                response = tree.paste(nid=id, new_tree=sub_tree, deep=True)
                 message = "Success"
             except Exception as e:
                 console_display.show_exception_message(
