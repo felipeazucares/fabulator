@@ -86,6 +86,7 @@ class NodePayload(BaseModel):
 #   Classes for user account
 # -------------------------------------
 
+
 class Name(BaseModel):
     firstname: str
     surname: str
@@ -146,6 +147,11 @@ class UpdateUserDetails(BaseModel):
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
+
+
+class SubTree():
+    def __init__(self, sub_tree: Tree):
+        self.sub_tree = sub_tree
 
 
 class TreeSaveSchema():

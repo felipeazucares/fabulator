@@ -8,6 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import (
+    SubTree,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
@@ -179,7 +180,7 @@ async def get_tree_root() -> dict:
 
 @ app.get("/trees/{account_id}/{id}")
 async def prune_subtree(account_id: str, id: str) -> dict:
-    """ get a node & children specified by supplied id"""
+    """ cut a node & children specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     # first check if the account_id exists - if it doesn't do nothing
@@ -198,16 +199,54 @@ async def prune_subtree(account_id: str, id: str) -> dict:
                     message_to_show="Error occured removing a subtree from the working tree. id: {id}")
                 print(e)
                 raise
-            else:
-                try:
-                    db_storage = TreeStorage(
-                        collection_name="tree_collection")
-                    await db_storage.save_working_tree(tree=tree, account_id=account_id)
-                except Exception as e:
-                    console_display.show_exception_message(
-                        message_to_show="Error occured saving the working tree to the database after delete.")
-                    print(e)
-                    raise
+            try:
+                db_storage = TreeStorage(
+                    collection_name="tree_collection")
+                await db_storage.save_working_tree(tree=tree, account_id=account_id)
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show="Error occured saving the working tree to the database after delete.")
+                print(e)
+                raise
+        else:
+            raise HTTPException(
+                status_code=404, detail="Node not found in current tree")
+        return ResponseModel(response, message)
+    else:
+        raise HTTPException(
+            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
+
+
+@ app.post("/trees/{account_id}/{id}")
+async def graft_subtree(account_id: str, id: str, request: SubTree) -> dict:
+    """ paste a subtree & beneath the node specified"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    global tree
+    # first check if the account_id exists - if it doesn't do nothing
+    routes_helper = RoutesHelper()
+    global tree
+    if await routes_helper.account_id_exists(account_id=account_id):
+        if DEBUG:
+            console_display.show_debug_message(
+                f"graft_subtree({account_id},{id}) called")
+        if tree.contains(id):
+            try:
+                response = tree.paste(request.sub_tree)
+                message = "Success"
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show="Error occured grafting the subtree into the working tree. id: {id}")
+                print(e)
+                raise
+            try:
+                db_storage = TreeStorage(
+                    collection_name="tree_collection")
+                await db_storage.save_working_tree(tree=tree, account_id=account_id)
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show="Error occured saving the working tree to the database after paste action.")
+                print(e)
+                raise
         else:
             raise HTTPException(
                 status_code=404, detail="Node not found in current tree")
