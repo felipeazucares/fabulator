@@ -540,8 +540,9 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
 # todo: make pruning into a fixture and feed into both prune and graft tests
 
 
+@pytest.fixture
 @pytest.mark.asyncio
-async def test_remove_subtree(test_create_root_node):
+async def test_setup_remove_and_return_subtree(test_create_root_node):
     """ Add a child node"""
     child_data = jsonable_encoder({
         "parent": test_create_root_node["node_id"],
@@ -556,11 +557,13 @@ async def test_remove_subtree(test_create_root_node):
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=child_data)
     assert response.status_code == 200
-    child_node_id = response.json()["data"]["node"]["_identifier"]
+    # add the child_node_id to the dict that we will return to calling functions for testing
+    child_data["child_node_id"] = response.json()[
+        "data"]["node"]["_identifier"]
     # now build grandchild data using item returned from above post
 
     grandchild_data = jsonable_encoder({
-        "parent": child_node_id,
+        "parent": child_data["child_node_id"],
         "description": "unit test grandchild description",
         "previous": "nothing",
         "next": "nothing",
@@ -571,52 +574,123 @@ async def test_remove_subtree(test_create_root_node):
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test grandchild node", json=grandchild_data)
     assert response.status_code == 200
-    grandchild_node_id = response.json()["data"]["node"]["_identifier"]
+    # add the grandchild_node_id to the dict that we will return to calling functions for testing
+    grandchild_data["grandchild_node_id"] = response.json()[
+        "data"]["node"]["_identifier"]
 
     # now remove the child & grandchild subtree
 
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_node_id}")
+        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_data['child_node_id']}")
     assert response.status_code == 200
 
-    assert child_node_id in response.json()[
-        "data"]["_nodes"]
-    assert grandchild_node_id in response.json()[
-        "data"]["_nodes"]
-    assert response.json()["data"]["root"] == child_node_id
-    assert response.json()[
-        "data"]["_nodes"][child_node_id][
-        "data"]["description"] == child_data["description"]
-    assert response.json()[
-        "data"]["_nodes"][child_node_id]["data"]["previous"] == child_data["previous"]
-    assert response.json()[
-        "data"]["_nodes"][child_node_id]["data"]["next"] == child_data["next"]
-    assert response.json()[
-        "data"]["_nodes"][child_node_id]["data"]["text"] == child_data["text"]
-    assert response.json()[
-        "data"]["_nodes"][child_node_id]["data"]["tags"] == child_data["tags"]
+    return {"test data": {"child_data": child_data,
+                          "grandchild_data": grandchild_data},
+            "response": response.json(),
+            "original_root": test_create_root_node["node_id"]}
 
-    assert response.json()[
-        "data"]["_nodes"][grandchild_node_id][
-        "data"]["description"] == grandchild_data["description"]
-    assert response.json()[
-        "data"]["_nodes"][grandchild_node_id]["data"]["previous"] == grandchild_data["previous"]
-    assert response.json()[
-        "data"]["_nodes"][grandchild_node_id]["data"]["next"] == grandchild_data["next"]
-    assert response.json()[
-        "data"]["_nodes"][grandchild_node_id]["data"]["text"] == grandchild_data["text"]
-    assert response.json()[
-        "data"]["_nodes"][grandchild_node_id]["data"]["tags"] == grandchild_data["tags"]
-    # remove the root & child node we just created
+
+@pytest.mark.asyncio
+async def test_remove_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
+
+    # set these two shortcuts up for ledgibility purposes
+    child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+    grandchild_node_id = test_setup_remove_and_return_subtree[
+        "test data"]["grandchild_data"]["grandchild_node_id"]
+    # check the child and grandchild nodes exists in the subtree
+    assert child_node_id in test_setup_remove_and_return_subtree[
+        "response"]["data"]["_nodes"]
+    assert grandchild_node_id in test_setup_remove_and_return_subtree[
+        "response"]["data"]["_nodes"]
+    # check the root of the subtree we have is the child of the original
+    assert child_node_id == test_setup_remove_and_return_subtree["response"]["data"]["root"]
+    # check the child payload
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        child_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["description"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        child_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["previous"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        child_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["next"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        child_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["text"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        child_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["tags"]
+    # check the grandchild payload
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        grandchild_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["description"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        grandchild_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["previous"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        grandchild_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["next"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        grandchild_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["text"]
+    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+        grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
+
+    # remove the remaining root node in the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+        response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}")
+        assert response.status_code == 200
 
+
+@ pytest.mark.asyncio
+async def test_add_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
+    # build the request payload from the subtree we just removed.
+    data = jsonable_encoder(
+        {"sub_tree": test_setup_remove_and_return_subtree["response"]["data"]})
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/trees/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
+    assert response.status_code == 200
+
+    # todo: get all nodes and compare them to what we added
+
+    # # set these two shortcuts up for ledgibility purposes
+    # child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+    # grandchild_node_id = test_setup_remove_and_return_subtree[
+    #     "test data"]["grandchild_data"]["grandchild_node_id"]
+
+    # assert response.status_code == 200
+    # assert child_node_id in test_setup_remove_and_return_subtree[
+    #     "response"]["data"]["_nodes"]
+    # assert grandchild_node_id in test_setup_remove_and_return_subtree[
+    #     "response"]["data"]["_nodes"]
+    # # check the root of the subtree we have is the child of the original
+    # assert child_node_id == test_setup_remove_and_return_subtree["response"]["data"][
+    #     "root"]
+    # # check the child payload
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     child_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["description"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     child_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["previous"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     child_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["next"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     child_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["text"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     child_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["tags"]
+    # # check the grandchild payload
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     grandchild_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["description"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     grandchild_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["previous"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     grandchild_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["next"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     grandchild_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["text"]
+    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    #     grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
+    # # remove the root & child node we just created
+
+    # remove the remaining root node in the tree
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}")
+        assert response.status_code == 200
 # ------------------------
 #   Saves Tests
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_list_all_saves(get_dummy_user_account_id):
     """ generate a list of all the saved tries for given account_id"""
     async with httpx.AsyncClient(app=api.app) as client:
@@ -626,7 +700,7 @@ async def test_list_all_saves(get_dummy_user_account_id):
     assert int(len(response.json()['data'][0])) > 0
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_latest_save(test_create_root_node):
     """ load the latest save into the tree for a given user """
 
@@ -657,7 +731,7 @@ async def test_get_latest_save(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_latest_save_for_non_existent_user():
     """ load the latest save into the tree for a given user """
     async with httpx.AsyncClient(app=api.app) as client:
@@ -667,7 +741,7 @@ async def test_get_latest_save_for_non_existent_user():
         'detail'] == "Unable to locate saves for account_id:XXXX"
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_save(test_create_root_node):
     """ load the named save into the tree for a given user """
 
@@ -696,7 +770,7 @@ async def test_get_save(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_a_save_for_non_existent_user(test_create_root_node):
     """ try and load a specified save for an invalid account_id"""
     async with httpx.AsyncClient(app=api.app) as client:
@@ -709,7 +783,7 @@ async def test_get_a_save_for_non_existent_user(test_create_root_node):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node):
     """ try and load a save for a valid account_id but non-existent document id """
     # note this is a random 24 char hex string - should not exist in the target db - 16c361eff3b15de33f6a66b8
@@ -723,7 +797,7 @@ async def test_get_a_save_for_a_valid_account_with_non_existent_document(test_cr
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_a_save_for_an_invalid_account_with_invalid_document(test_create_root_node):
     """ try and load a save for a valid account_id but invalid document id """
     # note this is a random 24 char hex string - should not exist in the target db
@@ -737,7 +811,7 @@ async def test_get_a_save_for_an_invalid_account_with_invalid_document(test_crea
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_delete_all_saves(get_dummy_user_account_id):
     db_storage = database.TreeStorage(
         collection_name="tree_collection")
@@ -749,7 +823,7 @@ async def test_delete_all_saves(get_dummy_user_account_id):
 # ------------------------
 
 
-@pytest.fixture
+@ pytest.fixture
 def dummy_user_to_add():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
@@ -759,7 +833,7 @@ def dummy_user_to_add():
     }
 
 
-@pytest.fixture
+@ pytest.fixture
 def dummy_user_update():
     username = "unittestuser2"
     return {
@@ -770,8 +844,8 @@ def dummy_user_update():
     }
 
 
-@pytest.fixture
-@pytest.mark.asyncio
+@ pytest.fixture
+@ pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can update it and delete it"""
 
@@ -800,7 +874,7 @@ async def test_add_user(dummy_user_to_add):
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_user(test_add_user, dummy_user_to_add):
     """ test reading a user document from the collection """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -824,7 +898,7 @@ async def test_get_user(test_add_user, dummy_user_to_add):
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_get_non_existent_user(test_add_user):
     """ test reading a user document from the collection """
     # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
@@ -840,7 +914,7 @@ async def test_get_non_existent_user(test_add_user):
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_update_user(test_add_user, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     # set up unit test user
@@ -871,7 +945,7 @@ async def test_update_user(test_add_user, dummy_user_update):
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_update_user_with_bad_payload(test_add_user):
     """ Add a new user so that we can update it and delete it"""
 
@@ -886,7 +960,7 @@ async def test_update_user_with_bad_payload(test_add_user):
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_update_non_existent_user(test_add_user, dummy_user_update):
     """ test updating a non_existing user document from the collection """
     data = jsonable_encoder(dummy_user_update)
@@ -903,7 +977,7 @@ async def test_update_non_existent_user(test_add_user, dummy_user_update):
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_delete_user(test_add_user):
     """ delete a user """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -913,7 +987,7 @@ async def test_delete_user(test_add_user):
         "data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_delete_non_existent_user(test_add_user):
     """ test deleting a non_existing user document from the collection """
     # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8

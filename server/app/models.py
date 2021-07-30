@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, validator
 from treelib import Tree
 
 # -------------------------------------
@@ -82,9 +82,15 @@ class NodePayload(BaseModel):
     tags: Optional[list] = None
 
 
-# -------------------------------------
-#   Classes for user account
-# -------------------------------------
+class SubTree(BaseModel):
+    class Config:
+        arbitrary_types_allowed = True
+
+    sub_tree: dict
+
+    # -------------------------------------
+    #   Classes for user account
+    # -------------------------------------
 
 
 class Name(BaseModel):
@@ -147,11 +153,6 @@ class UpdateUserDetails(BaseModel):
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
-
-
-class SubTree():
-    def __init__(self, sub_tree: Tree):
-        self.sub_tree = sub_tree
 
 
 class TreeSaveSchema():
