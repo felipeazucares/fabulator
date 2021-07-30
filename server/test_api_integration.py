@@ -119,7 +119,7 @@ async def test_root_path():
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/")
     assert response.status_code == 200
-    assert response.json()["data"]["version"] == "0.0.1"
+    assert response.json()["data"]["version"] == "0.0.7"
     assert response.json()["message"] == "Success"
 
 
@@ -748,6 +748,7 @@ async def test_delete_all_saves(get_dummy_user_account_id):
 #   User Tests fixtures
 # ------------------------
 
+
 @pytest.fixture
 def dummy_user_to_add():
     return {
@@ -795,8 +796,9 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 # ------------------------
-#       User Tests 
+#       User Tests
 # ------------------------
+
 
 @pytest.mark.asyncio
 async def test_get_user(test_add_user, dummy_user_to_add):
