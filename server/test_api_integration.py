@@ -580,10 +580,6 @@ async def test_setup_remove_and_return_subtree(test_create_root_node):
 
     # now remove the child & grandchild subtree
 
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_data['child_node_id']}")
-    assert response.status_code == 200
-
     return {"test data": {"child_data": child_data,
                           "grandchild_data": grandchild_data},
             "response": response.json(),
@@ -591,13 +587,18 @@ async def test_setup_remove_and_return_subtree(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_remove_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
-
+async def test_remove_subtree(test_setup_remove_and_return_subtree):
+    # todo: moved the removal event from fixture above to this test - so the tests will need to be rejigged
+    # todo: have done this so that we can get a view of what is in the original tree before we look at
+    # todo: the subtree that we have removed.
     # set these two shortcuts up for ledgibility purposes
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
     # check the child and grandchild nodes exists in the subtree
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_node_id}")
+    assert response.status_code == 200
     assert child_node_id in test_setup_remove_and_return_subtree[
         "response"]["data"]["_nodes"]
     assert grandchild_node_id in test_setup_remove_and_return_subtree[
@@ -627,17 +628,16 @@ async def test_remove_subtree(test_setup_remove_and_return_subtree, get_dummy_us
     assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
         grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
 
-    # remove the remaining root node in the tree
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}")
-        assert response.status_code == 200
-
 
 @ pytest.mark.asyncio
 async def test_add_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
     # build the request payload from the subtree we just removed.
     data = jsonable_encoder(
         {"sub_tree": test_setup_remove_and_return_subtree["response"]["data"]})
+    print(
+        f"data to add:{data}")
+    print(
+        f"original root:{test_setup_remove_and_return_subtree['original_root']}")
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/trees/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
     assert response.status_code == 200

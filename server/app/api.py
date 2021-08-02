@@ -188,7 +188,6 @@ async def prune_subtree(account_id: str, id: str) -> dict:
     global tree
     # first check if the account_id exists - if it doesn't do nothing
     routes_helper = RoutesHelper()
-    global tree
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             console_display.show_debug_message(
@@ -239,30 +238,27 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
                 sub_tree = db_storage.build_tree_from_dict(
                     tree_dict=request.sub_tree)
             except Exception as e:
-                print(e)
+                console_display.show_exception_message(
+                    message_to_show="Error occured saving the working tree to the database after paste action.{e}")
                 raise HTTPException(
-                    status_code=500, detail="Error occured converting dict object in request payload into Tree")
+                    status_code=500, detail="Error occured converting dict object in request payload into Tree. {e}")
             try:
-                response = tree.paste(nid=id, new_tree=sub_tree, deep=True)
+                tree.paste(nid=id, new_tree=sub_tree, deep=True)
                 message = "Success"
             except Exception as e:
                 console_display.show_exception_message(
-                    message_to_show="Error occured grafting the subtree into the working tree. id: {id}")
-                print(e)
+                    message_to_show=f"Error occured grafting the subtree into the working tree. id: {id} {e}")
                 raise
             try:
-                db_storage = TreeStorage(
-                    collection_name="tree_collection")
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
                 console_display.show_exception_message(
-                    message_to_show="Error occured saving the working tree to the database after paste action.")
-                print(e)
+                    message_to_show="Error occured saving the working tree to the database after paste action.{e}")
                 raise
         else:
             raise HTTPException(
                 status_code=404, detail="Node not found in current tree")
-        return ResponseModel(response, message)
+        return ResponseModel("Graft complete", message)
     else:
         raise HTTPException(
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
