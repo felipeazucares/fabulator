@@ -243,7 +243,7 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
             try:
                 tree.save2file(
                     'dump.txt', line_type=u'ascii-ex', idhidden=False)
-                tree.paste(nid=id, new_tree=sub_tree, deep=True)
+                tree.paste(nid=id, new_tree=sub_tree, deep=False)
                 message = "Success"
             except Exception as e:
                 routes_helper.console_display.show_exception_message(

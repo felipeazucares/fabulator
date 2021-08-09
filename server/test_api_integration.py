@@ -654,6 +654,8 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['account_id']}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
     assert response.status_code == 200
+    assert response.json()["message"] == "Success"
+    assert response.json()["data"] == "Graft complete"
 
     # todo: get all nodes and compare them to what we added
 
@@ -696,8 +698,8 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
 
     # remove the remaining root node in the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}")
-        assert response.status_code == 200
+        response = await client.delete(f"http://localhost:8000/nodes/{account_id}/{test_setup_remove_and_return_subtree['original_root']}")
+    assert response.status_code == 200
 # ------------------------
 #   Saves Tests
 # ------------------------
