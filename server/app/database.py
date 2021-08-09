@@ -215,20 +215,24 @@ class TreeStorage:
     def build_tree_from_dict(self, tree_dict: dict) -> Tree:
         """ return a tree built from provided dict structure  """
         self.tree_dict = tree_dict
+        print(f"set tree_dict:{self.tree_dict}")
         try:
+            print(f"try set route tree:{self.tree_dict['root']}")
             self.root_node = self.tree_dict["root"]
         except Exception as e:
+            print(f"except 1: {e}")
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving root object from dict, self.tree_dict: {self.tree_dict}")
-            print(e)
+                message_to_show=f"Exception occured retrieving root object from dict, self.tree_dict: {self.tree_dict} {e}")
             raise
         # create the root node
         try:
+            print("tree new tree creation")
+
             self.new_tree = Tree(identifier=self.tree_dict["_identifier"])
         except Exception as e:
+            print("exept 2")
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured creating new tree with _identifier:{self.tree_dict['_identifier']}")
-            print(e)
+                message_to_show=f"Exception occured creating new tree with _identifier:{self.tree_dict['_identifier']} {e}")
             raise
 
         self.final_tree = self.add_a_node(tree_id=self.tree_dict["_identifier"], loaded_tree=self.tree_dict,
@@ -255,7 +259,7 @@ class TreeStorage:
         except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred unable to find _tag for {self.loaded_tree['_nodes'][node_id]}")
-            console_display.show_exception_message(
+            self.console_display.show_exception_message(
                 message_to_show=f"loaded_tree['_nodes'][node_id]['_tag']: {self.loaded_tree['_nodes'][node_id]['_tag']}")
             print(e)
             raise

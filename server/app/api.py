@@ -190,14 +190,14 @@ async def prune_subtree(account_id: str, id: str) -> dict:
     routes_helper = RoutesHelper()
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
-            console_display.show_debug_message(
+            routes_helper.console_display.show_debug_message(
                 f"prune_subtree({account_id},{id}) called")
         if tree.contains(id):
             try:
                 response = tree.remove_subtree(id)
                 message = "Success"
             except Exception as e:
-                console_display.show_exception_message(
+                routes_helper.console_display.show_exception_message(
                     message_to_show="Error occured removing a subtree from the working tree. id: {id}")
                 print(e)
                 raise
@@ -206,7 +206,7 @@ async def prune_subtree(account_id: str, id: str) -> dict:
                     collection_name="tree_collection")
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
-                console_display.show_exception_message(
+                routes_helper.console_display.show_exception_message(
                     message_to_show="Error occured saving the working tree to the database after delete.")
                 print(e)
                 raise
@@ -230,7 +230,7 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
     db_storage = TreeStorage(collection_name="tree_collection")
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
-            console_display.show_debug_message(
+            routes_helper.console_display.show_debug_message(
                 f"graft_subtree({account_id},{id}) called")
         if tree.contains(id):
             # turn dict object into a Tree
@@ -238,21 +238,21 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
                 sub_tree = db_storage.build_tree_from_dict(
                     tree_dict=request.sub_tree)
             except Exception as e:
-                console_display.show_exception_message(
-                    message_to_show="Error occured saving the working tree to the database after paste action.{e}")
+                routes_helper.console_display.show_exception_message(
+                    message_to_show=f"Error occured building the subtree from the request dict object. {e}")
                 raise HTTPException(
-                    status_code=500, detail="Error occured converting dict object in request payload into Tree. {e}")
+                    status_code=500, detail=f"Error occured building the subtree from the request dict object. {e}")
             try:
                 tree.paste(nid=id, new_tree=sub_tree, deep=True)
                 message = "Success"
             except Exception as e:
-                console_display.show_exception_message(
+                routes_helper.console_display.show_exception_message(
                     message_to_show=f"Error occured grafting the subtree into the working tree. id: {id} {e}")
                 raise
             try:
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except Exception as e:
-                console_display.show_exception_message(
+                routes_helper.console_display.show_exception_message(
                     message_to_show="Error occured saving the working tree to the database after paste action.{e}")
                 raise
         else:

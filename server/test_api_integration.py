@@ -149,7 +149,7 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
             response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_get_root_node}")
         assert response.status_code == 200
         # test that the root node is removed as expected
-        assert int(response.json()['data']) == 1
+        assert int(response.json()['data']) >= 1
 
     data = jsonable_encoder({
                             "description": "Unit test description",
@@ -578,59 +578,56 @@ async def test_setup_remove_and_return_subtree(test_create_root_node):
     grandchild_data["grandchild_node_id"] = response.json()[
         "data"]["node"]["_identifier"]
 
-    # now remove the child & grandchild subtree
-
     return {"test data": {"child_data": child_data,
                           "grandchild_data": grandchild_data},
             "response": response.json(),
-            "original_root": test_create_root_node["node_id"]}
+            "original_root": test_create_root_node["node_id"],
+            "account_id": test_create_root_node['account_id']}
 
 
 @pytest.mark.asyncio
 async def test_remove_subtree(test_setup_remove_and_return_subtree):
-    # todo: moved the removal event from fixture above to this test - so the tests will need to be rejigged
-    # todo: have done this so that we can get a view of what is in the original tree before we look at
-    # todo: the subtree that we have removed.
     # set these two shortcuts up for ledgibility purposes
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+    account_id = test_setup_remove_and_return_subtree["account_id"]
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
-    # check the child and grandchild nodes exists in the subtree
+    # remove the specified child
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.get(f"/trees/{test_create_root_node['account_id']}/{child_node_id}")
+        response = await ac.get(f"/trees/{account_id}/{child_node_id}")
     assert response.status_code == 200
-    assert child_node_id in test_setup_remove_and_return_subtree[
-        "response"]["data"]["_nodes"]
-    assert grandchild_node_id in test_setup_remove_and_return_subtree[
-        "response"]["data"]["_nodes"]
+    assert child_node_id in response.json()["data"]["_nodes"]
+    assert grandchild_node_id in response.json()["data"]["_nodes"]
     # check the root of the subtree we have is the child of the original
-    assert child_node_id == test_setup_remove_and_return_subtree["response"]["data"]["root"]
+    assert child_node_id == response.json()["data"]["root"]
     # check the child payload
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         child_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["description"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         child_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["previous"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         child_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["next"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         child_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["text"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         child_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["tags"]
     # check the grandchild payload
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["description"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["previous"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["next"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["text"]
-    assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
+    assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
 
 
 @ pytest.mark.asyncio
 async def test_add_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
+    # todo: have to get the removed subtree from previous pass - do I need to run previous test steps and then compare
+    # todo: or fold the two steps into one
     # build the request payload from the subtree we just removed.
     data = jsonable_encoder(
         {"sub_tree": test_setup_remove_and_return_subtree["response"]["data"]})

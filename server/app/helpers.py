@@ -26,8 +26,8 @@ class ConsoleDisplay:
             logging.debug(self.__message_to_show)
         elif self.__message_type == 3:
             self.__message_to_show = f"{Fore.RED}{Style.BRIGHT}{self._dt_date} : EXCEPTION :{self.__message_to_show} {Style.RESET_ALL}"
-            self.__message_padding = Fore.RED + "-" * \
-                (len(self.__message_to_show)-9) + Style.RESET_ALL
+            # self.__message_padding = Fore.RED + "-" * \
+            #     (len(self.__message_to_show)-9) + Style.RESET_ALL
             logging.error(self.__message_to_show)
         print(self.__message_to_show)
 
