@@ -216,6 +216,7 @@ class TreeStorage:
         """ return a tree built from provided dict structure  """
         self.tree_dict = tree_dict
         print(f"set tree_dict:{self.tree_dict}")
+        # Looks like there is no root in the subtree
         try:
             print(f"try set route tree:{self.tree_dict['root']}")
             self.root_node = self.tree_dict["root"]

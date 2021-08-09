@@ -2,8 +2,6 @@ from logging import exception
 import os
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
-import json
-import pprint
 from treelib import Tree
 from fastapi import FastAPI, HTTPException, Body
 from typing import Optional
