@@ -241,6 +241,8 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
                 raise HTTPException(
                     status_code=500, detail=f"Error occured building the subtree from the request dict object. {e}")
             try:
+                tree.save2file(
+                    'dump.txt', line_type=u'ascii-ex', idhidden=False)
                 tree.paste(nid=id, new_tree=sub_tree, deep=True)
                 message = "Success"
             except Exception as e:

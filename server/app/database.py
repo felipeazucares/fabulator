@@ -228,7 +228,6 @@ class TreeStorage:
         # create the root node
         try:
             print("tree new tree creation")
-
             self.new_tree = Tree(identifier=self.tree_dict["_identifier"])
         except Exception as e:
             print("exept 2")

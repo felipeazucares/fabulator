@@ -623,20 +623,36 @@ async def test_remove_subtree(test_setup_remove_and_return_subtree):
     assert response.json()["data"]["_nodes"][
         grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
 
+    # remove the root & child node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['account_id']}/{test_setup_remove_and_return_subtree['original_root']}")
+    assert response.status_code == 200
+
 
 @ pytest.mark.asyncio
-async def test_add_subtree(test_setup_remove_and_return_subtree, get_dummy_user_account_id):
+async def test_add_subtree(test_setup_remove_and_return_subtree):
     # todo: have to get the removed subtree from previous pass - do I need to run previous test steps and then compare
     # todo: or fold the two steps into one
     # build the request payload from the subtree we just removed.
+
+    child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+    account_id = test_setup_remove_and_return_subtree["account_id"]
+    grandchild_node_id = test_setup_remove_and_return_subtree[
+        "test data"]["grandchild_data"]["grandchild_node_id"]
+    # prune ndde
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.get(f"/trees/{account_id}/{child_node_id}")
+    assert response.status_code == 200
+
     data = jsonable_encoder(
-        {"sub_tree": test_setup_remove_and_return_subtree["response"]["data"]})
+        {"sub_tree": response.json()["data"]})
     print(
         f"data to add:{data}")
     print(
         f"original root:{test_setup_remove_and_return_subtree['original_root']}")
+
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(f"/trees/{get_dummy_user_account_id}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
+        response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['account_id']}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
     assert response.status_code == 200
 
     # todo: get all nodes and compare them to what we added
