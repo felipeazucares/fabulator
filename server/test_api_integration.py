@@ -631,14 +631,11 @@ async def test_remove_subtree(test_setup_remove_and_return_subtree):
 
 @ pytest.mark.asyncio
 async def test_add_subtree(test_setup_remove_and_return_subtree):
-    # todo: have to get the removed subtree from previous pass - do I need to run previous test steps and then compare
-    # todo: or fold the two steps into one
-    # build the request payload from the subtree we just removed.
-
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
     account_id = test_setup_remove_and_return_subtree["account_id"]
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
+    original_root_id = test_setup_remove_and_return_subtree["original_root"]
     # prune ndde
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.get(f"/trees/{account_id}/{child_node_id}")
@@ -646,10 +643,6 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
 
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
-    print(
-        f"data to add:{data}")
-    print(
-        f"original root:{test_setup_remove_and_return_subtree['original_root']}")
 
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['account_id']}/{test_setup_remove_and_return_subtree['original_root']}", json=data)
@@ -657,7 +650,24 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     assert response.json()["message"] == "Success"
     assert response.json()["data"] == "Graft complete"
 
-    # todo: get all nodes and compare them to what we added
+    # todo: get all nodes and test them to expected outcome
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/nodes/{account_id}")
+    print(f"data:{response.json()['data']}")
+    assert response.status_code == 200
+    # test that the root node is configured as expected
+    assert response.json()[
+        "data"][0]["_identifier"] == original_root_id
+    assert response.json()["data"][0]["_tag"] == "Unit test root node"
+    assert response.json()[
+        "data"][0]["data"]["description"] == "Unit test description"
+    assert response.json()["data"][0]["data"]["previous"] == "previous node"
+    assert response.json()["data"][0]["data"]["next"] == "next node"
+    assert response.json()[
+        "data"][0]["data"]["text"] == "Unit test text for root node"
+    assert response.json()["data"][0]["data"]["tags"] == [
+        'tag 1', 'tag 2', 'tag 3']
 
     # # set these two shortcuts up for ledgibility purposes
     # child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
