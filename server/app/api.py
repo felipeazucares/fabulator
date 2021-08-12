@@ -222,7 +222,6 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
     """ paste a subtree & beneath the node specified"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
-    #new_tree = Tree(tree=sub_tree_obj, deep=True)
     # first check if the account_id exists - if it doesn't do nothing
     routes_helper = RoutesHelper()
     db_storage = TreeStorage(collection_name="tree_collection")
@@ -241,8 +240,9 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
                 raise HTTPException(
                     status_code=500, detail=f"Error occured building the subtree from the request dict object. {e}")
             try:
-                tree.save2file(
-                    'dump.txt', line_type=u'ascii-ex', idhidden=False)
+                if DEBUG:
+                    tree.save2file(
+                        'dump.txt', line_type=u'ascii-ex', idhidden=False)
                 tree.paste(nid=id, new_tree=sub_tree, deep=False)
                 message = "Success"
             except Exception as e:

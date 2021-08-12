@@ -545,17 +545,18 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
 async def test_setup_remove_and_return_subtree(test_create_root_node):
     """ Add a child node"""
     child_data = jsonable_encoder({
+        "name": "Unit test child node",
         "parent": test_create_root_node["node_id"],
-        "description": "unit test child description",
+        "description": "Unit test child description",
         "previous": "previous child node",
         "next": "next child node",
-        "text": "unit test text for child node",
+        "text": "Unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
 
     # add child node to root
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test child node", json=child_data)
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/{child_data['name']}", json=child_data)
     assert response.status_code == 200
     # add the child_node_id to the dict that we will return to calling functions for testing
     child_data["child_node_id"] = response.json()[
@@ -563,16 +564,17 @@ async def test_setup_remove_and_return_subtree(test_create_root_node):
     # now build grandchild data using item returned from above post
 
     grandchild_data = jsonable_encoder({
+        "name": "Unit test grandchild node",
         "parent": child_data["child_node_id"],
-        "description": "unit test grandchild description",
+        "description": "Unit test grandchild description",
         "previous": "nothing",
         "next": "nothing",
-        "text": "unit test text for grandchild node",
+        "text": "Unit test text for grandchild node",
         "tags": ['tag 4', 'tag 5', 'tag 6']
     })
     # create grandchild node
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/unit test grandchild node", json=grandchild_data)
+        response = await ac.post(f"/nodes/{test_create_root_node['account_id']}/{grandchild_data['name']}", json=grandchild_data)
     assert response.status_code == 200
     # add the grandchild_node_id to the dict that we will return to calling functions for testing
     grandchild_data["grandchild_node_id"] = response.json()[
@@ -632,7 +634,9 @@ async def test_remove_subtree(test_setup_remove_and_return_subtree):
 @ pytest.mark.asyncio
 async def test_add_subtree(test_setup_remove_and_return_subtree):
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+    child_data = test_setup_remove_and_return_subtree["test data"]["child_data"]
     account_id = test_setup_remove_and_return_subtree["account_id"]
+    grandchild_data = test_setup_remove_and_return_subtree["test data"]["grandchild_data"]
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
     original_root_id = test_setup_remove_and_return_subtree["original_root"]
@@ -650,7 +654,7 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     assert response.json()["message"] == "Success"
     assert response.json()["data"] == "Graft complete"
 
-    # todo: get all nodes and test them to expected outcome
+    # todo: get all nodes and compare them to expected outcome
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{account_id}")
@@ -669,42 +673,35 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     assert response.json()["data"][0]["data"]["tags"] == [
         'tag 1', 'tag 2', 'tag 3']
 
-    # # set these two shortcuts up for ledgibility purposes
-    # child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
-    # grandchild_node_id = test_setup_remove_and_return_subtree[
-    #     "test data"]["grandchild_data"]["grandchild_node_id"]
+    # child node tests
+    assert response.json()[
+        "data"][1]["_identifier"] == child_node_id
+    assert response.json()["data"][1]["_tag"] == child_data["name"]
+    assert response.json()[
+        "data"][1]["data"]["description"] == child_data["description"]
+    assert response.json()[
+        "data"][1]["data"]["previous"] == child_data["previous"]
+    assert response.json()[
+        "data"][1]["data"]["next"] == child_data["next"]
+    assert response.json()[
+        "data"][1]["data"]["text"] == child_data["text"]
+    assert response.json()[
+        "data"][1]["data"]["tags"] == child_data["tags"]
 
-    # assert response.status_code == 200
-    # assert child_node_id in test_setup_remove_and_return_subtree[
-    #     "response"]["data"]["_nodes"]
-    # assert grandchild_node_id in test_setup_remove_and_return_subtree[
-    #     "response"]["data"]["_nodes"]
-    # # check the root of the subtree we have is the child of the original
-    # assert child_node_id == test_setup_remove_and_return_subtree["response"]["data"][
-    #     "root"]
-    # # check the child payload
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     child_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["description"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     child_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["previous"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     child_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["next"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     child_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["text"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     child_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["child_data"]["tags"]
-    # # check the grandchild payload
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     grandchild_node_id]["data"]["description"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["description"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     grandchild_node_id]["data"]["previous"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["previous"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     grandchild_node_id]["data"]["next"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["next"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     grandchild_node_id]["data"]["text"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["text"]
-    # assert test_setup_remove_and_return_subtree["response"]["data"]["_nodes"][
-    #     grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
-    # # remove the root & child node we just created
+    # grandchild node tests
+    assert response.json()[
+        "data"][2]["_identifier"] == grandchild_node_id
+    assert response.json()["data"][2]["_tag"] == grandchild_data["name"]
+    assert response.json()[
+        "data"][2]["data"]["description"] == grandchild_data["description"]
+    assert response.json()[
+        "data"][2]["data"]["previous"] == grandchild_data["previous"]
+    assert response.json()[
+        "data"][2]["data"]["next"] == grandchild_data["next"]
+    assert response.json()[
+        "data"][2]["data"]["text"] == grandchild_data["text"]
+    assert response.json()[
+        "data"][2]["data"]["tags"] == grandchild_data["tags"]
 
     # remove the remaining root node in the tree
     async with httpx.AsyncClient(app=api.app) as client:
