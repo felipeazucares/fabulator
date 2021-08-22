@@ -1,3 +1,15 @@
+from .database import (
+    TreeStorage,
+    UserStorage
+)
+from .models import (
+    SubTree,
+    RequestAddSchema,
+    RequestUpdateSchema,
+    NodePayload,
+    UserDetails,
+    ResponseModel
+)
 from logging import exception
 import os
 import app.config  # loads the load_env lib to access .env file
@@ -8,19 +20,11 @@ from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import (
-    SubTree,
-    RequestAddSchema,
-    RequestUpdateSchema,
-    NodePayload,
-    UserDetails,
-    ResponseModel
-)
+from fastapi import Depends, FastAPI
+from fastapi.security import OAuth2PasswordBearer
 
-from .database import (
-    TreeStorage,
-    UserStorage
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 # set DEBUG flag
 
@@ -133,6 +137,12 @@ class RoutesHelper():
 # ------------------------
 #       API Routes
 # ------------------------
+
+
+@app.get("/items/")
+async def read_items(token: str = Depends(oauth2_scheme)):
+    return {"token": token}
+
 
 # ------------------------
 #         Misc
