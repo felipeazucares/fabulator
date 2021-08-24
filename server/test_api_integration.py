@@ -119,7 +119,7 @@ async def test_root_path():
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/")
     assert response.status_code == 200
-    assert response.json()["data"]["version"] == "0.0.7"
+    assert response.json()["data"]["version"] == "0.1.0"
     assert response.json()["message"] == "Success"
 
 
