@@ -850,6 +850,7 @@ def dummy_user_to_add():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
         "username": "unittestuser",
+        "password": "don't look now",
         "account_id": None,
         "email": "john_maginot@fictional.com"
     }
@@ -861,6 +862,7 @@ def dummy_user_update():
     return {
         "name": {"firstname": "Jango", "surname": "Fett"},
         "username": username,
+        "password": "get 'im son!",
         "account_id": hashlib.sha256(username.encode('utf-8')).hexdigest(),
         "email": "jango_fett@runsheadless.com"
     }

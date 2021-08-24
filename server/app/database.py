@@ -215,22 +215,17 @@ class TreeStorage:
     def build_tree_from_dict(self, tree_dict: dict) -> Tree:
         """ return a tree built from provided dict structure  """
         self.tree_dict = tree_dict
-        print(f"set tree_dict:{self.tree_dict}")
         # Looks like there is no root in the subtree
         try:
-            print(f"try set route tree:{self.tree_dict['root']}")
             self.root_node = self.tree_dict["root"]
         except Exception as e:
-            print(f"except 1: {e}")
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving root object from dict, self.tree_dict: {self.tree_dict} {e}")
             raise
         # create the root node
         try:
-            print("tree new tree creation")
             self.new_tree = Tree(identifier=self.tree_dict["_identifier"])
         except Exception as e:
-            print("exept 2")
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured creating new tree with _identifier:{self.tree_dict['_identifier']} {e}")
             raise
@@ -383,10 +378,11 @@ class UserStorage:
         """ save a user's details into the user collection """
         self.username = user.username
         self.firstname = user.name.firstname
+        self.password = user.password
         self.surname = user.name.surname
         self.email = user.email
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
-                                username=self.username,
+                                username=self.username, password=self.password,
                                 account_id=hashlib.sha256(
             self.username.encode('utf-8')).hexdigest(),
             email=self.email)
@@ -405,7 +401,6 @@ class UserStorage:
             raise
         try:
             self.new_user = await self.user_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
-            print(f"self.new_user{self.new_user}")
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
@@ -420,10 +415,12 @@ class UserStorage:
         self.username = user.username
         self.firstname = user.name.firstname
         self.surname = user.name.surname
+        self.password = user.password
         self.email = user.email
         self.account_id = user.account_id
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username,
+                                password=self.password,
                                 account_id=self.account_id,
                                 email=self.email)
         self.console_display = ConsoleDisplay()
@@ -461,7 +458,6 @@ class UserStorage:
                 message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
             print(e)
             raise
-        print(f"self.delete_response:{self.delete_response.deleted_count}")
         return self.delete_response.deleted_count
 
     async def check_if_user_exists(self, user_id: str) -> int:

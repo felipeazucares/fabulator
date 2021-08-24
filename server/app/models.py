@@ -101,6 +101,7 @@ class Name(BaseModel):
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
+    password: str
     account_id: Optional[str] = None
     email: EmailStr
 
@@ -109,6 +110,7 @@ class UserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com"
             }
@@ -119,6 +121,7 @@ class RetrievedUserDetails(BaseModel):
     id: str
     name: Name  # use nested model definition
     username: str
+    password: str
     account_id: Optional[str] = None
     email: EmailStr
 
@@ -127,6 +130,7 @@ class RetrievedUserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com"
             }
@@ -137,6 +141,7 @@ class UpdateUserDetails(BaseModel):
     id: str
     name: Optional[Name]  # use nested model definition
     username: Optional[str]
+    password: Optional[str]
     account_id: Optional[str] = None
     email: Optional[EmailStr]
 
@@ -145,6 +150,7 @@ class UpdateUserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com"
             }
@@ -176,6 +182,7 @@ def users_saves_helper(result) -> dict:
         name=Name(firstname=str(result["name"]["firstname"]),
                   surname=result["name"]["surname"]),
         username=str(result["username"]),
+        password=str(result['password']),
         account_id=str(result["account_id"]),
         email=EmailStr(result["email"])
     )
