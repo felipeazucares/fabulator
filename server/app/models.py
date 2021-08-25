@@ -88,9 +88,9 @@ class SubTree(BaseModel):
 
     sub_tree: dict
 
-    # -------------------------------------
-    #   Classes for user account
-    # -------------------------------------
+# -------------------------------------
+#   Classes for user account
+# -------------------------------------
 
 
 class Name(BaseModel):
@@ -155,6 +155,29 @@ class UpdateUserDetails(BaseModel):
                 "email": "ben@kenobi.com"
             }
         }
+
+
+# -------------------------------------
+#   Classes for authentication
+# -------------------------------------
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+
+
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    disabled: Optional[bool] = None
+
+
+class UserInDB(User):
+    hashed_password: str
 
 # -------------------------------------
 #   Classes for mongo db storage
