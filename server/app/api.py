@@ -35,16 +35,19 @@ from .models import (
 )
 
 
-# set DEBUG flag
+# set env variables flag
 
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+SECRET_KEY = os.getenv('SECRET_KEY')
+ALGORITHM = os.getenv('ALGORITHM')
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
+
 console_display = helpers.ConsoleDisplay()
 
 if DEBUG:
     console_display.show_debug_message(
         message_to_show=f"Environment variable DEBUG is :{DEBUG}")
-    console_display.show_debug_message(
-        message_to_show=f"Environment variable DEBUG is type :{type(DEBUG)}")
+
 
 # ------------------------
 #      FABULATOR
@@ -68,11 +71,6 @@ app.add_middleware(
 # ------------------------
 #      example security code
 # ------------------------
-# to get a string like this run:
-# openssl rand -hex 32
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 fake_users_db = {
     "johndoe": {
