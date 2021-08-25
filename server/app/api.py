@@ -72,7 +72,7 @@ fake_users_db = {
 }
 
 
-@app.post("/token", response_model=Token)
+@app.post("/get_token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = oauth.authenticate_user(
         fake_users_db, form_data.username, form_data.password)

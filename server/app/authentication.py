@@ -8,7 +8,7 @@ from typing import Optional
 import os
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="authenticate")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="get_token")
 
 
 class Authentication():
