@@ -8,7 +8,9 @@ import hashlib
 import asyncio
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
+from passlib.context import CryptContext
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 app = FastAPI()
 
@@ -537,8 +539,6 @@ async def test_add_child_node_with_invalid_parent(test_create_root_node):
 #   Remove Subtree Tests
 # ------------------------
 
-# todo: make pruning into a fixture and feed into both prune and graft tests
-
 
 @pytest.fixture
 @pytest.mark.asyncio
@@ -863,7 +863,7 @@ def dummy_user_update():
         "name": {"firstname": "Jango", "surname": "Fett"},
         "username": username,
         "password": "get 'im son!",
-        "account_id": hashlib.sha256(username.encode('utf-8')).hexdigest(),
+        "account_id": pwd_context.hash(username),
         "email": "jango_fett@runsheadless.com"
     }
 
@@ -873,8 +873,7 @@ def dummy_user_update():
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can update it and delete it"""
 
-    username = "unittestuser"
-    username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+    # username = "unittestuser"
     data = jsonable_encoder(dummy_user_to_add)
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -886,8 +885,10 @@ async def test_add_user(dummy_user_to_add):
         "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
     assert response.json()[
         "data"]["username"] == dummy_user_to_add["username"]
-    assert response.json()[
-        "data"]["account_id"] == username_hash
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["account_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+        "data"]["password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
     # return id of record created
@@ -910,9 +911,10 @@ async def test_get_user(test_add_user, dummy_user_to_add):
         "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
     assert response.json()[
         "data"]["username"] == dummy_user_to_add["username"]
-    assert response.json()[
-        "data"]["account_id"] == hashlib.sha256(
-        dummy_user_to_add["username"].encode('utf-8')).hexdigest()
+    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+        "data"]["password"]) == True
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["account_id"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
     # remove the user document we just created
@@ -943,8 +945,7 @@ async def test_update_user(test_add_user, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     # set up unit test user
 
-    username_hash = hashlib.sha256(
-        dummy_user_update["username"].encode('utf-8')).hexdigest()
+    # username_hash = pwd_context.hash(dummy_user_update["username"])
 
     data = jsonable_encoder(dummy_user_update)
 
@@ -957,8 +958,10 @@ async def test_update_user(test_add_user, dummy_user_update):
         "data"]["name"]["surname"] == dummy_user_update["name"]["surname"]
     assert response.json()[
         "data"]["username"] == dummy_user_update["username"]
-    assert response.json()[
-        "data"]["account_id"] == username_hash
+    assert pwd_context.verify(dummy_user_update["password"], response.json()[
+        "data"]["password"]) == True
+    assert pwd_context.verify(dummy_user_update["username"], response.json()[
+        "data"]["account_id"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_update["email"]
 

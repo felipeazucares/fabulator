@@ -101,18 +101,20 @@ class Name(BaseModel):
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
-    password: str
+    hashed_password: str
     account_id: Optional[str] = None
     email: EmailStr
+    disabled: Optional[bool] = False
 
     class Config:
         schema_extra = {
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
-                "password": "us3Th3F0rceLuk3",
+                "hashed_password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com"
+                "email": "ben@kenobi.com",
+                "disabled": False
             }
         }
 

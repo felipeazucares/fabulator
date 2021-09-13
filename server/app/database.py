@@ -381,11 +381,11 @@ class UserStorage:
         self.password = user.password
         self.surname = user.name.surname
         self.email = user.email
+        self.account_id = user.account_id
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username, password=self.password,
-                                account_id=hashlib.sha256(
-            self.username.encode('utf-8')).hexdigest(),
-            email=self.email)
+                                account_id=self.account_id,
+                                email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
