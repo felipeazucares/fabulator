@@ -1,3 +1,4 @@
+from logging import currentframe
 import os
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
@@ -235,13 +236,15 @@ def initialise_tree():
 
 
 @ app.get("/")
-async def get() -> dict:
+async def get(current_user: UserDetails = Depends(get_current_active_user)) -> dict:
     """ Return the API version """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    if DEBUG:
-        console_display.show_debug_message(
-            message_to_show="debug message - Get() Called")
-    return ResponseModel(data={"version": version}, message="Success")
+    if current_user:
+        if DEBUG:
+            console_display.show_debug_message(
+                message_to_show="debug message - Get() Called")
+
+    return ResponseModel(data={"version": version, "account_id": current_user.account_id}, message="Success")
 
 # ------------------------
 #         Trees

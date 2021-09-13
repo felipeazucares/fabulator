@@ -850,9 +850,10 @@ def dummy_user_to_add():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
         "username": "unittestuser",
-        "password": "don't look now",
+        "hashed_password": "don't look now",
         "account_id": None,
-        "email": "john_maginot@fictional.com"
+        "email": "john_maginot@fictional.com",
+        "disabled": False
     }
 
 
@@ -862,9 +863,10 @@ def dummy_user_update():
     return {
         "name": {"firstname": "Jango", "surname": "Fett"},
         "username": username,
-        "password": "get 'im son!",
+        "hashed_password": "get 'im son!",
         "account_id": pwd_context.hash(username),
-        "email": "jango_fett@runsheadless.com"
+        "email": "jango_fett@runsheadless.com",
+        "disabled": False
     }
 
 
@@ -887,10 +889,12 @@ async def test_add_user(dummy_user_to_add):
         "data"]["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-        "data"]["password"]) == True
+    assert pwd_context.verify(dummy_user_to_add["hashed_password"], response.json()[
+        "data"]["hashed_password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add["disabled"]
     # return id of record created
     return(response.json()["data"]["id"])
 
@@ -911,12 +915,14 @@ async def test_get_user(test_add_user, dummy_user_to_add):
         "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
     assert response.json()[
         "data"]["username"] == dummy_user_to_add["username"]
-    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-        "data"]["password"]) == True
+    assert pwd_context.verify(dummy_user_to_add["hashed_password"], response.json()[
+        "data"]["hashed_password"]) == True
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add["disabled"]
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.delete(f"/users/{test_add_user}")

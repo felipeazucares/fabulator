@@ -1,7 +1,7 @@
 
 import os
-import hashlib
-import dns.resolver
+# import hashlib
+# import dns.resolver
 import motor.motor_asyncio
 from treelib import Tree
 from fastapi.encoders import jsonable_encoder
