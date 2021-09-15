@@ -1,4 +1,6 @@
 
+# from fastapi.param_functions import Form
+from app.api import ALGORITHM, SECRET_KEY
 import pytest
 import asyncio
 import httpx
@@ -8,6 +10,7 @@ import hashlib
 import asyncio
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
+from jose import jwt
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -22,38 +25,34 @@ app = FastAPI()
 base_port = "8000"
 root_url = f"http://localhost:{base_port}"
 
-# the mongo save returns a save object - but how do I deconstruct one of those
+
+@ pytest.fixture
+def form_data():
+    # TODO: have to get this user into the database prior to doing this?
+    # Perhaps call create using the user routines and then use that user for the
+    # duration of the suite?
+    return {"username": "johndoe", "password": "secret"}
 
 
-class MockResponse:
-    @staticmethod
-    def json():
-        {
-            "data": [
-                {
-                    "_identifier": "399a95ee-d9c7-11eb-b6de-f01898e87167",
-                    "_tag": "Automatic Shoes",
-                    "expanded": True,
-                    "_predecessor": {
-                        "64eb660e-d343-11eb-b051-f01898e87167": "8de508ee-d343-11eb-b051-f01898e87167"
-                    },
-                    "_successors": {},
-                    "data": {
-                        "description": "John gets an unexpected message from @TheRealEmpressSeb",
-                        "previous": None,
-                        "next": None,
-                        "text": "I stare at the glass like it’s bitten me. I should just ignore this, but like all good lab rats I know the buttons to push to get the good stuff.",
-                        "tags": [
-                            "Chapter",
-                            "Maginot"
-                        ]
-                    },
-                    "_initial_tree_id": "64eb660e-d343-11eb-b051-f01898e87167"
-                }
-            ],
-            "code": 200,
-            "message": "Success"
-        }
+@ pytest.mark.asyncio
+@ pytest.fixture
+async def login_user(form_data):
+    """ test user login """
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+    # TODO: use the token class defined in the models
+    return response.json()
+
+
+@pytest.mark.asyncio
+@ pytest.fixture
+async def test_return_bearer_token(login_user, form_data):
+    assert login_user != None
+    token_data = jwt.decode(login_user["access_token"],
+                            key=SECRET_KEY, algorithms=ALGORITHM)
+    assert token_data.get("sub") == form_data["username"]
+    return {"Authorization": "Bearer " + str(login_user["access_token"])}
 
 
 @pytest.fixture
@@ -116,9 +115,10 @@ def test_payload_create_null():
 
 
 @pytest.mark.asyncio
-async def test_root_path():
+async def test_root_path(test_return_bearer_token):
     """ return version number"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    headers = test_return_bearer_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
     assert response.status_code == 200
     assert response.json()["data"]["version"] == "0.1.0"
@@ -850,7 +850,7 @@ def dummy_user_to_add():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
         "username": "unittestuser",
-        "hashed_password": "don't look now",
+        "password": "don't look now",
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False
@@ -863,7 +863,7 @@ def dummy_user_update():
     return {
         "name": {"firstname": "Jango", "surname": "Fett"},
         "username": username,
-        "hashed_password": "get 'im son!",
+        "password": "get 'im son!",
         "account_id": pwd_context.hash(username),
         "email": "jango_fett@runsheadless.com",
         "disabled": False
@@ -889,8 +889,8 @@ async def test_add_user(dummy_user_to_add):
         "data"]["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["hashed_password"], response.json()[
-        "data"]["hashed_password"]) == True
+    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+        "data"]["password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
     assert response.json()[
@@ -915,8 +915,8 @@ async def test_get_user(test_add_user, dummy_user_to_add):
         "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
     assert response.json()[
         "data"]["username"] == dummy_user_to_add["username"]
-    assert pwd_context.verify(dummy_user_to_add["hashed_password"], response.json()[
-        "data"]["hashed_password"]) == True
+    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+        "data"]["password"]) == True
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
     assert response.json()[

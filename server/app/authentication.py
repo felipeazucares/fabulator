@@ -37,7 +37,7 @@ class Authentication():
         user = self.get_user_func(db, username)
         if not user:
             return False
-        if not self.verify_password(password, user.hashed_password):
+        if not self.verify_password(password, user.password):
             return False
         return user
 

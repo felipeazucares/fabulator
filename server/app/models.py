@@ -101,7 +101,7 @@ class Name(BaseModel):
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
-    hashed_password: str
+    password: str  # hashed password
     account_id: Optional[str] = None
     email: EmailStr
     disabled: Optional[bool] = False
@@ -111,7 +111,7 @@ class UserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
-                "hashed_password": "us3Th3F0rceLuk3",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False
@@ -123,7 +123,7 @@ class RetrievedUserDetails(BaseModel):
     id: str
     name: Name  # use nested model definition
     username: str
-    hashed_password: str
+    password: str
     account_id: Optional[str] = None
     email: EmailStr
     disabled: Optional[bool] = False
@@ -133,7 +133,7 @@ class RetrievedUserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
-                "hashed_password": "us3Th3F0rceLuk3",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False
