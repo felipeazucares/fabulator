@@ -654,11 +654,8 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     assert response.json()["message"] == "Success"
     assert response.json()["data"] == "Graft complete"
 
-    # todo: get all nodes and compare them to expected outcome
-
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{account_id}")
-    print(f"data:{response.json()['data']}")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -1029,6 +1026,27 @@ async def test_delete_non_existent_user(test_add_user):
     assert response.status_code == 404
     assert response.json()[
         "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users/{test_add_user}")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+
+
+@ pytest.mark.asyncio
+async def test_get_user_by_username(test_add_user, dummy_user_to_add):
+    """ test retrieving a user document from the collection by username - no route for this"""
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
+    assert user["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
+    assert user["name"]["surname"] == dummy_user_to_add["name"]["surname"]
+    assert user["username"] == dummy_user_to_add["username"]
+    assert pwd_context.verify(
+        dummy_user_to_add["password"], user["password"]) == True
+    assert pwd_context.verify(
+        dummy_user_to_add["username"], user["account_id"]) == True
+    assert user["email"] == dummy_user_to_add["email"]
+    assert user["disabled"] == dummy_user_to_add["disabled"]
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.delete(f"/users/{test_add_user}")

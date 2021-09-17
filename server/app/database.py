@@ -366,10 +366,27 @@ class UserStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"get_user_details_by_account({self.account_id}) called")
         try:
-            self.user_details = UserDetails(await self.user_collection.find_one({"account_id": self.account_id}))
+            self.user_details = await self.user_collection.find_one({"account_id": self.account_id})
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        return self.user_details
+
+    async def get_user_details_by_username(self, username: str):
+        """ return the a user's details given their username - used for log in """
+        self.username = username
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"get_user_details_by_username({self.username}) called")
+        try:
+            self.user_details = await self.user_collection.find_one({"username": self.username})
+            print(self.user_details)
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database username was: {self.username}")
             print(e)
             raise
         return self.user_details

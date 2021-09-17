@@ -5,6 +5,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from .models import UserDetails
 from typing import Optional
+import app.database as database
 import os
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,6 +20,8 @@ class Authentication():
         self.ALGORITHM = os.getenv('ALGORITHM')
         self.ACCESS_TOKEN_EXPIRE_MINUTES = int(
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
+        self.user_storage = database.UserStorage(
+            collection_name="user_collection")
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -26,18 +29,20 @@ class Authentication():
     def get_password_hash(self, password):
         return pwd_context.hash(password)
 
-    def get_user_func(self, db, username: str):
+    async def get_user_by_username(self, username: str):
         """ returns the details for a given userid """
-        if username in db:
-            user_dict = db[username]
-            return UserDetails(**user_dict)
+        return(await self.user_storage.get_user_details_by_username(username=username))
 
-    def authenticate_user(self, db, username: str, password: str):
+    async def get_user_by_account_id(self, account_id: str):
+        """ returns the details for a given account_id """
+        return(await self.user_storage.get_user_details_by_account_id(account_id=account_id))
+
+    async def authenticate_user(self, username: str, password: str):
         """ passed a db of users & username and input password, verifies password - returns user"""
-        user = self.get_user_func(db, username)
+        user = await self.get_user_by_username(username)
         if not user:
             return False
-        if not self.verify_password(password, user.password):
+        if not self.verify_password(password, user["password"]):
             return False
         return user
 

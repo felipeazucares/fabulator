@@ -14,6 +14,7 @@ from datetime import timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
+
 from .database import (
     TreeStorage,
     UserStorage
@@ -90,30 +91,29 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY,
                              algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        account_id: str = payload.get("sub")
+        print(f"account_id:{account_id}")
+        if account_id is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        token_data = TokenData(username=account_id)
     except JWTError:
         raise credentials_exception
-    user = oauth.get_user_func(
-        fake_users_db, username=token_data.username)
+    user = await oauth.get_user_by_account_id(account_id=token_data.username)
     if user is None:
         raise credentials_exception
     return user
 
 
 async def get_current_active_user(current_user: UserDetails = Depends(get_current_user)):
-    print("get current active user")
-    if current_user.disabled:
+    if current_user["disabled"]:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
 @app.post("/get_token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = oauth.authenticate_user(
-        fake_users_db, form_data.username, form_data.password)
+    user = await oauth.authenticate_user(
+        form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -123,7 +123,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # creates a token for a given user with an expiry in minutes
     access_token = oauth.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user["account_id"]}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -135,7 +135,7 @@ async def read_users_me(current_user: UserDetails = Depends(get_current_active_u
 
 @app.get("/users/me/items/")
 async def read_own_items(current_user: UserDetails = Depends(get_current_active_user)):
-    return [{"item_id": "Foobles", "owner": current_user.username}]
+    return [{"item_id": "Foobles", "owner": current_user["username"]}]
 
 # ------------------------
 #      END of Example
@@ -244,7 +244,7 @@ async def get(current_user: UserDetails = Depends(get_current_active_user)) -> d
             console_display.show_debug_message(
                 message_to_show="debug message - Get() Called")
 
-    return ResponseModel(data={"version": version, "account_id": current_user.account_id}, message="Success")
+    return ResponseModel(data={"version": version, "account_id": current_user["account_id"]}, message="Success")
 
 # ------------------------
 #         Trees
