@@ -105,8 +105,8 @@ class Name(BaseModel):
 
 
 class UserType(CamelStrEnum):
-    security_admin = auto()
-    account_owner = auto()
+    admin = auto()
+    owner = auto()
     reader = auto()
 
 
@@ -116,28 +116,8 @@ class UserDetails(BaseModel):
     password: str  # hashed password
     account_id: Optional[str] = None
     email: EmailStr
-    disabled: Optional[bool] = False,
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "name": {"firstname": "Alexei", "surname": "Guinness"},
-                "username": "a_dummy_user",
-                "password": "us3Th3F0rceLuk3",
-                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com",
-                "disabled": False
-            }
-        }
-
-
-class UserDetails(BaseModel):
-    name: Name  # use nested model definition
-    username: str
-    password: str  # hashed password
-    account_id: Optional[str] = None
-    email: EmailStr
     disabled: Optional[bool] = False
+    user_type: UserType
 
     class Config:
         schema_extra = {
@@ -147,9 +127,33 @@ class UserDetails(BaseModel):
                 "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
-                "disabled": False
+                "disabled": False,
+                "user_type": "owner"
             }
         }
+
+
+# class UserDetails(BaseModel):
+#     name: Name  # use nested model definition
+#     username: str
+#     password: str  # hashed password
+#     account_id: Optional[str] = None
+#     email: EmailStr
+#     disabled: Optional[bool] = False
+#     user_type: UserType
+
+#     class Config:
+#         schema_extra = {
+#             "example": {
+#                 "name": {"firstname": "Alexei", "surname": "Guinness"},
+#                 "username": "a_dummy_user",
+#                 "password": "us3Th3F0rceLuk3",
+#                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+#                 "email": "ben@kenobi.com",
+#                 "disabled": False,
+#                 "user_type": "owner"
+#             }
+#         }
 
 
 class UserAccount(BaseModel):
@@ -163,6 +167,7 @@ class UpdateUserDetails(BaseModel):
     password: Optional[str]
     account_id: Optional[str] = None
     email: Optional[EmailStr]
+    user_type: UserType
 
     class Config:
         schema_extra = {
@@ -171,7 +176,8 @@ class UpdateUserDetails(BaseModel):
                 "username": "a_dummy_user",
                 "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com"
+                "email": "ben@kenobi.com",
+                "user_type": "owner"
             }
         }
 

@@ -744,7 +744,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
 
 
 @ app.get("/users/{id}")
-async def get_user(id: str) -> dict:
+async def get_user(id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ get a user's details from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -767,7 +767,7 @@ async def get_user(id: str) -> dict:
 
 
 @ app.put("/users/{id}")
-async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
+async def update_user(id: str, request: UserDetails = Body(...), account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # if there's a password in the update then hash it
@@ -793,7 +793,7 @@ async def save_user(id: str, request: UserDetails = Body(...)) -> dict:
 
 
 @ app.delete("/users/{id}")
-async def delete_user(id: str) -> dict:
+async def delete_user(id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ delete a user from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
