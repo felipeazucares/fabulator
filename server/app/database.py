@@ -350,13 +350,17 @@ class UserStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"get_user_details_by_id({self.id}) called")
         try:
-            self.user_details = await self.user_collection.find_one({"_id": ObjectId(self.id)})
+            user_deets = await self.user_collection.find_one({"_id": ObjectId(self.id)})
+            if user_deets is not None:
+                self.user_details = UserDetails(**user_deets)
+            else:
+                self.user_details = None
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.id}")
             print(e)
             raise
-        return users_saves_helper(self.user_details)
+        return self.user_details
 
     async def get_user_details_by_account_id(self, account_id: str):
         """ return the a user's details given their account_id """
@@ -366,7 +370,12 @@ class UserStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"get_user_details_by_account({self.account_id}) called")
         try:
-            self.user_details = await self.user_collection.find_one({"account_id": self.account_id})
+            user_deets = await self.user_collection.find_one(
+                {"account_id": self.account_id})
+            if user_deets is not None:
+                self.user_details = UserDetails(**user_deets)
+            else:
+                self.user_details = None
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
@@ -382,8 +391,11 @@ class UserStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"get_user_details_by_username({self.username}) called")
         try:
-            self.user_details = await self.user_collection.find_one({"username": self.username})
-            print(self.user_details)
+            user_deets = await self.user_collection.find_one({"username": self.username})
+            if user_deets is not None:
+                self.user_details = UserDetails(**user_deets)
+            else:
+                self.user_details = None
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database username was: {self.username}")

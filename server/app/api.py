@@ -25,6 +25,7 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     UserDetails,
+    UserAccount,
     Token,
     TokenData,
     ResponseModel
@@ -37,6 +38,10 @@ DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
+TEST_USERNAME_TO_ADD = os.getenv(key="TESTUSERTOADD")
+TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
+TEST_USERNAME_TO_UPDATE = os.getenv(key="TESTUSERTOUPDATE")
+TEST_PASSWORD_TO_UPDATE = os.getenv(key="TESTPWDTOUPDATE")
 
 console_display = helpers.ConsoleDisplay()
 
@@ -67,79 +72,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="get_token")
 oauth = Authentication()
 
-fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "name": {
-            "firstname": "John",
-            "surname": "Doe"
-        },
-        "account_id": "XXXYYYZZZ",
-        "email": "johndoe@example.com",
-        "password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
-        "disabled": False,
-    }
-}
 
-
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY,
-                             algorithms=[ALGORITHM])
-        account_id: str = payload.get("sub")
-        print(f"account_id:{account_id}")
-        if account_id is None:
-            raise credentials_exception
-        token_data = TokenData(username=account_id)
-    except JWTError:
-        raise credentials_exception
-    user = await oauth.get_user_by_account_id(account_id=token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
-
-
-async def get_current_active_user(current_user: UserDetails = Depends(get_current_user)):
-    if current_user["disabled"]:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-
-@app.post("/get_token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await oauth.authenticate_user(
-        form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    # creates a token for a given user with an expiry in minutes
-    access_token = oauth.create_access_token(
-        data={"sub": user["account_id"]}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-@app.get("/users/me/", response_model=UserDetails)
-async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
-    return current_user
-
-
-@app.get("/users/me/items/")
-async def read_own_items(current_user: UserDetails = Depends(get_current_active_user)):
-    return [{"item_id": "Foobles", "owner": current_user["username"]}]
-
-# ------------------------
-#      END of Example
-# ------------------------
 # ------------------------
 #     API Helper Class
 # ------------------------
@@ -218,9 +151,70 @@ class RoutesHelper():
             raise HTTPException(
                 status_code=500, detail=f"Error occured retrieving count of user documents user_id: {self.user_id}: {e}")
 
+
 # ------------------------
 #       API Routes
 # ------------------------
+
+# ----------------------------
+#     Authenticaton routines
+# ----------------------------
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY,
+                             algorithms=[ALGORITHM])
+        account_id: str = payload.get("sub")
+        print(f"account_id:{account_id}")
+        if account_id is None:
+            raise credentials_exception
+        token_data = TokenData(username=account_id)
+    except JWTError:
+        raise credentials_exception
+    user = await oauth.get_user_by_account_id(account_id=token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_active_user(current_user: UserDetails = Depends(get_current_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+async def get_current_active_user_account(current_user: UserDetails = Depends(get_current_user)):
+    if current_user.disabled:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user.account_id
+
+
+@app.post("/get_token", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = await oauth.authenticate_user(
+        form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # creates a token for a given user with an expiry in minutes
+    access_token = oauth.create_access_token(
+        data={"sub": user.account_id}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/users/me/", response_model=UserDetails)
+async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
+    return current_user
 
 
 # ------------------------
@@ -244,7 +238,7 @@ async def get(current_user: UserDetails = Depends(get_current_active_user)) -> d
             console_display.show_debug_message(
                 message_to_show="debug message - Get() Called")
 
-    return ResponseModel(data={"version": version, "account_id": current_user["account_id"]}, message="Success")
+    return ResponseModel(data={"version": version, "username": current_user.username}, message="Success")
 
 # ------------------------
 #         Trees
@@ -252,7 +246,7 @@ async def get(current_user: UserDetails = Depends(get_current_active_user)) -> d
 
 
 @ app.get("/trees/root")
-async def get_tree_root() -> dict:
+async def get_tree_root(account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -270,8 +264,8 @@ async def get_tree_root() -> dict:
     return ResponseModel(data={"root": data}, message="Success")
 
 
-@ app.get("/trees/{account_id}/{id}")
-async def prune_subtree(account_id: str, id: str) -> dict:
+@ app.get("/trees/{id}")
+async def prune_subtree(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ cut a node & children specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -280,7 +274,7 @@ async def prune_subtree(account_id: str, id: str) -> dict:
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             routes_helper.console_display.show_debug_message(
-                f"prune_subtree({account_id},{id}) called")
+                f"prune_subtree({id}) called")
         if tree.contains(id):
             try:
                 response = tree.remove_subtree(id)
@@ -308,8 +302,8 @@ async def prune_subtree(account_id: str, id: str) -> dict:
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
-@ app.post("/trees/{account_id}/{id}")
-async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) -> dict:
+@ app.post("/trees/{id}")
+async def graft_subtree(id: str, request: SubTree = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ paste a subtree & beneath the node specified"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -319,7 +313,7 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             routes_helper.console_display.show_debug_message(
-                f"graft_subtree({account_id},{id}) called")
+                f"graft_subtree({id}) called")
         if tree.contains(id):
             # turn dict object into a Tree
             try:
@@ -359,8 +353,8 @@ async def graft_subtree(account_id: str, id: str, request: SubTree = Body(...)) 
 # ------------------------
 
 
-@ app.get("/nodes/{account_id}")
-async def get_all_nodes(account_id: str, filterval: Optional[str] = None) -> dict:
+@ app.get("/nodes")
+async def get_all_nodes(filterval: Optional[str] = None, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ Get a list of all the nodes in the working tree"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -392,8 +386,8 @@ async def get_all_nodes(account_id: str, filterval: Optional[str] = None) -> dic
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
-@ app.get("/nodes/{account_id}/{id}")
-async def get_a_node(account_id: str, id: str) -> dict:
+@ app.get("/nodes/{id}")
+async def get_a_node(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ Return a node specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -415,15 +409,15 @@ async def get_a_node(account_id: str, id: str) -> dict:
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
-@ app.post("/nodes/{account_id}/{name}")
-async def create_node(account_id: str, name: str, request: RequestAddSchema = Body(...)) -> dict:
+@ app.post("/nodes/{name}")
+async def create_node(name: str, request: RequestAddSchema = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ Add a node to the working tree using name supplied """
     # todo: check for pre-existence of account
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # map the incoming fields from the https request to the fields required by the treelib API
     if DEBUG:
         console_display.show_debug_message(
-            message_to_show=f"create_node({account_id},{name}) called")
+            message_to_show=f"create_node({name}) called")
     global tree
     try:
         request = jsonable_encoder(request)
@@ -496,15 +490,15 @@ async def create_node(account_id: str, name: str, request: RequestAddSchema = Bo
     return ResponseModel({"node": new_node, "object_id": save_result}, "Success")
 
 
-@ app.put("/nodes/{account_id}/{id}")
-async def update_node(account_id: str, id: str, request: RequestUpdateSchema = Body(...)) -> dict:
+@ app.put("/nodes/{id}")
+async def update_node(id: str, request: RequestUpdateSchema = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
     if DEBUG:
         console_display.show_debug_message(
-            f"update_node({account_id},{id}) called")
+            f"update_node({id}) called")
     routes_helper = RoutesHelper()
     if await routes_helper.account_id_exists(account_id=account_id):
         # test if node exists
@@ -578,8 +572,8 @@ async def update_node(account_id: str, id: str, request: RequestUpdateSchema = B
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
 
 
-@ app.delete("/nodes/{account_id}/{id}")
-async def delete_node(id: str, account_id: str = None) -> dict:
+@ app.delete("/nodes/{id}")
+async def delete_node(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
@@ -589,7 +583,7 @@ async def delete_node(id: str, account_id: str = None) -> dict:
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
             console_display.show_debug_message(
-                f"delete_node({account_id},{id}) called")
+                f"delete_node({id}) called")
         if tree.contains(id):
             try:
                 response = tree.remove_node(id)
@@ -622,13 +616,13 @@ async def delete_node(id: str, account_id: str = None) -> dict:
 # ------------------------
 
 
-@ app.get("/loads/{account_id}")
-async def get_latest_save(account_id: str) -> dict:
+@ app.get("/loads")
+async def get_latest_save(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ Return the latest saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
-            message_to_show=f"get_latest_save({account_id} called")
+            message_to_show=f"get_latest_save()called")
     global tree
     # check to see if the account_id exists in the db
     db_storage = TreeStorage(collection_name="tree_collection")
@@ -649,13 +643,13 @@ async def get_latest_save(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(tree), "Success")
 
 
-@ app.get("/loads/{account_id}/{save_id}")
-async def get_a_save(account_id: str, save_id: str) -> dict:
+@ app.get("/loads/{save_id}")
+async def get_a_save(save_id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ Return the specfied saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
-            message_to_show=f"get_a_save({account_id}/{save_id} called")
+            message_to_show=f"get_a_save({save_id} called")
     global tree
     db_storage = TreeStorage(collection_name="tree_collection")
     routes_helper = RoutesHelper()
@@ -684,8 +678,8 @@ async def get_a_save(account_id: str, save_id: str) -> dict:
 # ------------------------
 
 
-@ app.get("/saves/{account_id}")
-async def get_all_saves(account_id: str) -> dict:
+@ app.get("/saves")
+async def get_all_saves(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ Return a dict of all the trees saved in the db collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     try:
@@ -704,8 +698,8 @@ async def get_all_saves(account_id: str) -> dict:
     return ResponseModel(jsonable_encoder(all_saves), "Success")
 
 
-@ app.delete("/saves/{account_id}")
-async def delete_saves(account_id: str) -> dict:
+@ app.delete("/saves")
+async def delete_saves(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ Delete all saves from the db trees collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:

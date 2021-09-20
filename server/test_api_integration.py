@@ -1,8 +1,9 @@
 
 # from fastapi.param_functions import Form
-from app.api import ALGORITHM, SECRET_KEY
+from app.api import ALGORITHM, SECRET_KEY, TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO_UPDATE, TEST_PASSWORD_TO_UPDATE
 import pytest
 import asyncio
+import os
 import httpx
 import app.api as api
 import app.database as database
@@ -13,7 +14,6 @@ from fastapi.encoders import jsonable_encoder
 from jose import jwt
 from passlib.context import CryptContext
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 app = FastAPI()
 
@@ -24,35 +24,7 @@ app = FastAPI()
 # application settings
 base_port = "8000"
 root_url = f"http://localhost:{base_port}"
-
-
-@ pytest.fixture
-def form_data():
-    # TODO: have to get this user into the database prior to doing this?
-    # Perhaps call create using the user routines and then use that user for the
-    # duration of the suite?
-    return {"username": "johndoe", "password": "secret"}
-
-
-@ pytest.mark.asyncio
-@ pytest.fixture
-async def login_user(form_data):
-    """ test user login """
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
-    assert response.status_code == 200
-    # TODO: use the token class defined in the models
-    return response.json()
-
-
-@pytest.mark.asyncio
-@ pytest.fixture
-async def test_return_bearer_token(login_user, form_data):
-    assert login_user != None
-    token_data = jwt.decode(login_user["access_token"],
-                            key=SECRET_KEY, algorithms=ALGORITHM)
-    assert token_data.get("sub") == form_data["username"]
-    return {"Authorization": "Bearer " + str(login_user["access_token"])}
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @pytest.fixture
@@ -62,15 +34,89 @@ def event_loop():
     loop.close()
 
 
+# ------------------------
+#   User Tests fixtures
+# ------------------------
+
 @pytest.fixture
 @pytest.mark.asyncio
 def get_dummy_user_account_id():
     # set up unit test user
-    username = "unittestuser"
-    # firstname = "John"
-    # surname = "Maginot"
+    username = TEST_USERNAME_TO_ADD
     username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
     return username_hash
+
+
+@ pytest.fixture
+def dummy_user_to_add():
+    return {
+        "name": {"firstname": "John", "surname": "Maginot"},
+        "username": TEST_USERNAME_TO_ADD,
+        "password": TEST_PASSWORD_TO_ADD,
+        "account_id": None,
+        "email": "john_maginot@fictional.com",
+        "disabled": False
+    }
+
+
+@ pytest.fixture
+def dummy_user_update():
+    username = TEST_USERNAME_TO_UPDATE
+    return {
+        "name": {"firstname": "Jango", "surname": "Fett"},
+        "username": username,
+        "password": TEST_PASSWORD_TO_UPDATE,
+        "account_id": pwd_context.hash(username),
+        "email": "jango_fett@runsheadless.com",
+        "disabled": False
+    }
+
+
+@ pytest.fixture
+@ pytest.mark.asyncio
+async def test_add_user(dummy_user_to_add):
+    """ Add a new user so that we can authorise against it"""
+
+    data = jsonable_encoder(dummy_user_to_add)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
+    assert response.json()[
+        "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
+    assert response.json()[
+        "data"]["username"] == dummy_user_to_add["username"]
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["account_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+        "data"]["password"]) == True
+    assert response.json()[
+        "data"]["email"] == dummy_user_to_add["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add["disabled"]
+    # return id of record created
+    return(response.json()["data"]["id"])
+
+
+# --------------------------
+#   Authorization fixtures
+# --------------------------
+
+
+@ pytest.mark.asyncio
+@ pytest.fixture
+async def return_token(dummy_user_to_add):
+    """ test user login """
+    form_data = {
+        "username": dummy_user_to_add["username"],
+        "password": dummy_user_to_add["password"]
+    }
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+    return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
 
 def test_tree_create():
@@ -115,9 +161,9 @@ def test_payload_create_null():
 
 
 @pytest.mark.asyncio
-async def test_root_path(test_return_bearer_token):
+async def test_root_path(return_token):
     """ return version number"""
-    headers = test_return_bearer_token
+    headers = return_token
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
     assert response.status_code == 200
@@ -127,9 +173,10 @@ async def test_root_path(test_return_bearer_token):
 
 @pytest.mark.asyncio
 @pytest.fixture
-async def test_get_root_node():
+async def test_get_root_node(return_token):
     """ get the root node if it exists"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/trees/root")
     assert response.status_code == 200
     # return id of root node or None
@@ -142,13 +189,13 @@ async def test_get_root_node():
 
 @pytest.mark.asyncio
 @pytest.fixture
-async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
+async def test_create_root_node(return_token, get_dummy_user_account_id, test_get_root_node):
     """ Create a root node and return it """
-
+    headers = return_token
     # first test if there's already a root node - if there is remove it
     if test_get_root_node != None:
         async with httpx.AsyncClient(app=api.app) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_get_root_node}")
+            response = await client.delete(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/{test_get_root_node}", headers=headers)
         assert response.status_code == 200
         # test that the root node is removed as expected
         assert int(response.json()['data']) >= 1
@@ -162,7 +209,7 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
                             })
 
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/Unit test root node", json=data)
+        response = await ac.post(f"http://localhost:8000/nodes/{get_dummy_user_account_id}/Unit test root node", json=data, headers=headers)
 
     assert response.status_code == 200
     assert response.json()["data"]["node"]["_tag"] == "Unit test root node"
@@ -178,8 +225,9 @@ async def test_create_root_node(get_dummy_user_account_id, test_get_root_node):
 
 
 @pytest.mark.asyncio
-async def test_add_another_root_node(test_create_root_node: list):
+async def test_add_another_root_node(return_token, test_create_root_node: list):
     """ generate a root node then try to add another"""
+    headers = return_token
     data = jsonable_encoder({
         "description": "Unit test description for second root node",
         "previous": "previous node",
@@ -188,7 +236,7 @@ async def test_add_another_root_node(test_create_root_node: list):
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/this should fail", json=data)
+        response = await ac.post(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/this should fail", json=data, headers=headers)
     assert response.status_code == 422
     # test that the root node is removed as expected
     assert response.json()["detail"] == "Tree already has a root node"
@@ -837,63 +885,6 @@ async def test_delete_all_saves(get_dummy_user_account_id):
     remove_response = await db_storage.delete_all_saves(account_id=get_dummy_user_account_id)
     assert remove_response > 0
 
-# ------------------------
-#   User Tests fixtures
-# ------------------------
-
-
-@ pytest.fixture
-def dummy_user_to_add():
-    return {
-        "name": {"firstname": "John", "surname": "Maginot"},
-        "username": "unittestuser",
-        "password": "don't look now",
-        "account_id": None,
-        "email": "john_maginot@fictional.com",
-        "disabled": False
-    }
-
-
-@ pytest.fixture
-def dummy_user_update():
-    username = "unittestuser2"
-    return {
-        "name": {"firstname": "Jango", "surname": "Fett"},
-        "username": username,
-        "password": "get 'im son!",
-        "account_id": pwd_context.hash(username),
-        "email": "jango_fett@runsheadless.com",
-        "disabled": False
-    }
-
-
-@ pytest.fixture
-@ pytest.mark.asyncio
-async def test_add_user(dummy_user_to_add):
-    """ Add a new user so that we can update it and delete it"""
-
-    # username = "unittestuser"
-    data = jsonable_encoder(dummy_user_to_add)
-
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
-    assert response.status_code == 200
-    assert response.json()[
-        "data"]["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
-    assert response.json()[
-        "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
-    assert response.json()[
-        "data"]["username"] == dummy_user_to_add["username"]
-    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
-        "data"]["account_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-        "data"]["password"]) == True
-    assert response.json()[
-        "data"]["email"] == dummy_user_to_add["email"]
-    assert response.json()[
-        "data"]["disabled"] == dummy_user_to_add["disabled"]
-    # return id of record created
-    return(response.json()["data"]["id"])
 
 # ------------------------
 #       User Tests
@@ -946,9 +937,6 @@ async def test_get_non_existent_user(test_add_user):
 @ pytest.mark.asyncio
 async def test_update_user(test_add_user, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
-    # set up unit test user
-
-    # username_hash = pwd_context.hash(dummy_user_update["username"])
 
     data = jsonable_encoder(dummy_user_update)
 
@@ -1038,15 +1026,15 @@ async def test_get_user_by_username(test_add_user, dummy_user_to_add):
     """ test retrieving a user document from the collection by username - no route for this"""
     db_storage = database.UserStorage(collection_name="user_collection")
     user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
-    assert user["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
-    assert user["name"]["surname"] == dummy_user_to_add["name"]["surname"]
-    assert user["username"] == dummy_user_to_add["username"]
+    assert user.name.firstname == dummy_user_to_add["name"]["firstname"]
+    assert user.name.surname == dummy_user_to_add["name"]["surname"]
+    assert user.username == dummy_user_to_add["username"]
     assert pwd_context.verify(
-        dummy_user_to_add["password"], user["password"]) == True
+        dummy_user_to_add["password"], user.password) == True
     assert pwd_context.verify(
-        dummy_user_to_add["username"], user["account_id"]) == True
-    assert user["email"] == dummy_user_to_add["email"]
-    assert user["disabled"] == dummy_user_to_add["disabled"]
+        dummy_user_to_add["username"], user.account_id) == True
+    assert user.email == dummy_user_to_add["email"]
+    assert user.disabled == dummy_user_to_add["disabled"]
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.delete(f"/users/{test_add_user}")

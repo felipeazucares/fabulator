@@ -2,6 +2,10 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, validator
 from treelib import Tree
+from bson.objectid import ObjectId
+from enum import auto
+from fastapi_restful.enums import CamelStrEnum
+
 
 # -------------------------------------
 #   Classes for http requests
@@ -97,6 +101,35 @@ class Name(BaseModel):
     firstname: str
     surname: str
 
+# create enum to hold user types
+
+
+class UserType(CamelStrEnum):
+    security_admin = auto()
+    account_owner = auto()
+    reader = auto()
+
+
+class UserDetails(BaseModel):
+    name: Name  # use nested model definition
+    username: str
+    password: str  # hashed password
+    account_id: Optional[str] = None
+    email: EmailStr
+    disabled: Optional[bool] = False,
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": {"firstname": "Alexei", "surname": "Guinness"},
+                "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
+                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "email": "ben@kenobi.com",
+                "disabled": False
+            }
+        }
+
 
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
@@ -119,26 +152,8 @@ class UserDetails(BaseModel):
         }
 
 
-class RetrievedUserDetails(BaseModel):
-    id: str
-    name: Name  # use nested model definition
-    username: str
-    password: str
-    account_id: Optional[str] = None
-    email: EmailStr
-    disabled: Optional[bool] = False
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "name": {"firstname": "Alexei", "surname": "Guinness"},
-                "username": "a_dummy_user",
-                "password": "us3Th3F0rceLuk3",
-                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com",
-                "disabled": False
-            }
-        }
+class UserAccount(BaseModel):
+    account_id: str
 
 
 class UpdateUserDetails(BaseModel):
@@ -204,12 +219,13 @@ def saves_helper(save) -> dict:
 
 
 def users_saves_helper(result) -> dict:
+    print(f"result:{result}")
     return RetrievedUserDetails(
-        id=str(result["_id"]),
+        id=str(ObjectId(result["_id"])),
         name=Name(firstname=str(result["name"]["firstname"]),
                   surname=result["name"]["surname"]),
         username=str(result["username"]),
-        password=str(result['password']),
+        password=str(result["password"]),
         account_id=str(result["account_id"]),
         email=EmailStr(result["email"])
     )

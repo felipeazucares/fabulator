@@ -42,7 +42,7 @@ class Authentication():
         user = await self.get_user_by_username(username)
         if not user:
             return False
-        if not self.verify_password(password, user["password"]):
+        if not self.verify_password(password, user.password):
             return False
         return user
 
