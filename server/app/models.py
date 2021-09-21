@@ -133,27 +133,28 @@ class UserDetails(BaseModel):
         }
 
 
-# class UserDetails(BaseModel):
-#     name: Name  # use nested model definition
-#     username: str
-#     password: str  # hashed password
-#     account_id: Optional[str] = None
-#     email: EmailStr
-#     disabled: Optional[bool] = False
-#     user_type: UserType
+class RetrievedUserDetails(BaseModel):
+    id: str
+    name: Name  # use nested model definition
+    username: str
+    password: str
+    account_id: Optional[str] = None
+    email: EmailStr
+    disabled: Optional[bool] = False
+    user_type: UserType
 
-#     class Config:
-#         schema_extra = {
-#             "example": {
-#                 "name": {"firstname": "Alexei", "surname": "Guinness"},
-#                 "username": "a_dummy_user",
-#                 "password": "us3Th3F0rceLuk3",
-#                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-#                 "email": "ben@kenobi.com",
-#                 "disabled": False,
-#                 "user_type": "owner"
-#             }
-#         }
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": {"firstname": "Alexei", "surname": "Guinness"},
+                "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
+                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
+                "email": "ben@kenobi.com",
+                "disabled": False,
+                "user_type": "owner"
+            }
+        }
 
 
 class UserAccount(BaseModel):
@@ -225,7 +226,7 @@ def saves_helper(save) -> dict:
 
 
 def users_saves_helper(result) -> dict:
-    print(f"result:{result}")
+    """ converts dict returned to object"""
     return RetrievedUserDetails(
         id=str(ObjectId(result["_id"])),
         name=Name(firstname=str(result["name"]["firstname"]),
@@ -233,5 +234,7 @@ def users_saves_helper(result) -> dict:
         username=str(result["username"]),
         password=str(result["password"]),
         account_id=str(result["account_id"]),
-        email=EmailStr(result["email"])
+        email=EmailStr(result["email"]),
+        disabled=str(result["disabled"]),
+        user_type=str(result["user_type"])
     )

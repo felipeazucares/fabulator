@@ -104,6 +104,7 @@ async def test_add_user(dummy_user_to_add):
 @ pytest.fixture
 async def return_token(test_add_user, dummy_user_to_add):
     """ test user login """
+    assert test_add_user is not None
     form_data = {
         "username": dummy_user_to_add["username"],
         "password": dummy_user_to_add["password"]
