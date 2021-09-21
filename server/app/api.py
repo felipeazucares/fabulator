@@ -94,20 +94,17 @@ class RoutesHelper():
             self.console_display.show_debug_message(
                 message_to_show=f"account_id_exists({self.account_id}) called")
         try:
-            number_saves = await self.db_storage.number_of_saves_for_account(account_id=self.account_id)
+            does_account_exist = await self.user_storage.does_account_exist(account_id=self.account_id)
             if self.DEBUG:
                 self.console_display.show_debug_message(
-                    message_to_show=f"number_of_saves_for_account returned: {number_saves}")
-            if number_saves > 0:
-                return True
-            else:
-                return False
+                    message_to_show=f"account_exists: {does_account_exist}")
+            return does_account_exist
         except Exception as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured retrieving count of saves for {self.account_id}")
             print(e)
             raise HTTPException(
-                status_code=500, detail=f"Error occured retrieving count of save documents for {account_id} : {e}")
+                status_code=500, detail=f"Error occured retrieving details for {account_id} : {e}")
 
     async def save_document_exists(self, document_id):
         self.document_id = document_id
@@ -792,27 +789,27 @@ async def update_user(id: str, request: UserDetails = Body(...), account_id: Use
             status_code=404, detail=f"No user record found for id:{id}")
 
 
-@ app.delete("/users/{id}")
-async def delete_user(id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+@ app.delete("/users")
+async def delete_user(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ delete a user from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
-            f"delete_user({id}) called")
+            f"delete_user({account_id}) called")
     routes_helper = RoutesHelper()
-    if await routes_helper.user_document_exists(user_id=id):
+    if await routes_helper.account_id_exists(account_id=account_id):
         try:
             db_storage = UserStorage(collection_name="user_collection")
-            delete_result = await db_storage.delete_user_details(id=id)
+            delete_result = await db_storage.delete_user_details_by_account_id(account_id=account_id)
         except Exception as e:
             console_display.show_exception_message(
-                message_to_show="Error occured deleteing user details:{id}")
+                message_to_show="Error occured deleteing user details:{account_id}")
             raise
         result = ResponseModel(delete_result, "new user added")
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for id:{id}")
+            status_code=404, detail=f"No user record found for id:{account_id}")
 
 # Create global tree & subtrees
 tree = initialise_tree()

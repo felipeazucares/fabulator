@@ -342,6 +342,26 @@ class UserStorage:
         self.database = self.client.fabulator
         self.user_collection = self.database.get_collection(collection_name)
 
+    async def does_account_exist(self, account_id: str):
+        """ return true or false based on account_id existence """
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"does_account_exist({self.account_id}) called")
+        try:
+            user_deets = await self.user_collection.find_one({"account_id": self.account_id})
+            if user_deets is not None:
+                account_exists = True
+            else:
+                account_exists = False
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        return account_exists
+
     async def get_user_details_by_id(self, id: str):
         """ return the a user's details given the document id """
         self.id = id
@@ -476,6 +496,38 @@ class UserStorage:
             print(e)
             raise
         return users_saves_helper(self.updated_user)
+
+    async def delete_user_details(self, id: str) -> dict:
+        """ delete a user's details from the user collection """
+        self.id_to_delete = id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"delete_user_details({self.id_to_delete}) called")
+        try:
+            self.delete_response = await self.user_collection.delete_one({"_id": ObjectId(self.id_to_delete)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
+            print(e)
+            raise
+        return self.delete_response.deleted_count
+
+    async def delete_user_details_by_account_id(self, account_id: str) -> dict:
+        """ delete a user's details from the user collection """
+        self.account_id_to_delete = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"delete_user_details({self.account_id_to_delete}) called")
+        try:
+            self.delete_response = await self.user_collection.delete_many({"account_id": self.account_id_to_delete})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured delete user details from the database account_id was: {self.account_id_to_delete}")
+            print(e)
+            raise
+        return self.delete_response.deleted_count
 
     async def delete_user_details(self, id: str) -> dict:
         """ delete a user's details from the user collection """

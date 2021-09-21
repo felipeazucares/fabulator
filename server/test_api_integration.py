@@ -74,6 +74,8 @@ async def test_add_user(dummy_user_to_add):
 
     data = jsonable_encoder(dummy_user_to_add)
 
+    print(f"data:{data}")
+
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
@@ -115,14 +117,14 @@ async def return_token(test_add_user, dummy_user_to_add):
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
 
-def test_tree_create():
+def test_unit_tree_create():
     """ initialise a tree and return it"""
     tree = api.initialise_tree()
     assert tree != None
     return tree
 
 
-def test_payload_create():
+def test_unit_payload_create():
     """ Set up a test payload & return it"""
     test_description = "This is the node's description"
     test_text = "This is the node's test text content"
@@ -139,7 +141,7 @@ def test_payload_create():
     return test_payload
 
 
-def test_payload_create_null():
+def test_unit_payload_create_null():
     """ Set up an empty test payload & return it"""
     test_description = None
     test_text = None
@@ -165,6 +167,12 @@ async def test_root_path(return_token):
     assert response.status_code == 200
     assert response.json()["data"]["version"] == "0.1.0"
     assert response.json()["message"] == "Success"
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
+    assert response.status_code == 200
+    assert response.json()[
+        "data"] == 1
 
 
 @pytest.mark.asyncio
@@ -228,7 +236,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
 
 
 @pytest.mark.asyncio
-async def test_add_another_root_node(return_token):
+async def test_nodes_add_another_root_node(test_create_root_node, return_token):
     """ generate a root node then try to add another"""
     headers = return_token
     data = jsonable_encoder({
@@ -250,7 +258,7 @@ async def test_add_another_root_node(return_token):
 
 
 @pytest.mark.asyncio
-async def test_remove_node(return_token, test_create_root_node: list):
+async def test_nodes_remove_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
@@ -261,7 +269,7 @@ async def test_remove_node(return_token, test_create_root_node: list):
 
 
 @pytest.mark.asyncio
-async def test_remove_non_existent_node(return_token, test_create_root_node: list):
+async def test_nodes_remove_non_existent_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
@@ -276,7 +284,7 @@ async def test_remove_non_existent_node(return_token, test_create_root_node: lis
 
 
 @pytest.mark.asyncio
-async def test_remove_node_for_non_existent_user(return_token, test_create_root_node: list):
+async def test_nodes_remove_node_for_non_existent_user(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
@@ -296,7 +304,7 @@ async def test_remove_node_for_non_existent_user(return_token, test_create_root_
 
 
 @pytest.mark.asyncio
-async def test_update_node(test_create_root_node):
+async def test_nodes_update_node(test_create_root_node):
     """ generate a root node and update it"""
     data = jsonable_encoder({
         "name": "Unit test root node updated name",
@@ -339,7 +347,7 @@ async def test_update_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_update_node_for_non_existent_account(test_create_root_node):
+async def test_nodes_update_node_for_non_existent_account(test_create_root_node):
     """ generate a root node and update it"""
     data = jsonable_encoder({
         "name": "Unit test root node updated name",
@@ -364,7 +372,7 @@ async def test_update_node_for_non_existent_account(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_update_node_for_non_existent_node(test_create_root_node):
+async def test_nodes_update_node_for_non_existent_node(test_create_root_node):
     """ generate a root node and update it"""
     data = jsonable_encoder({
         "name": "Unit test root node updated name",
@@ -390,7 +398,7 @@ async def test_update_node_for_non_existent_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_update_node_with_bad_payload(test_create_root_node):
+async def test_nodes_update_node_with_bad_payload(test_create_root_node):
     """ update a node with a bad payload"""
 
     async with httpx.AsyncClient(app=api.app) as ac:
@@ -406,7 +414,7 @@ async def test_update_node_with_bad_payload(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_update_node_with_non_existent_parent(test_create_root_node):
+async def test_nodes_update_node_with_non_existent_parent(test_create_root_node):
     """ generate a root node and update it with a non existent parent"""
     data = jsonable_encoder({
         "parent": "XXXX",
@@ -436,7 +444,7 @@ async def test_update_node_with_non_existent_parent(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_get_a_node(test_create_root_node):
+async def test_nodes_get_a_node(test_create_root_node):
     """ get a single node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
@@ -464,7 +472,7 @@ async def test_get_a_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_get_a_non_existent_node(test_create_root_node):
+async def test_nodes_get_a_non_existent_node(test_create_root_node):
     """ get a non-existent node by id"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['account_id']}/xxx")
@@ -479,7 +487,7 @@ async def test_get_a_non_existent_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_get_all_nodes(test_create_root_node):
+async def test_nodes_get_all_nodes(test_create_root_node):
     """ get all nodes and test the root"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['account_id']}")
@@ -503,7 +511,7 @@ async def test_get_all_nodes(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_get_filtered_nodes(test_create_root_node):
+async def test_nodes_get_filtered_nodes(test_create_root_node):
     """ get all nodes and test the root"""
     params = {"filterval": "tag 1"}
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params) as ac:
@@ -536,7 +544,7 @@ async def test_get_filtered_nodes(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_add_child_node(test_create_root_node):
+async def test_nodes_add_child_node(test_create_root_node):
     """ Add a child node"""
     data = jsonable_encoder({
         "parent": test_create_root_node["node_id"],
@@ -569,7 +577,7 @@ async def test_add_child_node(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_add_child_node_with_invalid_parent(test_create_root_node):
+async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node):
     """ Add a child node with invalid parent"""
     data = jsonable_encoder({
         "parent": "XXXX",
@@ -642,7 +650,7 @@ async def test_setup_remove_and_return_subtree(test_create_root_node):
 
 
 @pytest.mark.asyncio
-async def test_remove_subtree(test_setup_remove_and_return_subtree):
+async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree):
     # set these two shortcuts up for ledgibility purposes
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
     account_id = test_setup_remove_and_return_subtree["account_id"]
@@ -686,7 +694,7 @@ async def test_remove_subtree(test_setup_remove_and_return_subtree):
 
 
 @ pytest.mark.asyncio
-async def test_add_subtree(test_setup_remove_and_return_subtree):
+async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree):
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
     child_data = test_setup_remove_and_return_subtree["test data"]["child_data"]
     account_id = test_setup_remove_and_return_subtree["account_id"]
@@ -758,6 +766,7 @@ async def test_add_subtree(test_setup_remove_and_return_subtree):
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{account_id}/{test_setup_remove_and_return_subtree['original_root']}")
     assert response.status_code == 200
+
 # ------------------------
 #   Saves Tests
 # ------------------------
@@ -1002,10 +1011,11 @@ async def test_update_non_existent_user(test_add_user, dummy_user_update):
 
 
 @ pytest.mark.asyncio
-async def test_delete_user(test_add_user):
+async def test_delete_user(return_token):
     """ delete a user """
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()[
         "data"] == 1

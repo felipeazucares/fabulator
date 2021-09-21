@@ -138,7 +138,7 @@ class RetrievedUserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
     password: str
-    account_id: Optional[str] = None
+    account_id: str
     email: EmailStr
     disabled: Optional[bool] = False
     user_type: UserType
