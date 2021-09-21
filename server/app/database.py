@@ -411,9 +411,11 @@ class UserStorage:
         self.surname = user.name.surname
         self.email = user.email
         self.account_id = user.account_id
+        self.disabled = user.disabled
+        self.user_type = user.user_type
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username, password=self.password,
-                                account_id=self.account_id,
+                                account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
                                 email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
@@ -447,10 +449,12 @@ class UserStorage:
         self.password = user.password
         self.email = user.email
         self.account_id = user.account_id
+        self.disabled = user.disabled
+        self.user_type = user.user_type
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username,
                                 password=self.password,
-                                account_id=self.account_id,
+                                account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
                                 email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
