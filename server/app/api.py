@@ -740,31 +740,32 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     return result
 
 
-@ app.get("/users/{id}")
-async def get_user(id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+@ app.get("/users")
+async def get_user(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
     """ get a user's details from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
-            f"get_user({id}) called")
+            f"get_user({account_id}) called")
     routes_helper = RoutesHelper()
-    if await routes_helper.user_document_exists(user_id=id):
+    # use the accounts_id checker here replace id references
+    if await routes_helper.account_id_exists(account_id=account_id):
         try:
             db_storage = UserStorage(collection_name="user_collection")
-            get_result = await db_storage.get_user_details_by_id(id=id)
+            get_result = await db_storage.get_user_details_by_account_id(account_id=account_id)
         except Exception as e:
             console_display.show_exception_message(
-                message_to_show="Error occured getting user details:{id}")
+                message_to_show="Error occured getting user details:{account_id}")
             raise
         result = ResponseModel(get_result, "user found")
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for id:{id}")
+            status_code=404, detail=f"No user record found for account_id:{account_id}")
 
 
-@ app.put("/users/{id}")
-async def update_user(id: str, request: UserDetails = Body(...), account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+@ app.put("/users")
+async def update_user(account_id: UserDetails = Depends(get_current_active_user_account), request: UserDetails = Body(...)) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # if there's a password in the update then hash it
@@ -774,19 +775,20 @@ async def update_user(id: str, request: UserDetails = Body(...), account_id: Use
         console_display.show_debug_message(
             f"update_user({request}) called")
     routes_helper = RoutesHelper()
-    if await routes_helper.user_document_exists(user_id=id):
+    # use the accounts_id checker here replace id references
+    if await routes_helper.account_id_exists(account_id=account_id):
         try:
             db_storage = UserStorage(collection_name="user_collection")
-            update_result = await db_storage.update_user_details(id=id, user=request)
+            update_result = await db_storage.update_user_details(account_id=account_id, user=request)
         except Exception as e:
             console_display.show_exception_message(
-                message_to_show="Error occured updating user details:{account_id}")
+                message_to_show=f"Error occured updating user details:{account_id}")
             raise
-        result = ResponseModel(update_result, f"user {id} updated")
+        result = ResponseModel(update_result, f"user {account_id} updated")
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for id:{id}")
+            status_code=404, detail=f"No user record found for account_id:{account_id}")
 
 
 @ app.delete("/users")

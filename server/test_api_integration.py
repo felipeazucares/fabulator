@@ -797,23 +797,27 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
 
 
 @ pytest.mark.asyncio
-async def test_saves_list_all_saves(get_dummy_user_account_id):
+async def test_saves_list_all_saves(test_create_root_node, return_token):
     """ generate a list of all the saved tries for given account_id"""
+    headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/saves/{get_dummy_user_account_id}")
+        response = await client.get(f"http://localhost:8000/saves", headers=headers)
     assert response.status_code == 200
     # test that the root node is removed as expected
     assert int(len(response.json()['data'][0])) > 0
+    # remove node we created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
 @ pytest.mark.asyncio
-async def test_saves_get_latest_save(test_create_root_node):
+async def test_saves_get_latest_save(test_create_root_node, return_token):
     """ load the latest save into the tree for a given user """
-
+    headers = return_token
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}")
+        response = await client.get(f"http://localhost:8000/loads", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -834,7 +838,7 @@ async def test_saves_get_latest_save(test_create_root_node):
 
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
 # @ pytest.mark.asyncio
@@ -848,11 +852,11 @@ async def test_saves_get_latest_save(test_create_root_node):
 
 
 @ pytest.mark.asyncio
-async def test_saves_get_save(test_create_root_node):
+async def test_saves_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
-
+    headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/{test_create_root_node['save_id']}")
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()[
@@ -873,34 +877,37 @@ async def test_saves_get_save(test_create_root_node):
 
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    assert response.status_code == 200
+
+
+# @ pytest.mark.asyncio
+# async def test_saves_get_a_save_for_non_existent_user(test_create_root_node, return_token):
+#     """ try and load a specified save for an invalid account_id"""
+#     headers = return_token
+#     async with httpx.AsyncClient(app=api.app) as client:
+#         response = await client.get(f"http://localhost:8000/loads/XXXX/{test_create_root_node['save_id']}")
+#     assert response.status_code == 404
+#     assert response.json()[
+#         'detail'] == "Unable to retrieve documents with account_id: XXXX"
+#     # remove the root node we just created
+#     async with httpx.AsyncClient(app=api.app) as client:
+#         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
 @ pytest.mark.asyncio
-async def test_saves_get_a_save_for_non_existent_user(test_create_root_node):
-    """ try and load a specified save for an invalid account_id"""
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads/XXXX/{test_create_root_node['save_id']}")
-    assert response.status_code == 404
-    assert response.json()[
-        'detail'] == "Unable to retrieve documents with account_id: XXXX"
-    # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
-
-
-@ pytest.mark.asyncio
-async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node):
+async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node, return_token):
     """ try and load a save for a valid account_id but non-existent document id """
+    headers = return_token
     # note this is a random 24 char hex string - should not exist in the target db - 16c361eff3b15de33f6a66b8
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['account_id']}/16c361eff3b15de33f6a66b8")
+        response = await client.get(f"http://localhost:8000/loads/16c361eff3b15de33f6a66b8", headers=headers)
     assert response.status_code == 404
     assert response.json()[
         'detail'] == "Unable to retrieve save document with id: 16c361eff3b15de33f6a66b8"
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
 # @ pytest.mark.asyncio
@@ -918,11 +925,11 @@ async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(t
 
 
 @ pytest.mark.asyncio
-async def test_saves_delete_all_saves(get_dummy_user_account_id):
-    db_storage = database.TreeStorage(
-        collection_name="tree_collection")
-    remove_response = await db_storage.delete_all_saves(account_id=get_dummy_user_account_id)
-    assert remove_response > 0
+async def test_saves_delete_all_saves(return_token):
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete("http://localhost:8000/saves", headers=headers)
+    assert response.status_code == 200
 
 
 # ------------------------
@@ -930,57 +937,58 @@ async def test_saves_delete_all_saves(get_dummy_user_account_id):
 # ------------------------
 
 
-@ pytest.mark.asyncio
-async def test_users_get_user(test_add_user, dummy_user_to_add):
-    """ test reading a user document from the collection """
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/users/{test_add_user}")
-    assert response.status_code == 200
-    assert response.json()[
-        "data"]["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
-    assert response.json()[
-        "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
-    assert response.json()[
-        "data"]["username"] == dummy_user_to_add["username"]
-    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-        "data"]["password"]) == True
-    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
-        "data"]["account_id"]) == True
-    assert response.json()[
-        "data"]["email"] == dummy_user_to_add["email"]
-    assert response.json()[
-        "data"]["disabled"] == dummy_user_to_add["disabled"]
-    # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
-    assert response.status_code == 200
-    assert response.json()["data"] == 1
+# @ pytest.mark.asyncio
+# async def test_users_get_user(dummy_user_to_add, return_token):
+#     """ test reading a user document from the collection """
+#     headers = return_token
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+#         response = await ac.get("/users", headers=headers)
+#     assert response.status_code == 200
+#     assert response.json()[
+#         "data"]["name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
+#     assert response.json()[
+#         "data"]["name"]["surname"] == dummy_user_to_add["name"]["surname"]
+#     assert response.json()[
+#         "data"]["username"] == dummy_user_to_add["username"]
+#     assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+#         "data"]["password"]) == True
+#     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+#         "data"]["account_id"]) == True
+#     assert response.json()[
+#         "data"]["email"] == dummy_user_to_add["email"]
+#     assert response.json()[
+#         "data"]["disabled"] == dummy_user_to_add["disabled"]
+#     # remove the user document we just created
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+#         response = await ac.delete(f"/users")
+#     assert response.status_code == 200
+#     assert response.json()["data"] == 1
+
+
+# @ pytest.mark.asyncio
+# async def test_users_get_non_existent_user(test_add_user):
+#     """ test reading a user document from the collection """
+#     # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+#         response = await ac.get(f"/users/16c361eff3b15de33f6a66b8")
+#     assert response.status_code == 404
+#     assert response.json()[
+#         "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+#     # remove the user document we just created
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+#         response = await ac.delete(f"/users/{test_add_user}")
+#     assert response.status_code == 200
+#     assert response.json()["data"] == 1
 
 
 @ pytest.mark.asyncio
-async def test_users_get_non_existent_user(test_add_user):
-    """ test reading a user document from the collection """
-    # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/users/16c361eff3b15de33f6a66b8")
-    assert response.status_code == 404
-    assert response.json()[
-        "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
-    # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
-    assert response.status_code == 200
-    assert response.json()["data"] == 1
-
-
-@ pytest.mark.asyncio
-async def test_users_update_user(test_add_user, dummy_user_update):
+async def test_users_update_user(dummy_user_update, return_token):
     """ Add a new user so that we can update it and delete it"""
-
+    headers = return_token
     data = jsonable_encoder(dummy_user_update)
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put(f"/users/{test_add_user}", json=data)
+        response = await ac.put("/users", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()[
         "data"]["name"]["firstname"] == dummy_user_update["name"]["firstname"]
@@ -995,43 +1003,42 @@ async def test_users_update_user(test_add_user, dummy_user_update):
     assert response.json()[
         "data"]["email"] == dummy_user_update["email"]
 
-    # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
 
 @ pytest.mark.asyncio
-async def test_users_update_user_with_bad_payload(test_add_user):
+async def test_users_update_user_with_bad_payload(test_add_user, return_token):
     """ Add a new user so that we can update it and delete it"""
-
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put(f"/users/{test_add_user}")
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.put(f"/users")
     assert response.status_code == 422
 
     # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
 
-@ pytest.mark.asyncio
-async def test_users_update_non_existent_user(test_add_user, dummy_user_update):
-    """ test updating a non_existing user document from the collection """
-    data = jsonable_encoder(dummy_user_update)
-    # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put(f"/users/16c361eff3b15de33f6a66b8", json=data)
-    assert response.status_code == 404
-    assert response.json()[
-        "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
-    # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
-    assert response.status_code == 200
-    assert response.json()["data"] == 1
+# @ pytest.mark.asyncio
+# async def test_users_update_non_existent_user(test_add_user, dummy_user_update):
+#     """ test updating a non_existing user document from the collection """
+#     data = jsonable_encoder(dummy_user_update)
+#     # note this string is random 24 char hex code but should exist as a user record - 16c361eff3b15de33f6a66b8
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+#         response = await ac.put(f"/users/16c361eff3b15de33f6a66b8", json=data)
+#     assert response.status_code == 404
+#     assert response.json()[
+#         "detail"] == "No user record found for id:16c361eff3b15de33f6a66b8"
+#     # remove the user document we just created
+#     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+#         response = await ac.delete(f"/users/{test_add_user}")
+#     assert response.status_code == 200
+#     assert response.json()["data"] == 1
 
 
 @ pytest.mark.asyncio
@@ -1062,8 +1069,9 @@ async def test_users_delete_user(return_token):
 
 
 @ pytest.mark.asyncio
-async def test_users_get_user_by_username(test_add_user, dummy_user_to_add):
+async def test_users_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
+    headers = return_token
     db_storage = database.UserStorage(collection_name="user_collection")
     user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
     assert user.name.firstname == dummy_user_to_add["name"]["firstname"]
@@ -1076,7 +1084,7 @@ async def test_users_get_user_by_username(test_add_user, dummy_user_to_add):
     assert user.email == dummy_user_to_add["email"]
     assert user.disabled == dummy_user_to_add["disabled"]
     # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users/{test_add_user}")
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1

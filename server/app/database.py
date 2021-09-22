@@ -464,9 +464,9 @@ class UserStorage:
 
         return users_saves_helper(self.new_user)
 
-    async def update_user_details(self, id: str, user: UserDetails) -> dict:
+    async def update_user_details(self, account_id: str, user: UserDetails) -> dict:
         """ save a user's details into the user collection """
-        self.id_to_update = id
+        self.account_id_to_update = account_id
         self.username = user.username
         self.firstname = user.name.firstname
         self.surname = user.name.surname
@@ -485,18 +485,17 @@ class UserStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"update_user_details({self.user.account_id}) called")
         try:
-            self.update_response = await self.user_collection.replace_one({"_id": ObjectId(self.id_to_update)}, jsonable_encoder(self.user))
+            self.update_response = await self.user_collection.replace_one({"account_id": self.account_id}, jsonable_encoder(self.user))
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured updating user details id was: {self.id_to_update}")
+                message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
             print(e)
             raise
         try:
-            self.updated_user = await self.user_collection.find_one({"_id": ObjectId(self.id_to_update)})
-            print(f"self.updated_user{self.updated_user}")
+            self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.id_to_update}")
+                message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
             print(e)
             raise
         return users_saves_helper(self.updated_user)
