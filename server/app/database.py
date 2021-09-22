@@ -19,9 +19,9 @@ from .models import (
 MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-database = client.fabulator
-tree_collection = database.get_collection("tree_collection")
+# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+# database = client.fabulator
+# tree_collection = database.get_collection("tree_collection")
 
 console_display = ConsoleDisplay()
 

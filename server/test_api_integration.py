@@ -71,11 +71,13 @@ def dummy_user_update():
 @ pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
-
     data = jsonable_encoder(dummy_user_to_add)
-
-    print(f"data:{data}")
-
+    # first check to see if the user exists
+    # db_storage = database.UserStorage(collection_name="user_collection")
+    # user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
+    # if user is not None:
+    #     result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+    #     assert result == 1
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
@@ -238,6 +240,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
 @pytest.mark.asyncio
 async def test_nodes_add_another_root_node(test_create_root_node, return_token):
     """ generate a root node then try to add another"""
+    assert test_create_root_node is not None
     headers = return_token
     data = jsonable_encoder({
         "description": "Unit test description for second root node",
@@ -251,6 +254,12 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
     assert response.status_code == 422
     # test that the root node is removed as expected
     assert response.json()["detail"] == "Tree already has a root node"
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
+    assert response.status_code == 200
+    assert response.json()[
+        "data"] == 1
 
 # ------------------------
 #      Remove Node Tests
@@ -267,9 +276,15 @@ async def test_nodes_remove_node(return_token, test_create_root_node: list):
     # test that the root node is removed as expected
     assert int(response.json()["data"]) > 0
 
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
+    assert response.status_code == 200
+    assert response.json()[
+        "data"] == 1
+
 
 @pytest.mark.asyncio
-async def test_nodes_remove_non_existent_node(return_token, test_create_root_node: list):
+async def test_nodes_remove_non_existent_node(event_loop, return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
