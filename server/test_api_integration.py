@@ -73,11 +73,11 @@ async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
     # first check to see if the user exists
-    # db_storage = database.UserStorage(collection_name="user_collection")
-    # user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
-    # if user is not None:
-    #     result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
-    #     assert result == 1
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
+    if user is not None:
+        result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+        assert result == 1
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
@@ -106,7 +106,7 @@ async def test_add_user(dummy_user_to_add):
 
 @ pytest.mark.asyncio
 @ pytest.fixture
-async def return_token(test_add_user, dummy_user_to_add):
+async def return_token(dummy_user_to_add, test_add_user):
     """ test user login """
     assert test_add_user is not None
     form_data = {
@@ -170,11 +170,11 @@ async def test_root_path(return_token):
     assert response.json()["data"]["version"] == "0.1.0"
     assert response.json()["message"] == "Success"
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.delete(f"/users")
-    assert response.status_code == 200
-    assert response.json()[
-        "data"] == 1
+    # async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    #     response = await ac.delete(f"/users")
+    # assert response.status_code == 200
+    # assert response.json()[
+    #     "data"] == 1
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,8 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
+        print("here")
+        print(self.user_storage)
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
