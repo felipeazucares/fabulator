@@ -467,25 +467,26 @@ class UserStorage:
     async def update_user_details(self, account_id: str, user: UserDetails) -> dict:
         """ save a user's details into the user collection """
         self.account_id_to_update = account_id
-        self.username = user.username
-        self.firstname = user.name.firstname
-        self.surname = user.name.surname
-        self.password = user.password
-        self.email = user.email
-        self.account_id = user.account_id
-        self.disabled = user.disabled
-        self.user_type = user.user_type
-        self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
-                                username=self.username,
-                                password=self.password,
-                                account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
-                                email=self.email)
+        # self.username = user.username
+        # self.firstname = user.name.firstname
+        # self.surname = user.name.surname
+        # self.password = user.password
+        # self.email = user.email
+        # self.account_id = user.account_id
+        # self.disabled = user.disabled
+        # self.user_type = user.user_type
+        self.user = user
+        # self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
+        #                         username=self.username,
+        #                         password=self.password,
+        #                         account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
+        #                         email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"update_user_details({self.user.account_id}) called")
+                message_to_show=f"update_user_details({self.account_id_to_update}) called")
         try:
-            self.update_response = await self.user_collection.replace_one({"account_id": self.account_id}, jsonable_encoder(self.user))
+            self.update_response = await self.user_collection.replace_one({"account_id": self.account_id_to_update}, jsonable_encoder(self.user))
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
