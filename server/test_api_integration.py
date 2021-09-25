@@ -49,7 +49,8 @@ def dummy_user_to_add():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_type": "owner"
+        "user_role": "owner",
+        "user_type": "free"
     }
 
 
@@ -64,6 +65,7 @@ async def test_add_user(dummy_user_to_add):
     if user is not None:
         result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
         assert result == 1
+    # now post a new dummy user
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
@@ -81,6 +83,8 @@ async def test_add_user(dummy_user_to_add):
         "data"]["email"] == dummy_user_to_add["email"]
     assert response.json()[
         "data"]["disabled"] == dummy_user_to_add["disabled"]
+    assert response.json()[
+        "data"]["user_role"] == dummy_user_to_add["user_role"]
     assert response.json()[
         "data"]["user_type"] == dummy_user_to_add["user_type"]
     # return id of record created
@@ -101,7 +105,8 @@ async def dummy_user_update():
         "account_id": user.account_id,
         "email": "jango_fett@runsheadless.com",
         "disabled": True,
-        "user_type": "admin"
+        "user_role": "admin",
+        "user_type": "free"
     }
 
 
@@ -882,6 +887,8 @@ async def test_users_update_user(return_token, dummy_user_update):
     assert response.json()[
         "data"]["email"] == dummy_user_update["email"]
     assert response.json()[
+        "data"]["user_role"] == dummy_user_update["user_role"]
+    assert response.json()[
         "data"]["user_type"] == dummy_user_update["user_type"]
 
     # async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
@@ -931,7 +938,7 @@ async def test_users_get_user_by_username(test_add_user, dummy_user_to_add, retu
         dummy_user_to_add["username"], user.account_id) == True
     assert user.email == dummy_user_to_add["email"]
     assert user.disabled == dummy_user_to_add["disabled"]
-    assert user.user_type == dummy_user_to_add["user_type"]
+    assert user.user_role == dummy_user_to_add["user_role"]
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")

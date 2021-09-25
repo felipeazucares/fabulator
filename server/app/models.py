@@ -104,10 +104,15 @@ class Name(BaseModel):
 # create enum to hold user types
 
 
-class UserType(CamelStrEnum):
+class UserRole(CamelStrEnum):
     admin = auto()
     owner = auto()
     reader = auto()
+
+
+class UserType(CamelStrEnum):
+    free = auto()
+    premium = auto()
 
 
 class UserDetails(BaseModel):
@@ -117,6 +122,7 @@ class UserDetails(BaseModel):
     account_id: Optional[str] = None
     email: EmailStr
     disabled: Optional[bool] = False
+    user_role: UserRole
     user_type: UserType
 
     class Config:
@@ -128,7 +134,8 @@ class UserDetails(BaseModel):
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False,
-                "user_type": "owner"
+                "user_role": "owner",
+                "user_type": "free"
             }
         }
 
@@ -141,6 +148,7 @@ class RetrievedUserDetails(BaseModel):
     account_id: str
     email: EmailStr
     disabled: Optional[bool] = False
+    user_role: UserRole
     user_type: UserType
 
     class Config:
@@ -152,7 +160,8 @@ class RetrievedUserDetails(BaseModel):
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False,
-                "user_type": "owner"
+                "user_role": "owner",
+                "user_type": "free"
             }
         }
 
@@ -168,6 +177,7 @@ class UpdateUserDetails(BaseModel):
     password: Optional[str]
     account_id: Optional[str] = None
     email: Optional[EmailStr]
+    user_role: UserRole
     user_type: UserType
 
     class Config:
@@ -178,7 +188,8 @@ class UpdateUserDetails(BaseModel):
                 "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
-                "user_type": "owner"
+                "user_role": "owner",
+                "user_type": "free"
             }
         }
 
@@ -195,15 +206,15 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 
-class User(BaseModel):
-    username: str
-    email: Optional[str] = None
-    full_name: Optional[str] = None
-    disabled: Optional[bool] = None
+# class User(BaseModel):
+#     username: str
+#     email: Optional[str] = None
+#     full_name: Optional[str] = None
+#     disabled: Optional[bool] = None
 
 
-class UserInDB(User):
-    hashed_password: str
+# class UserInDB(User):
+#     hashed_password: str
 
 # -------------------------------------
 #   Classes for mongo db storage
@@ -236,5 +247,6 @@ def users_saves_helper(result) -> dict:
         account_id=str(result["account_id"]),
         email=EmailStr(result["email"]),
         disabled=str(result["disabled"]),
+        user_role=str(result["user_role"]),
         user_type=str(result["user_type"])
     )

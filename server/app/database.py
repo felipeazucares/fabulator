@@ -436,11 +436,12 @@ class UserStorage:
         self.email = user.email
         self.account_id = user.account_id
         self.disabled = user.disabled
+        self.user_role = user.user_role
         self.user_type = user.user_type
         self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                 username=self.username, password=self.password,
-                                account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
-                                email=self.email)
+                                account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
+                                email=self.email, user_type=self.user_type)
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
@@ -474,12 +475,12 @@ class UserStorage:
         # self.email = user.email
         # self.account_id = user.account_id
         # self.disabled = user.disabled
-        # self.user_type = user.user_type
+        # self.user_role = user.user_role
         self.user = user
         # self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
         #                         username=self.username,
         #                         password=self.password,
-        #                         account_id=self.account_id, disabled=self.disabled, user_type=self.user_type,
+        #                         account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
         #                         email=self.email)
         self.console_display = ConsoleDisplay()
         if DEBUG:
