@@ -49,7 +49,7 @@ def dummy_user_to_add():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "owner",
+        "user_role": "user:reader user:writer tree:reader tree:writer",
         "user_type": "free"
     }
 
@@ -100,13 +100,13 @@ async def dummy_user_update():
     assert user is not None
     return {
         "name": {"firstname": "Jango", "surname": "Fett"},
-        "username": TEST_USERNAME_TO_ADD,
-        "password": TEST_PASSWORD_TO_UPDATE,
-        "account_id": user.account_id,
-        "email": "jango_fett@runsheadless.com",
-        "disabled": True,
-        "user_role": "admin",
-        "user_type": "free"
+        # "username": TEST_USERNAME_TO_ADD,
+        # "password": TEST_PASSWORD_TO_UPDATE,
+        # "account_id": user.account_id,
+        "email": "jango_fett@runsheadless.com"
+        # "disabled": True,
+        # "user_role": "admin",
+        # "user_type": "user:reader user:writer tree:reader tree:writer"
     }
 
 
@@ -120,9 +120,11 @@ async def dummy_user_update():
 async def return_token(test_add_user, dummy_user_to_add):
     """ test user login """
     assert test_add_user is not None
+    print(f"test form_data.scopes:{dummy_user_to_add['user_role']}")
     form_data = {
         "username": dummy_user_to_add["username"],
-        "password": dummy_user_to_add["password"]
+        "password": dummy_user_to_add["password"],
+        "scope": dummy_user_to_add["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
@@ -879,22 +881,7 @@ async def test_users_update_user(return_token, dummy_user_update):
     assert response.json()[
         "data"]["name"]["surname"] == dummy_user_update["name"]["surname"]
     assert response.json()[
-        "data"]["username"] == dummy_user_update["username"]
-    assert pwd_context.verify(dummy_user_update["password"], response.json()[
-        "data"]["password"]) == True
-    assert pwd_context.verify(dummy_user_update["username"], response.json()[
-        "data"]["account_id"]) == True
-    assert response.json()[
         "data"]["email"] == dummy_user_update["email"]
-    assert response.json()[
-        "data"]["user_role"] == dummy_user_update["user_role"]
-    assert response.json()[
-        "data"]["user_type"] == dummy_user_update["user_type"]
-
-    # async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-    #     response = await ac.delete(f"/users")
-    # assert response.status_code == 200
-    # assert response.json()["data"] == 1
 
 
 @ pytest.mark.asyncio

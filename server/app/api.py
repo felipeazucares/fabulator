@@ -1,6 +1,5 @@
-from logging import currentframe
-import os
 
+import os
 from pydantic.error_wrappers import ValidationError
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
@@ -31,7 +30,7 @@ from .models import (
     RequestUpdateSchema,
     NodePayload,
     UserDetails,
-    UserAccount,
+    UpdateUserDetails,
     Token,
     TokenData,
     ResponseModel
@@ -191,24 +190,16 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         token_data = TokenData(scopes=token_scopes, username=account_id)
     except (JWTError, ValidationError):
         raise credentials_exception
-    print(f"scopes:{security_scopes.scopes}")
     user = await oauth.get_user_by_account_id(account_id=token_data.username)
     if user is None:
         raise credentials_exception
-    # security_scopes.scopes are the scopes that endpoint is secured with, token_data scopes are those requested
-    print(f"user_role:{(user.user_role.split())}")
-    # remove any scopes that the user does not have access to by intersecting the two
     token_data.scopes = list(set(token_data.scopes) &
-                             set(user.user_role.split(",")))
-    print(f"token_data:{token_data.scopes}")
-    print(f"security.scopes:{security_scopes.scope_str}")
-    # for scope in security_scopes.scopes:
-    # token_data scopes are what was requested
+                             set(user.user_role.split(" ")))
     for scope in security_scopes.scopes:
         if scope not in token_data.scopes:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not enough permissions",
+                status_code=403,
+                detail="Insufficient permissions to complete action",
                 headers={"WWW-Authenticate": authenticate_value},
             )
     return user
@@ -801,12 +792,9 @@ async def get_user(account_id: UserDetails = Security(get_current_active_user_ac
 
 
 @ app.put("/users")
-async def update_user(account_id: UserDetails = Security(get_current_active_user_account, scopes=["user:writer"]), request: UserDetails = Body(...)) -> dict:
+async def update_user(account_id: UserDetails = Security(get_current_active_user_account, scopes=["user:writer"]), request: UpdateUserDetails = Body(...)) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    # if there's a password in the update then hash it
-    if request.password:
-        request.password = pwd_context.hash(request.password)
     if DEBUG:
         console_display.show_debug_message(
             f"update_user({request}) called")

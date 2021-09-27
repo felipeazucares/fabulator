@@ -10,6 +10,7 @@ from bson.objectid import ObjectId
 
 from .models import (
     UserDetails,
+    UpdateUserDetails,
     TreeSaveSchema,
     saves_helper,
     users_saves_helper
@@ -467,40 +468,31 @@ class UserStorage:
 
         return users_saves_helper(self.new_user)
 
-    async def update_user_details(self, account_id: str, user: UserDetails) -> dict:
+    async def update_user_details(self, account_id: str, user: UpdateUserDetails) -> dict:
         """ save a user's details into the user collection """
         self.account_id_to_update = account_id
-        # self.username = user.username
-        # self.firstname = user.name.firstname
-        # self.surname = user.name.surname
-        # self.password = user.password
-        # self.email = user.email
-        # self.account_id = user.account_id
-        # self.disabled = user.disabled
-        # self.user_role = user.user_role
         self.user = user
-        # self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
-        #                         username=self.username,
-        #                         password=self.password,
-        #                         account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
-        #                         email=self.email)
-        self.console_display = ConsoleDisplay()
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"update_user_details({self.account_id_to_update}) called")
-        try:
-            self.update_response = await self.user_collection.replace_one({"account_id": self.account_id_to_update}, jsonable_encoder(self.user))
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
-            print(e)
-            raise
-        try:
-            self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
-            print(e)
+        if self.user.email is not None and self.user.name is not None:
+            self.console_display = ConsoleDisplay()
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"update_user_details({self.account_id_to_update}) called")
+            try:
+                self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"name": {"firstname": self.user.name.firstname, "surname": self.user.name.surname}, "email": self.user.email}})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
+                print(e)
+                raise
+            try:
+                self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
+                print(e)
+                raise
+        else:
+            self.console_display.show_exception_message("Nothing to change")
             raise
         return users_saves_helper(self.updated_user)
 

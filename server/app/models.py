@@ -169,25 +169,14 @@ class UserAccount(BaseModel):
 
 
 class UpdateUserDetails(BaseModel):
-    id: str
     name: Optional[Name]  # use nested model definition
-    username: Optional[str]
-    password: Optional[str]
-    account_id: Optional[str] = None
     email: Optional[EmailStr]
-    user_role: str
-    user_type: UserType
 
     class Config:
         schema_extra = {
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
-                "username": "a_dummy_user",
-                "password": "us3Th3F0rceLuk3",
-                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
-                "user_role": "owner",
-                "user_type": "free"
             }
         }
 
