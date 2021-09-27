@@ -104,10 +104,8 @@ class Name(BaseModel):
 # create enum to hold user types
 
 
-class UserRole(CamelStrEnum):
-    admin = auto()
-    owner = auto()
-    reader = auto()
+# class UserRole(BaseModel):
+#     scopes: str
 
 
 class UserType(CamelStrEnum):
@@ -122,7 +120,7 @@ class UserDetails(BaseModel):
     account_id: Optional[str] = None
     email: EmailStr
     disabled: Optional[bool] = False
-    user_role: UserRole
+    user_role: str
     user_type: UserType
 
     class Config:
@@ -134,7 +132,7 @@ class UserDetails(BaseModel):
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False,
-                "user_role": "owner",
+                "user_role": "user:reader,user:writer,tree:reader,tree:writer",
                 "user_type": "free"
             }
         }
@@ -148,7 +146,7 @@ class RetrievedUserDetails(BaseModel):
     account_id: str
     email: EmailStr
     disabled: Optional[bool] = False
-    user_role: UserRole
+    user_role: str
     user_type: UserType
 
     class Config:
@@ -160,7 +158,7 @@ class RetrievedUserDetails(BaseModel):
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False,
-                "user_role": "owner",
+                "user_role": "user:reader,user:writer,tree:reader,tree:writer",
                 "user_type": "free"
             }
         }
@@ -177,7 +175,7 @@ class UpdateUserDetails(BaseModel):
     password: Optional[str]
     account_id: Optional[str] = None
     email: Optional[EmailStr]
-    user_role: UserRole
+    user_role: str
     user_type: UserType
 
     class Config:
@@ -206,16 +204,6 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     scopes: List[str] = []
 
-
-# class User(BaseModel):
-#     username: str
-#     email: Optional[str] = None
-#     full_name: Optional[str] = None
-#     disabled: Optional[bool] = None
-
-
-# class UserInDB(User):
-#     hashed_password: str
 
 # -------------------------------------
 #   Classes for mongo db storage
