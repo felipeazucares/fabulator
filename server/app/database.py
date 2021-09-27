@@ -417,6 +417,7 @@ class UserStorage:
         try:
             user_deets = await self.user_collection.find_one({"username": self.username})
             if user_deets is not None:
+                print(f"user_deets:{user_deets}")
                 self.user_details = UserDetails(**user_deets)
             else:
                 self.user_details = None

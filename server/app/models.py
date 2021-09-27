@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, EmailStr, validator
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr, validator, ValidationError
 from treelib import Tree
 from bson.objectid import ObjectId
 from enum import auto
@@ -204,6 +204,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+    scopes: List[str] = []
 
 
 # class User(BaseModel):

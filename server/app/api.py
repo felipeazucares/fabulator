@@ -1,10 +1,12 @@
 from logging import currentframe
 import os
+
+from pydantic.error_wrappers import ValidationError
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from app.authentication import Authentication
 from treelib import Tree
-from fastapi import FastAPI, HTTPException, Body, Depends, status
+from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +15,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import (
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+    SecurityScopes
+)
 
 from .database import (
     TreeStorage,
@@ -69,7 +75,12 @@ app.add_middleware(
     allow_headers=["*"]
 )
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="get_token")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="get_token",
+    scopes={"owner": "Account owner",
+            "reader": "Read acess to projects",
+            "admin": "Administrator access"}
+)
 oauth = Authentication()
 
 
@@ -157,7 +168,13 @@ class RoutesHelper():
 #     Authenticaton routines
 # ----------------------------
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(security_scopes: SecurityScopes, token: str = Depends(oauth2_scheme)):
+    """ authenticate user and scope and return token """
+    if security_scopes.scopes:
+        authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
+    else:
+        authenticate_value = f"Bearer"
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -167,31 +184,47 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY,
                              algorithms=[ALGORITHM])
         account_id: str = payload.get("sub")
-        print(f"account_id:{account_id}")
         if account_id is None:
             raise credentials_exception
-        token_data = TokenData(username=account_id)
-    except JWTError:
+        token_scopes = payload.get("scopes", [])
+        token_data = TokenData(scopes=token_scopes, username=account_id)
+    except (JWTError, ValidationError):
         raise credentials_exception
+    print(f"scopes:{security_scopes.scopes}")
     user = await oauth.get_user_by_account_id(account_id=token_data.username)
     if user is None:
         raise credentials_exception
+    # security_scopes.scopes are the scopes that endpoint is secured with, token_data scopes are those requested
+    print(f"user_role:{(user.user_role.split())}")
+    # remove any scopes that the user does not have access to by intersecting the two
+    token_data.scopes = list(set(token_data.scopes) &
+                             set(user.user_role.split()))
+    print(f"token_data:{token_data.scopes}")
+    print(f"security.scopes:{security_scopes.scope_str}")
+    # for scope in security_scopes.scopes:
+    # token_data scopes are what was requested
+    if not(set(token_data.scopes) & set(security_scopes.scopes)):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not enough permissions",
+            headers={"WWW-Authenticate": authenticate_value},
+        )
     return user
 
 
-async def get_current_active_user(current_user: UserDetails = Depends(get_current_user)):
+async def get_current_active_user(current_user: UserDetails = Security(get_current_user, scopes=["admin", "owner", "reader"])):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
-async def get_current_active_user_account(current_user: UserDetails = Depends(get_current_user)):
+async def get_current_active_user_account(current_user: UserDetails = Security(get_current_user, scopes=["admin", "owner", "reader"])):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user.account_id
 
 
-@app.post("/get_token", response_model=Token)
+@ app.post("/get_token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await oauth.authenticate_user(
         form_data.username, form_data.password)
@@ -204,12 +237,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # creates a token for a given user with an expiry in minutes
     access_token = oauth.create_access_token(
-        data={"sub": user.account_id}, expires_delta=access_token_expires
+        data={"sub": user.account_id, "scopes": form_data.scopes},
+        expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/me/", response_model=UserDetails)
+@ app.get("/users/me/", response_model=UserDetails)
 async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
     return current_user
 
@@ -227,7 +261,7 @@ def initialise_tree():
 
 
 @ app.get("/")
-async def get(current_user: UserDetails = Depends(get_current_active_user)) -> dict:
+async def get(current_user: UserDetails = Security(get_current_user, scopes=["admin", "owner", "reader"])) -> dict:
     """ Return the API version """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if current_user:
@@ -243,7 +277,7 @@ async def get(current_user: UserDetails = Depends(get_current_active_user)) -> d
 
 
 @ app.get("/trees/root")
-async def get_tree_root(account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def get_tree_root(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -262,7 +296,7 @@ async def get_tree_root(account_id: UserAccount = Depends(get_current_active_use
 
 
 @ app.get("/trees/{id}")
-async def prune_subtree(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def prune_subtree(id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ cut a node & children specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -300,7 +334,7 @@ async def prune_subtree(id: str, account_id: UserAccount = Depends(get_current_a
 
 
 @ app.post("/trees/{id}")
-async def graft_subtree(id: str, request: SubTree = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def graft_subtree(id: str, request: SubTree = Body(...), account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ paste a subtree & beneath the node specified"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -351,7 +385,7 @@ async def graft_subtree(id: str, request: SubTree = Body(...), account_id: UserA
 
 
 @ app.get("/nodes")
-async def get_all_nodes(filterval: Optional[str] = None, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def get_all_nodes(filterval: Optional[str] = None, account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ Get a list of all the nodes in the working tree"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -384,7 +418,7 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: UserAccount
 
 
 @ app.get("/nodes/{id}")
-async def get_a_node(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def get_a_node(id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ Return a node specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     global tree
@@ -407,7 +441,7 @@ async def get_a_node(id: str, account_id: UserAccount = Depends(get_current_acti
 
 
 @ app.post("/nodes/{name}")
-async def create_node(name: str, request: RequestAddSchema = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def create_node(name: str, request: RequestAddSchema = Body(...), account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ Add a node to the working tree using name supplied """
     # todo: check for pre-existence of account
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
@@ -488,7 +522,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
 
 
 @ app.put("/nodes/{id}")
-async def update_node(id: str, request: RequestUpdateSchema = Body(...), account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def update_node(id: str, request: RequestUpdateSchema = Body(...), account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     # generate a new id for the node if we have a parent
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
@@ -570,7 +604,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
 
 
 @ app.delete("/nodes/{id}")
-async def delete_node(id: str, account_id: UserAccount = Depends(get_current_active_user_account)) -> dict:
+async def delete_node(id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
@@ -614,7 +648,7 @@ async def delete_node(id: str, account_id: UserAccount = Depends(get_current_act
 
 
 @ app.get("/loads")
-async def get_latest_save(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def get_latest_save(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ Return the latest saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -641,7 +675,7 @@ async def get_latest_save(account_id: UserDetails = Depends(get_current_active_u
 
 
 @ app.get("/loads/{save_id}")
-async def get_a_save(save_id: str, account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def get_a_save(save_id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ Return the specfied saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -676,7 +710,7 @@ async def get_a_save(save_id: str, account_id: UserDetails = Depends(get_current
 
 
 @ app.get("/saves")
-async def get_all_saves(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def get_all_saves(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ Return a dict of all the trees saved in the db collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     try:
@@ -696,7 +730,7 @@ async def get_all_saves(account_id: UserDetails = Depends(get_current_active_use
 
 
 @ app.delete("/saves")
-async def delete_saves(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def delete_saves(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ Delete all saves from the db trees collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -741,7 +775,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
 
 
 @ app.get("/users")
-async def get_user(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def get_user(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner", "reader"])) -> dict:
     """ get a user's details from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -765,7 +799,7 @@ async def get_user(account_id: UserDetails = Depends(get_current_active_user_acc
 
 
 @ app.put("/users")
-async def update_user(account_id: UserDetails = Depends(get_current_active_user_account), request: UserDetails = Body(...)) -> dict:
+async def update_user(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"]), request: UserDetails = Body(...)) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # if there's a password in the update then hash it
@@ -792,7 +826,7 @@ async def update_user(account_id: UserDetails = Depends(get_current_active_user_
 
 
 @ app.delete("/users")
-async def delete_user(account_id: UserDetails = Depends(get_current_active_user_account)) -> dict:
+async def delete_user(account_id: UserDetails = Security(get_current_active_user_account, scopes=["admin", "owner"])) -> dict:
     """ delete a user from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
