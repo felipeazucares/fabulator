@@ -195,6 +195,12 @@ async def test_get_root_node(return_token):
     # return id of root node or None
     return response.json()["data"]["root"]
 
+# --------------------------
+#   Authorization tests
+# --------------------------
+
+# test each endpoint for authentication and scope
+
 # ------------------------
 #      Node Fixtures
 # ------------------------
