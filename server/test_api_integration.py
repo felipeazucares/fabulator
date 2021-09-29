@@ -100,13 +100,7 @@ async def dummy_user_update():
     assert user is not None
     return {
         "name": {"firstname": "Jango", "surname": "Fett"},
-        # "username": TEST_USERNAME_TO_ADD,
-        # "password": TEST_PASSWORD_TO_UPDATE,
-        # "account_id": user.account_id,
         "email": "jango_fett@runsheadless.com"
-        # "disabled": True,
-        # "user_role": "admin",
-        # "user_type": "user:reader user:writer tree:reader tree:writer"
     }
 
 
@@ -120,7 +114,6 @@ async def dummy_user_update():
 async def return_token(test_add_user, dummy_user_to_add):
     """ test user login """
     assert test_add_user is not None
-    print(f"test form_data.scopes:{dummy_user_to_add['user_role']}")
     form_data = {
         "username": dummy_user_to_add["username"],
         "password": dummy_user_to_add["password"],
@@ -174,17 +167,6 @@ def test_unit_payload_create_null():
 
 
 @pytest.mark.asyncio
-async def test_root_path(return_token):
-    """ return version number"""
-    headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.get("/")
-    assert response.status_code == 200
-    assert response.json()["data"]["version"] == "0.1.0"
-    assert response.json()["message"] == "Success"
-
-
-@pytest.mark.asyncio
 @pytest.fixture
 async def test_get_root_node(return_token):
     """ get the root node if it exists"""
@@ -195,26 +177,21 @@ async def test_get_root_node(return_token):
     # return id of root node or None
     return response.json()["data"]["root"]
 
-# --------------------------
-#   Authorization tests
-# --------------------------
-
-# test each endpoint for authentication and scope
 
 # ------------------------
 #      Node Fixtures
 # ------------------------
 
 
-@pytest.fixture
+@ pytest.fixture
 def event_loop():
     loop = asyncio.get_event_loop()
     yield loop
     loop.close()
 
 
-@pytest.mark.asyncio
-@pytest.fixture
+@ pytest.mark.asyncio
+@ pytest.fixture
 async def test_create_root_node(return_token, get_dummy_user_account_id, test_get_root_node):
     """ Create a root node and return it """
     headers = return_token
@@ -245,12 +222,24 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
         "save_id": response.json()["data"]["object_id"]
     })
 
+
 # ------------------------
 #      Root Node Tests
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
+async def test_root_path(return_token):
+    """ return version number"""
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get("/")
+    assert response.status_code == 200
+    assert response.json()["data"]["version"] == "0.1.0"
+    assert response.json()["message"] == "Success"
+
+
+@ pytest.mark.asyncio
 async def test_nodes_add_another_root_node(test_create_root_node, return_token):
     """ generate a root node then try to add another"""
     assert test_create_root_node is not None
@@ -279,7 +268,7 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_remove_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
@@ -296,7 +285,7 @@ async def test_nodes_remove_node(return_token, test_create_root_node: list):
         "data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_remove_non_existent_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
@@ -315,7 +304,7 @@ async def test_nodes_remove_non_existent_node(return_token, test_create_root_nod
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_update_node(test_create_root_node, return_token):
     """ generate a root node and update it"""
     headers = return_token
@@ -359,7 +348,7 @@ async def test_nodes_update_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_update_node_for_non_existent_node(test_create_root_node, return_token):
     """ generate a root node and update it"""
     headers = return_token
@@ -386,7 +375,7 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_token):
     """ update a node with a bad payload"""
     headers = return_token
@@ -402,7 +391,7 @@ async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_update_node_with_non_existent_parent(test_create_root_node, return_token):
     """ generate a root node and update it with a non existent parent"""
     headers = return_token
@@ -433,7 +422,7 @@ async def test_nodes_update_node_with_non_existent_parent(test_create_root_node,
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_get_a_node(test_create_root_node, return_token):
     """ get a single node by id"""
     headers = return_token
@@ -462,7 +451,7 @@ async def test_nodes_get_a_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token):
     """ get a non-existent node by id"""
     headers = return_token
@@ -478,7 +467,7 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_get_all_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
@@ -503,7 +492,7 @@ async def test_nodes_get_all_nodes(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
@@ -537,7 +526,7 @@ async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
 # ------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_add_child_node(test_create_root_node, return_token):
     """ Add a child node"""
     headers = return_token
@@ -571,7 +560,7 @@ async def test_nodes_add_child_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, return_token):
     """ Add a child node with invalid parent"""
     headers = return_token
@@ -598,8 +587,8 @@ async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, r
 # ------------------------
 
 
-@pytest.fixture
-@pytest.mark.asyncio
+@ pytest.fixture
+@ pytest.mark.asyncio
 async def test_setup_remove_and_return_subtree(test_create_root_node, return_token):
     """ Add a child node"""
     headers = return_token
@@ -646,12 +635,11 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
             "account_id": test_create_root_node['account_id']}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree, return_token):
     # set these two shortcuts up for ledgibility purposes
     headers = return_token
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
-    account_id = test_setup_remove_and_return_subtree["account_id"]
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
     # remove the specified child
@@ -920,18 +908,282 @@ async def test_users_delete_user(return_token):
 async def test_users_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
-    db_storage = database.UserStorage(collection_name="user_collection")
-    user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
-    assert user.name.firstname == dummy_user_to_add["name"]["firstname"]
-    assert user.name.surname == dummy_user_to_add["name"]["surname"]
-    assert user.username == dummy_user_to_add["username"]
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get(f"/users/me")
+    assert response.json()[
+        "name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
+    assert response.json()[
+        "name"]["surname"] == dummy_user_to_add["name"]["surname"]
+    assert response.json()["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(
-        dummy_user_to_add["password"], user.password) == True
+        dummy_user_to_add["password"], response.json()["password"]) == True
     assert pwd_context.verify(
-        dummy_user_to_add["username"], user.account_id) == True
-    assert user.email == dummy_user_to_add["email"]
-    assert user.disabled == dummy_user_to_add["disabled"]
-    assert user.user_role == dummy_user_to_add["user_role"]
+        dummy_user_to_add["username"], response.json()["account_id"]) == True
+    assert response.json()["email"] == dummy_user_to_add["email"]
+    assert response.json()["disabled"] == dummy_user_to_add["disabled"]
+    assert response.json()["user_role"] == dummy_user_to_add["user_role"]
+    assert response.json()["user_type"] == dummy_user_to_add["user_type"]
+    # remove the user document we just created
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.delete(f"/users")
+    assert response.status_code == 200
+    assert response.json()["data"] == 1
+
+# --------------------------
+#   Authorization tests
+# --------------------------
+
+
+@pytest.mark.asyncio
+async def test_unauth_root_path():
+    """ Unauthorized return version number should fail with a 401"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+@pytest.mark.asyncio
+async def test_unauth_create_root_node(return_token,
+                                       test_get_root_node):
+    """ Unauthorized Create a root node - should fail with 401"""
+    headers = return_token
+    # first test if there's already a root node - if there is remove it
+    if test_get_root_node != None:
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{test_get_root_node}", headers=headers)
+        assert response.status_code == 200
+        # test that the root node is removed as expected
+        assert int(response.json()['data']) >= 1
+
+    data = jsonable_encoder({
+                            "description": "Unit test description",
+                            "previous": "previous node",
+                            "next": "next node",
+                            "text": "Unit test text for root node",
+                            "tags": ['tag 1', 'tag 2', 'tag 3']
+                            })
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/nodes/Unit test root node", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+@ pytest.mark.asyncio
+async def test_unauth_remove_node(return_token, test_create_root_node: list):
+    """ unauthorized generate a root node and remove it should fail with a 401"""
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+    # remove the node we've created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_update_node(test_create_root_node, return_token):
+    """ Unauthorised generate a root node and update it should fail with a 401"""
+    headers = return_token
+    data = jsonable_encoder({
+        "name": "Unit test root node updated name",
+        "description": "Unit test updated description",
+        "previous": "previous updated node",
+        "next": "next updated node",
+        "text": "Unit test text for updated node",
+        "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
+    })
+
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # now remove the node we just added
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_get_a_node(test_create_root_node, return_token):
+    """ Unauthorised get a single node by id should fail with a 401 """
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_add_child_node(test_create_root_node, return_token):
+    """ Unauthorised add a child node should fail with a 401 """
+    headers = return_token
+    data = jsonable_encoder({
+        "parent": test_create_root_node["node_id"],
+        "description": "unit test child description",
+        "previous": "previous child node",
+        "next": "next child node",
+        "text": "unit test text for child node",
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/unit test child node", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the root & child node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+
+
+@ pytest.mark.asyncio
+async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, return_token):
+    """ Unauthorised remove_subtree should fail with a 401 """
+    # set these two shortcuts up for ledgibility purposes
+    headers = return_token
+    child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+
+    # remove the specified child
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.get(f"/trees/{child_node_id}")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the root & child node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_token):
+    """ Unauthorised add subtree should fail with a 401 """
+    headers = return_token
+    child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
+
+    # prune ndde
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+        response = await ac.get(f"/trees/{child_node_id}")
+    assert response.status_code == 200
+
+    data = jsonable_encoder(
+        {"sub_tree": response.json()["data"]})
+
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+        response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the remaining root node in the tree
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_list_all_saves(test_create_root_node, return_token):
+    """ Unauthorizd generate a list of all the saves - should fail with a 401 """
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/saves")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+    # remove node we created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+
+
+@ pytest.mark.asyncio
+async def test_unauth_get_latest_save(test_create_root_node, return_token):
+    """ load the latest save into the tree for a given user """
+    headers = return_token
+    # the test_create_root_node fixture creates a new root node which gets saved
+    # now we've loaded that into the tree, we can get the node from the tree
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+
+
+@ pytest.mark.asyncio
+async def test_unauth_get_save(test_create_root_node, return_token):
+    """ load the named save into the tree for a given user """
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+    # remove the root node we just created
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    assert response.status_code == 200
+
+
+@ pytest.mark.asyncio
+async def test_unauth_delete_all_saves(return_token):
+    async with httpx.AsyncClient(app=api.app) as client:
+        response = await client.delete("http://localhost:8000/saves")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+@ pytest.mark.asyncio
+async def test_unauth_update_user(return_token, dummy_user_update):
+    """ Add a new user so that we can update it and delete it"""
+    data = jsonable_encoder(dummy_user_update)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+@ pytest.mark.asyncio
+async def test_unauth_delete_user(return_token):
+    """ delete a user """
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/users")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
+
+
+@ pytest.mark.asyncio
+async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
+    """ test retrieving a user document from the collection by username - no route for this"""
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/users/me")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
