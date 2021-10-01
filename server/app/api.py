@@ -195,7 +195,12 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         raise credentials_exception
     token_data.scopes = list(set(token_data.scopes) &
                              set(user.user_role.split(" ")))
+
+    print(f"API token scopes:{token_scopes}")
+    print(f"API endpoint scopes:{security_scopes.scopes}")
+
     for scope in security_scopes.scopes:
+        print(f"here:{scope}")
         if scope not in token_data.scopes:
             raise HTTPException(
                 status_code=403,

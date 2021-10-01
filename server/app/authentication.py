@@ -10,10 +10,6 @@ import os
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2_scheme = OAuth2PasswordBearer(
-#     tokenUrl="get_token",
-#     scopes={"owner": "Account owner",
-#             "reader": "Read acess to projects",
-#             "admin": "Administrator access"})
 
 
 class Authentication():
