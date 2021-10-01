@@ -93,8 +93,8 @@ async def test_add_user(dummy_user_to_add):
 
 @pytest.fixture
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scope", [("user:reader")])
-async def return_scoped_token(scope):
+@pytest.mark.parametrize("scopes", [("user:reader")])
+async def return_scoped_token(scopes):
     """ Add a new user so that we can authorise against it"""
     dummy_user_to_add_scoped = jsonable_encoder({
         "name": {"firstname": "John", "surname": "Maginot"},
@@ -103,7 +103,7 @@ async def return_scoped_token(scope):
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": scope,
+        "user_role": scopes,
         "user_type": "free"
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
@@ -242,11 +242,11 @@ async def test_get_root_node(return_token):
 # ------------------------
 
 
-@pytest.fixture
-def event_loop():
-    loop = asyncio.get_event_loop()
-    yield loop
-    loop.close()
+# @pytest.fixture
+# def event_loop():
+#     loop = asyncio.get_event_loop()
+#     yield loop
+#     loop.close()
 
 
 @pytest.mark.asyncio
@@ -1257,8 +1257,9 @@ async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, ret
 @pytest.mark.asyncio
 async def test_unauth_root_path(return_scoped_token):
     """ Unauthorized return version number should fail with a 401"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    headers = return_scoped_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
-    assert response.status_code == 401
+    assert response.status_code == 403
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
