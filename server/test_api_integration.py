@@ -1458,59 +1458,77 @@ async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_to
 
 
 @pytest.mark.asyncio
-async def test_unauth_list_all_saves(test_create_root_node, return_token):
-    """ Unauthorizd generate a list of all the saves - should fail with a 401 """
-    headers = return_token
+async def test_scope_list_all_saves(return_scoped_token):
+    """ Unscoped generate a list of all the saves - should fail with a 403 """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/saves")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-    # remove node we created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        response = await client.get(f"http://localhost:8000/saves", headers=headers)
+    if scopes == "tree:reader user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
 
 
 @pytest.mark.asyncio
-async def test_unauth_get_latest_save(test_create_root_node, return_token):
-    """ load the latest save into the tree for a given user """
-    headers = return_token
+async def test_scope_get_latest_save(return_scoped_token):
+    """ unscopd load the latest save into the tree for a given user should fail with a 403"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        response = await client.get(f"http://localhost:8000/loads", headers=headers)
+    if scopes == "tree:reader user:reader":
+        # should currently fail with 500 because we haven't saved anything for this user - but does need to be fixed
+        assert response.status_code == 500
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
 
 
 @pytest.mark.asyncio
-async def test_unauth_get_save(test_create_root_node, return_token):
-    """ load the named save into the tree for a given user """
-    headers = return_token
+async def test_scope_get_save(test_create_root_node, return_token, return_scoped_token):
+    """ Unscoped load the named save into the tree for a given user """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
+        response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}", headers=headers)
+    if scopes == "tree:reader user:reader":
+
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
 
     # remove the root node we just created
     async with httpx.AsyncClient(app=api.app) as client:
+        headers = return_token
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_delete_all_saves(return_token):
+async def test_scope_delete_all_saves(return_scoped_token):
+    """ Unscoped delete all saves should fail with a 403 """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete("http://localhost:8000/saves")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
+        response = await client.delete("http://localhost:8000/saves", headers=headers)
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
 
 
 @pytest.mark.asyncio
