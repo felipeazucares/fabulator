@@ -40,7 +40,7 @@ def get_dummy_user_account_id():
     return username_hash
 
 
-@ pytest.fixture
+@pytest.fixture
 def dummy_user_to_add():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
@@ -54,8 +54,8 @@ def dummy_user_to_add():
     }
 
 
-@ pytest.fixture
-@ pytest.mark.asyncio
+@pytest.fixture
+@pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
@@ -91,7 +91,64 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 
-@ pytest.fixture
+@pytest.fixture
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope", [("user:reader")])
+async def return_scoped_token(scope):
+    """ Add a new user so that we can authorise against it"""
+    dummy_user_to_add_scoped = jsonable_encoder({
+        "name": {"firstname": "John", "surname": "Maginot"},
+        "username": TEST_USERNAME_TO_ADD,
+        "password": TEST_PASSWORD_TO_ADD,
+        "account_id": None,
+        "email": "john_maginot@fictional.com",
+        "disabled": False,
+        "user_role": scope,
+        "user_type": "free"
+    })
+    data = jsonable_encoder(dummy_user_to_add_scoped)
+    # first check to see if the user exists
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user_to_add_scoped['username'])
+    if user is not None:
+        result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+        assert result == 1
+
+    # now post a new dummy user
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"]["firstname"] == dummy_user_to_add_scoped["name"]["firstname"]
+    assert response.json()[
+        "data"]["name"]["surname"] == dummy_user_to_add_scoped["name"]["surname"]
+    assert response.json()[
+        "data"]["username"] == dummy_user_to_add_scoped["username"]
+    assert pwd_context.verify(dummy_user_to_add_scoped["username"], response.json()[
+        "data"]["account_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add_scoped["password"], response.json()[
+        "data"]["password"]) == True
+    assert response.json()[
+        "data"]["email"] == dummy_user_to_add_scoped["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add_scoped["disabled"]
+    assert response.json()[
+        "data"]["user_role"] == dummy_user_to_add_scoped["user_role"]
+    assert response.json()[
+        "data"]["user_type"] == dummy_user_to_add_scoped["user_type"]
+
+    form_data = {
+        "username": dummy_user_to_add_scoped["username"],
+        "password": dummy_user_to_add_scoped["password"],
+        "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
+    }
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+    return {"Authorization": "Bearer " + str(response.json()["access_token"])}
+
+
+@pytest.fixture
 async def dummy_user_update():
     # read user collection to get the account_id of the user we added earlier so we can simulate
     # data provided by UI
@@ -105,12 +162,12 @@ async def dummy_user_update():
 
 
 # --------------------------
-#   Authorization fixtures
+#   Authentication fixtures
 # --------------------------
 
 
-@ pytest.mark.asyncio
-@ pytest.fixture
+@pytest.mark.asyncio
+@pytest.fixture
 async def return_token(test_add_user, dummy_user_to_add):
     """ test user login """
     assert test_add_user is not None
@@ -125,6 +182,8 @@ async def return_token(test_add_user, dummy_user_to_add):
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
 
+@pytest.mark.asyncio
+@pytest.fixture
 def test_unit_tree_create():
     """ initialise a tree and return it"""
     tree = api.initialise_tree()
@@ -183,15 +242,15 @@ async def test_get_root_node(return_token):
 # ------------------------
 
 
-@ pytest.fixture
+@pytest.fixture
 def event_loop():
     loop = asyncio.get_event_loop()
     yield loop
     loop.close()
 
 
-@ pytest.mark.asyncio
-@ pytest.fixture
+@pytest.mark.asyncio
+@pytest.fixture
 async def test_create_root_node(return_token, get_dummy_user_account_id, test_get_root_node):
     """ Create a root node and return it """
     headers = return_token
@@ -228,7 +287,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_root_path(return_token):
     """ return version number"""
     headers = return_token
@@ -239,7 +298,7 @@ async def test_root_path(return_token):
     assert response.json()["message"] == "Success"
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_add_another_root_node(test_create_root_node, return_token):
     """ generate a root node then try to add another"""
     assert test_create_root_node is not None
@@ -268,7 +327,7 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_remove_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
@@ -285,7 +344,7 @@ async def test_nodes_remove_node(return_token, test_create_root_node: list):
         "data"] == 1
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_remove_non_existent_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
@@ -304,7 +363,7 @@ async def test_nodes_remove_non_existent_node(return_token, test_create_root_nod
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_update_node(test_create_root_node, return_token):
     """ generate a root node and update it"""
     headers = return_token
@@ -348,7 +407,7 @@ async def test_nodes_update_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_update_node_for_non_existent_node(test_create_root_node, return_token):
     """ generate a root node and update it"""
     headers = return_token
@@ -375,7 +434,7 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_token):
     """ update a node with a bad payload"""
     headers = return_token
@@ -391,7 +450,7 @@ async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_update_node_with_non_existent_parent(test_create_root_node, return_token):
     """ generate a root node and update it with a non existent parent"""
     headers = return_token
@@ -422,7 +481,7 @@ async def test_nodes_update_node_with_non_existent_parent(test_create_root_node,
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_get_a_node(test_create_root_node, return_token):
     """ get a single node by id"""
     headers = return_token
@@ -451,7 +510,7 @@ async def test_nodes_get_a_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token):
     """ get a non-existent node by id"""
     headers = return_token
@@ -467,7 +526,7 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_get_all_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
@@ -492,7 +551,7 @@ async def test_nodes_get_all_nodes(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
@@ -526,7 +585,7 @@ async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_add_child_node(test_create_root_node, return_token):
     """ Add a child node"""
     headers = return_token
@@ -560,7 +619,7 @@ async def test_nodes_add_child_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, return_token):
     """ Add a child node with invalid parent"""
     headers = return_token
@@ -587,8 +646,8 @@ async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, r
 # ------------------------
 
 
-@ pytest.fixture
-@ pytest.mark.asyncio
+@pytest.fixture
+@pytest.mark.asyncio
 async def test_setup_remove_and_return_subtree(test_create_root_node, return_token):
     """ Add a child node"""
     headers = return_token
@@ -635,7 +694,7 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
             "account_id": test_create_root_node['account_id']}
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree, return_token):
     # set these two shortcuts up for ledgibility purposes
     headers = return_token
@@ -679,7 +738,7 @@ async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree, ret
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return_token):
     headers = return_token
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
@@ -759,7 +818,7 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
 # ------------------------
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_saves_list_all_saves(test_create_root_node, return_token):
     """ generate a list of all the saved tries for given account_id"""
     headers = return_token
@@ -773,7 +832,7 @@ async def test_saves_list_all_saves(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_saves_get_latest_save(test_create_root_node, return_token):
     """ load the latest save into the tree for a given user """
     headers = return_token
@@ -804,7 +863,7 @@ async def test_saves_get_latest_save(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_saves_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
     headers = return_token
@@ -834,7 +893,7 @@ async def test_saves_get_save(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(test_create_root_node, return_token):
     """ try and load a save for a valid account_id but non-existent document id """
     headers = return_token
@@ -849,7 +908,7 @@ async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(t
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_saves_delete_all_saves(return_token):
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
@@ -861,7 +920,7 @@ async def test_saves_delete_all_saves(return_token):
 #       User Tests
 # ------------------------
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_users_update_user(return_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     headers = return_token
@@ -878,7 +937,7 @@ async def test_users_update_user(return_token, dummy_user_update):
         "data"]["email"] == dummy_user_update["email"]
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_users_update_user_with_bad_payload(return_token):
     """ Add a new user so that we can update it and delete it"""
     headers = return_token
@@ -893,7 +952,7 @@ async def test_users_update_user_with_bad_payload(return_token):
     assert response.json()["data"] == 1
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_users_delete_user(return_token):
     """ delete a user """
     headers = return_token
@@ -904,8 +963,8 @@ async def test_users_delete_user(return_token):
         "data"] == 1
 
 
-@ pytest.mark.asyncio
-async def test_users_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
+@pytest.mark.asyncio
+async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
@@ -930,7 +989,7 @@ async def test_users_get_user_by_username(test_add_user, dummy_user_to_add, retu
     assert response.json()["data"] == 1
 
 # --------------------------
-#   Authorization tests
+#   Authentication tests
 # --------------------------
 
 
@@ -972,7 +1031,7 @@ async def test_unauth_create_root_node(return_token,
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_remove_node(return_token, test_create_root_node: list):
     """ unauthorized generate a root node and remove it should fail with a 401"""
     headers = return_token
@@ -987,7 +1046,7 @@ async def test_unauth_remove_node(return_token, test_create_root_node: list):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_update_node(test_create_root_node, return_token):
     """ Unauthorised generate a root node and update it should fail with a 401"""
     headers = return_token
@@ -1012,7 +1071,7 @@ async def test_unauth_update_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_get_a_node(test_create_root_node, return_token):
     """ Unauthorised get a single node by id should fail with a 401 """
     headers = return_token
@@ -1028,7 +1087,7 @@ async def test_unauth_get_a_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_add_child_node(test_create_root_node, return_token):
     """ Unauthorised add a child node should fail with a 401 """
     headers = return_token
@@ -1051,7 +1110,7 @@ async def test_unauth_add_child_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, return_token):
     """ Unauthorised remove_subtree should fail with a 401 """
     # set these two shortcuts up for ledgibility purposes
@@ -1071,7 +1130,7 @@ async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, retur
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_token):
     """ Unauthorised add subtree should fail with a 401 """
     headers = return_token
@@ -1097,7 +1156,7 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_list_all_saves(test_create_root_node, return_token):
     """ Unauthorizd generate a list of all the saves - should fail with a 401 """
     headers = return_token
@@ -1111,7 +1170,7 @@ async def test_unauth_list_all_saves(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_get_latest_save(test_create_root_node, return_token):
     """ load the latest save into the tree for a given user """
     headers = return_token
@@ -1128,7 +1187,7 @@ async def test_unauth_get_latest_save(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
     headers = return_token
@@ -1144,7 +1203,7 @@ async def test_unauth_get_save(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_delete_all_saves(return_token):
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete("http://localhost:8000/saves")
@@ -1153,7 +1212,7 @@ async def test_unauth_delete_all_saves(return_token):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_update_user(return_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     data = jsonable_encoder(dummy_user_update)
@@ -1165,7 +1224,7 @@ async def test_unauth_update_user(return_token, dummy_user_update):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_delete_user(return_token):
     """ delete a user """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -1175,7 +1234,7 @@ async def test_unauth_delete_user(return_token):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@ pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
@@ -1189,3 +1248,17 @@ async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, ret
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
+
+# -------------------------------
+#   Scope (authentication) tests
+# -------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unauth_root_path(return_scoped_token):
+    """ Unauthorized return version number should fail with a 401"""
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/")
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Not authenticated'}
