@@ -91,10 +91,9 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 
-@pytest.fixture
 @pytest.mark.asyncio
-@pytest.mark.parametrize("scopes", [("user:reader")])
-async def return_scoped_token(scopes):
+@pytest.fixture(params=["user:reader", "user_writer", "tree:reader", "tree:writer"])
+async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
     dummy_user_to_add_scoped = jsonable_encoder({
         "name": {"firstname": "John", "surname": "Maginot"},
@@ -103,7 +102,7 @@ async def return_scoped_token(scopes):
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": scopes,
+        "user_role": request.param,
         "user_type": "free"
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
@@ -1262,4 +1261,5 @@ async def test_unauth_root_path(return_scoped_token):
         response = await ac.get("/")
     assert response.status_code == 403
     assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
+    assert response.json() == {
+        'detail': 'Insufficient permissions to complete action'}
