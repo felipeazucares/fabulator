@@ -104,11 +104,11 @@ async def return_scoped_token(request):
         user_scopes = request.param
 
     dummy_user_to_add_scoped = jsonable_encoder({
-        "name": {"firstname": "John", "surname": "Maginot"},
-        "username": TEST_USERNAME_TO_ADD,
-        "password": TEST_PASSWORD_TO_ADD,
+        "name": {"firstname": "Telly", "surname": "Scopes"},
+        "username": TEST_USERNAME_TO_UPDATE,
+        "password": TEST_PASSWORD_TO_UPDATE,
         "account_id": None,
-        "email": "john_maginot@fictional.com",
+        "email": "tscoped@fictional.com",
         "disabled": False,
         "user_role": user_scopes,
         "user_type": "free"
@@ -1137,7 +1137,7 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
     headers = return_token
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
-    # prune ndde
+    # prune node
     async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     assert response.status_code == 200
@@ -1272,7 +1272,7 @@ async def test_scope_root_path(return_scoped_token):
 
 
 @pytest.mark.asyncio
-async def test_scope_create_root_node(return_scoped_token):
+async def test_scope_create_root_node(return_token, return_scoped_token):
     """ Unscoped Create a root node - should fail with 403"""
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
@@ -1286,11 +1286,13 @@ async def test_scope_create_root_node(return_scoped_token):
 
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/Unit test root node", json=data, headers=headers)
-    if scopes == "user:reader tree:writer":
+    if scopes == "tree:writer user:reader":
         assert response.status_code == 200
+        id_to_delete = response.json()["data"]["node"]["_identifier"]
         # now remove node
+        headers = return_token
         async with httpx.AsyncClient(app=api.app) as ac:
-            response = await ac.delete(f"http://localhost:8000/nodes/Unit test root node", headers=headers)
+            response = await ac.delete(f"http://localhost:8000/nodes/{id_to_delete}", headers=headers)
         assert response.status_code == 200
         # test that the root node is removed as expected
         assert int(response.json()['data']) >= 1
@@ -1302,24 +1304,31 @@ async def test_scope_create_root_node(return_scoped_token):
 
 
 @pytest.mark.asyncio
-async def test_unauth_remove_node(return_token, test_create_root_node: list):
-    """ unauthorized generate a root node and remove it should fail with a 401"""
-    headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-    # remove the node we've created
+async def test_scope_remove_node(return_token, test_create_root_node, return_scoped_token):
+    """ unscoped generate a root node and remove it should fail with a 403"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-    assert response.status_code == 200
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+        # now remove the node
+        headers = return_token
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_update_node(test_create_root_node, return_token):
-    """ Unauthorised generate a root node and update it should fail with a 401"""
-    headers = return_token
+async def test_scope_update_node(test_create_root_node, return_token, return_scoped_token):
+    """ Unscoped generate a root node and update it should fail with a 403"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({
         "name": "Unit test root node updated name",
         "description": "Unit test updated description",
@@ -1330,37 +1339,47 @@ async def test_unauth_update_node(test_create_root_node, return_token):
     })
 
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data)
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # now remove the node we just added
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-    assert response.status_code == 200
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers, json=data)
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+        # now remove the node
+        headers = return_token
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_get_a_node(test_create_root_node, return_token):
-    """ Unauthorised get a single node by id should fail with a 401 """
-    headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+async def test_scope_get_a_node(test_create_root_node, return_token, return_scoped_token):
+    """ Unscoped get a single node by id should fail with a 403 """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-    assert response.status_code == 200
+    if scopes == "tree:reader user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+        # now remove the node
+        headers = return_token
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_add_child_node(test_create_root_node, return_token):
-    """ Unauthorised add a child node should fail with a 401 """
-    headers = return_token
+async def test_scope_add_child_node(test_create_root_node, return_token, return_scoped_token):
+    """ Unscoped add a child node should fail with a 403 """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({
         "parent": test_create_root_node["node_id"],
         "description": "unit test child description",
@@ -1369,60 +1388,72 @@ async def test_unauth_add_child_node(test_create_root_node, return_token):
         "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data)
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+        # now remove the node
+        headers = return_token
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, return_token):
-    """ Unauthorised remove_subtree should fail with a 401 """
-    # set these two shortcuts up for ledgibility purposes
-    headers = return_token
+async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
+    """ Unscoped remove_subtree should fail with a 403 """
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
-    assert response.status_code == 200
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+        # now remove the node
+        headers = return_token
+        async with httpx.AsyncClient(app=api.app) as client:
+            response = await client.delete(f"http://localhost:8000/nodes/{child_node_id}", headers=headers)
+        assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_token):
-    """ Unauthorised add subtree should fail with a 401 """
-    headers = return_token
+async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
+    """ Unscoped add subtree should fail with a 403 """
+    scoped_headers = return_scoped_token["token"]
+    all_scoped_headers = return_token
+    scopes = return_scoped_token["scopes"]
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
-    # prune ndde
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+    # prune node
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=all_scoped_headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
-    assert response.status_code == 200
-
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
-
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    # now add the subtree back in
+    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=scoped_headers) as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data)
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-    # remove the remaining root node in the tree
+    if scopes == "tree:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+    # now remove the node regardless of success or failure of the above
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
+        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=all_scoped_headers)
     assert response.status_code == 200
 
 
