@@ -98,7 +98,7 @@ async def test_add_user(dummy_user_to_add):
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
-    if request.param != "tree:reader user:reader":
+    if request.param != "user:reader":
         user_scopes = f"{request.param} user:reader"
     else:
         user_scopes = request.param
@@ -1532,38 +1532,50 @@ async def test_scope_delete_all_saves(return_scoped_token):
 
 
 @pytest.mark.asyncio
-async def test_unauth_update_user(return_token, dummy_user_update):
+async def test_scope_update_user(return_token, return_scoped_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.put("/users", json=data)
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
+    if scopes == "user:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
 
 
 @pytest.mark.asyncio
-async def test_unauth_delete_user(return_token):
-    """ delete a user """
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-
-
-@pytest.mark.asyncio
-async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
-    """ test retrieving a user document from the collection by username - no route for this"""
-    headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/users/me")
-    assert response.status_code == 401
-    assert response.is_error == True
-    assert response.json() == {'detail': 'Not authenticated'}
-    # remove the user document we just created
+async def test_scope_delete_user(return_token, return_scoped_token):
+    """ unscoped delete a user should fail with a 403"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
-    assert response.status_code == 200
-    assert response.json()["data"] == 1
+    if scopes == "user:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+
+
+@pytest.mark.asyncio
+async def test_scope_get_user_by_username(test_add_user, dummy_user_to_add, return_scoped_token):
+    """ unscoped test retrieving a user document from the collection by username should fail with 403"""
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get(f"/users/me")
+    if scopes == "user:reader":
+        assert response.status_code == 200
+    else:
+        #assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
