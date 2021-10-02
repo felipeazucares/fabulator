@@ -259,7 +259,7 @@ def initialise_tree():
 
 
 @ app.get("/")
-async def get(current_user: UserDetails = Security(get_current_user, scopes=["user:reader"])) -> dict:
+async def get(current_user: UserDetails = Security(get_current_user, scopes=["tree:reader", "user:reader"])) -> dict:
     """ Return the API version """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if current_user:

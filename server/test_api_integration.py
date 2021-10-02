@@ -94,11 +94,11 @@ async def test_add_user(dummy_user_to_add):
 
 
 @pytest.mark.asyncio
-@pytest.fixture(params=["user:reader", "user_writer", "tree:reader", "tree:writer"])
+@pytest.fixture(params=["user:reader", "user:writer", "tree:reader", "tree:writer"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
-    if request.param != "user:reader":
+    if request.param != "tree:reader user:reader":
         user_scopes = f"{request.param} user:reader"
     else:
         user_scopes = request.param
@@ -1262,7 +1262,7 @@ async def test_scope_root_path(return_scoped_token):
     scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
-    if scopes == "user:reader":
+    if scopes == "tree:reader user:reader":
         assert response.status_code == 200
     else:
         assert response.status_code == 403
