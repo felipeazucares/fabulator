@@ -227,6 +227,17 @@ async def get_current_active_user_account(current_user: UserDetails = Security(g
     return current_user.account_id
 
 
+@ app.post("/logout", response_model=Token)
+async def logout():
+    access_token_expires = timedelta(minutes=0)
+    # creates a token for a given user with an expiry in minutes
+    access_token = oauth.create_access_token(
+        data={"sub": None, "scopes": None},
+        expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 @ app.post("/get_token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await oauth.authenticate_user(
