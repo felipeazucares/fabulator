@@ -31,6 +31,7 @@ from .models import (
     NodePayload,
     UserDetails,
     UpdateUserDetails,
+    UpdateUserPassword,
     Token,
     TokenData,
     ResponseModel
@@ -45,8 +46,9 @@ ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
 TEST_USERNAME_TO_ADD = os.getenv(key="TESTUSERTOADD")
 TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
-TEST_USERNAME_TO_UPDATE = os.getenv(key="TESTUSERTOUPDATE")
-TEST_PASSWORD_TO_UPDATE = os.getenv(key="TESTPWDTOUPDATE")
+TEST_USERNAME_TO_ADD2 = os.getenv(key="TESTUSERTOADD2")
+TEST_PASSWORD_TO_ADD2 = os.getenv(key="TESTPWDTOADD2")
+TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
 
 console_display = helpers.ConsoleDisplay()
 
@@ -195,9 +197,11 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         raise credentials_exception
     token_data.scopes = list(set(token_data.scopes) &
                              set(user.user_role.split(" ")))
-
-    print(f"API token scopes:{token_scopes}")
-    print(f"API endpoint scopes:{security_scopes.scopes}")
+    if DEBUG:
+        console_display.show_debug_message(
+            message_to_show=f"requested scopes in token:{token_scopes}")
+        console_display.show_debug_message(
+            message_to_show=f"Required endpoint scopes:{security_scopes.scopes}")
 
     for scope in security_scopes.scopes:
         print(f"here:{scope}")
@@ -818,6 +822,32 @@ async def update_user(account_id: UserDetails = Security(get_current_active_user
     else:
         raise HTTPException(
             status_code=404, detail=f"No user record found for account_id:{account_id}")
+
+
+@ app.put("/users/password")
+async def update_password(account_id: UserDetails = Security(get_current_active_user_account, scopes=["user:writer"]), request: UpdateUserPassword = Body(...)) -> dict:
+    """ update a user document """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"update_password({request}) called")
+    print(f"request:{request}")
+    # make sure that payload account_id is the same as the one that we're logged in under
+    request.new_password = pwd_context.hash(request.new_password)
+    if account_id != None:
+        try:
+            db_storage = UserStorage(collection_name="user_collection")
+            update_result = await db_storage.update_user_password(account_id=account_id, user=request)
+        except Exception as e:
+            console_display.show_exception_message(
+                message_to_show=f"Error occured updating user password:{account_id}")
+            raise
+        result = ResponseModel(
+            update_result, f"user password for {account_id} updated")
+        return result
+    else:
+        raise HTTPException(
+            status_code=401, detail=f"Invalid account_id requested")
 
 
 @ app.delete("/users")

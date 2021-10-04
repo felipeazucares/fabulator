@@ -142,7 +142,6 @@ class RetrievedUserDetails(BaseModel):
     id: str
     name: Name  # use nested model definition
     username: str
-    password: str
     account_id: str
     email: EmailStr
     disabled: Optional[bool] = False
@@ -154,7 +153,6 @@ class RetrievedUserDetails(BaseModel):
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
-                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "email": "ben@kenobi.com",
                 "disabled": False,
@@ -172,11 +170,14 @@ class UpdateUserDetails(BaseModel):
     name: Optional[Name]  # use nested model definition
     email: Optional[EmailStr]
 
+
+class UpdateUserPassword(BaseModel):
+    new_password: str
+
     class Config:
         schema_extra = {
             "example": {
-                "name": {"firstname": "Alexei", "surname": "Guinness"},
-                "email": "ben@kenobi.com",
+                "new_password": "a_new_password",
             }
         }
 
@@ -221,7 +222,6 @@ def users_saves_helper(result) -> dict:
         name=Name(firstname=str(result["name"]["firstname"]),
                   surname=result["name"]["surname"]),
         username=str(result["username"]),
-        password=str(result["password"]),
         account_id=str(result["account_id"]),
         email=EmailStr(result["email"]),
         disabled=str(result["disabled"]),

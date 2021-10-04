@@ -11,6 +11,7 @@ from bson.objectid import ObjectId
 from .models import (
     UserDetails,
     UpdateUserDetails,
+    UpdateUserPassword,
     TreeSaveSchema,
     saves_helper,
     users_saves_helper
@@ -418,7 +419,6 @@ class UserStorage:
         try:
             user_deets = await self.user_collection.find_one({"username": self.username})
             if user_deets is not None:
-                print(f"userdeets:{user_deets}")
                 self.user_details = UserDetails(**user_deets)
 
             else:
@@ -482,6 +482,34 @@ class UserStorage:
             except Exception as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
+                print(e)
+                raise
+            try:
+                self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
+                print(e)
+                raise
+        else:
+            self.console_display.show_exception_message("Nothing to change")
+            raise
+        return users_saves_helper(self.updated_user)
+
+    async def update_user_password(self, account_id, user: UpdateUserPassword) -> dict:
+        """ save a user's details into the user collection """
+        self.account_id_to_update = account_id
+        self.user = user
+        if self.user.new_password is not None:
+            self.console_display = ConsoleDisplay()
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"update_upassword({self.account_id_to_update}) called")
+            try:
+                self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"password": self.user.new_password}})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured updating user password id was: {self.account_id_to_update}")
                 print(e)
                 raise
             try:

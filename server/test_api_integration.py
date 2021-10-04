@@ -1,6 +1,6 @@
 
 # from fastapi.param_functions import Form
-from app.api import ALGORITHM, SECRET_KEY, TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO_UPDATE, TEST_PASSWORD_TO_UPDATE
+from app.api import TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO_ADD2, TEST_PASSWORD_TO_ADD2, TEST_PASSWORD_TO_CHANGE
 import pytest
 import asyncio
 import os
@@ -13,9 +13,7 @@ from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from jose import jwt
 from passlib.context import CryptContext
-from fastapi.security import (
-    SecurityScopes
-)
+
 
 app = FastAPI()
 
@@ -79,8 +77,8 @@ async def test_add_user(dummy_user_to_add):
         "data"]["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-        "data"]["password"]) == True
+    # assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
+    #     "data"]["password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
     assert response.json()[
@@ -105,8 +103,8 @@ async def return_scoped_token(request):
 
     dummy_user_to_add_scoped = jsonable_encoder({
         "name": {"firstname": "Telly", "surname": "Scopes"},
-        "username": TEST_USERNAME_TO_UPDATE,
-        "password": TEST_PASSWORD_TO_UPDATE,
+        "username": TEST_USERNAME_TO_ADD2,
+        "password": TEST_PASSWORD_TO_ADD2,
         "account_id": None,
         "email": "tscoped@fictional.com",
         "disabled": False,
@@ -133,8 +131,68 @@ async def return_scoped_token(request):
         "data"]["username"] == dummy_user_to_add_scoped["username"]
     assert pwd_context.verify(dummy_user_to_add_scoped["username"], response.json()[
         "data"]["account_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add_scoped["password"], response.json()[
-        "data"]["password"]) == True
+    # assert pwd_context.verify(dummy_user_to_add_scoped["password"], response.json()[
+    #     "data"]["password"]) == True
+    assert response.json()[
+        "data"]["email"] == dummy_user_to_add_scoped["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add_scoped["disabled"]
+    assert response.json()[
+        "data"]["user_role"] == dummy_user_to_add_scoped["user_role"]
+    assert response.json()[
+        "data"]["user_type"] == dummy_user_to_add_scoped["user_type"]
+
+    form_data = {
+        "username": dummy_user_to_add_scoped["username"],
+        "password": dummy_user_to_add_scoped["password"],
+        "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
+    }
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+    return {"token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
+            "scopes": form_data["scope"]}
+
+
+@pytest.mark.asyncio
+@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
+async def return_simple_scoped_token(request):
+    """ Add a new user so that we can authorise against it"""
+
+    user_scopes = request.param
+
+    dummy_user_to_add_scoped = jsonable_encoder({
+        "name": {"firstname": "Telly", "surname": "Scopes"},
+        "username": TEST_USERNAME_TO_ADD2,
+        "password": TEST_PASSWORD_TO_ADD2,
+        "account_id": None,
+        "email": "tscoped@fictional.com",
+        "disabled": False,
+        "user_role": user_scopes,
+        "user_type": "free"
+    })
+    data = jsonable_encoder(dummy_user_to_add_scoped)
+    # first check to see if the user exists
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user_to_add_scoped['username'])
+    if user is not None:
+        result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+        assert result == 1
+
+    # now post a new dummy user
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"]["firstname"] == dummy_user_to_add_scoped["name"]["firstname"]
+    assert response.json()[
+        "data"]["name"]["surname"] == dummy_user_to_add_scoped["name"]["surname"]
+    assert response.json()[
+        "data"]["username"] == dummy_user_to_add_scoped["username"]
+    assert pwd_context.verify(dummy_user_to_add_scoped["username"], response.json()[
+        "data"]["account_id"]) == True
+    # assert pwd_context.verify(dummy_user_to_add_scoped["password"], response.json()[
+    #     "data"]["password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add_scoped["email"]
     assert response.json()[
@@ -989,12 +1047,38 @@ async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
+
+@pytest.mark.asyncio
+async def test_users_update_password(dummy_user_to_add, return_token):
+    """ test changing a user password"""
+
+    headers = return_token
+    data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users/password", json=data, headers=headers)
+
+    assert response.status_code == 200
+    assert response.is_error == False
+
+    # login in with new password
+
+    form_data = {
+        "username": dummy_user_to_add["username"],
+        "password": TEST_PASSWORD_TO_CHANGE,
+        "scope": dummy_user_to_add["user_role"].replace(",", " ")
+    }
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/get_token", headers=headers, data=form_data)
+    assert response.status_code == 200
+
+
 # --------------------------
 #   Authentication tests
 # --------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_root_path():
     """ Unauthorized return version number should fail with a 401"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -1004,7 +1088,7 @@ async def test_unauth_root_path():
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_create_root_node(return_token,
                                        test_get_root_node):
     """ Unauthorized Create a root node - should fail with 401"""
@@ -1018,8 +1102,8 @@ async def test_unauth_create_root_node(return_token,
         assert int(response.json()['data']) >= 1
 
     data = jsonable_encoder({
-                            "description": "Unit test description",
-                            "previous": "previous node",
+        "description": "Unit test description",
+        "previous": "previous node",
                             "next": "next node",
                             "text": "Unit test text for root node",
                             "tags": ['tag 1', 'tag 2', 'tag 3']
@@ -1032,7 +1116,7 @@ async def test_unauth_create_root_node(return_token,
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_remove_node(return_token, test_create_root_node: list):
     """ unauthorized generate a root node and remove it should fail with a 401"""
     headers = return_token
@@ -1047,7 +1131,7 @@ async def test_unauth_remove_node(return_token, test_create_root_node: list):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_update_node(test_create_root_node, return_token):
     """ Unauthorised generate a root node and update it should fail with a 401"""
     headers = return_token
@@ -1072,7 +1156,7 @@ async def test_unauth_update_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_get_a_node(test_create_root_node, return_token):
     """ Unauthorised get a single node by id should fail with a 401 """
     headers = return_token
@@ -1088,7 +1172,7 @@ async def test_unauth_get_a_node(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_add_child_node(test_create_root_node, return_token):
     """ Unauthorised add a child node should fail with a 401 """
     headers = return_token
@@ -1111,7 +1195,7 @@ async def test_unauth_add_child_node(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, return_token):
     """ Unauthorised remove_subtree should fail with a 401 """
     # set these two shortcuts up for ledgibility purposes
@@ -1131,7 +1215,7 @@ async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, retur
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_token):
     """ Unauthorised add subtree should fail with a 401 """
     headers = return_token
@@ -1157,7 +1241,7 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_list_all_saves(test_create_root_node, return_token):
     """ Unauthorizd generate a list of all the saves - should fail with a 401 """
     headers = return_token
@@ -1171,7 +1255,7 @@ async def test_unauth_list_all_saves(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_get_latest_save(test_create_root_node, return_token):
     """ load the latest save into the tree for a given user """
     headers = return_token
@@ -1188,7 +1272,7 @@ async def test_unauth_get_latest_save(test_create_root_node, return_token):
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
     headers = return_token
@@ -1204,7 +1288,7 @@ async def test_unauth_get_save(test_create_root_node, return_token):
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_delete_all_saves(return_token):
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.delete("http://localhost:8000/saves")
@@ -1213,7 +1297,7 @@ async def test_unauth_delete_all_saves(return_token):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_update_user(return_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     data = jsonable_encoder(dummy_user_update)
@@ -1225,7 +1309,7 @@ async def test_unauth_update_user(return_token, dummy_user_update):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_delete_user(return_token):
     """ delete a user """
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
@@ -1235,7 +1319,7 @@ async def test_unauth_delete_user(return_token):
     assert response.json() == {'detail': 'Not authenticated'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
@@ -1250,12 +1334,25 @@ async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, ret
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
+
+@pytest.mark.asyncio
+async def test_unauth_update_password(dummy_user_to_add, return_token):
+    """ test unauthorized changing a user password - should fail with 401"""
+
+    data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users/password", json=data)
+
+    assert response.status_code == 401
+    assert response.is_error == True
+
 # -------------------------------
 #   Scope (authentication) tests
 # -------------------------------
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_root_path(return_scoped_token):
     """ Unauthorized return version number should fail with a 403 for everything other than user:reader"""
     headers = return_scoped_token["token"]
@@ -1271,14 +1368,14 @@ async def test_scope_root_path(return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_create_root_node(return_token, return_scoped_token):
     """ Unscoped Create a root node - should fail with 403"""
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({
-                            "description": "Unit test description",
-                            "previous": "previous node",
+        "description": "Unit test description",
+        "previous": "previous node",
                             "next": "next node",
                             "text": "Unit test text for root node",
                             "tags": ['tag 1', 'tag 2', 'tag 3']
@@ -1303,7 +1400,7 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_remove_node(return_token, test_create_root_node, return_scoped_token):
     """ unscoped generate a root node and remove it should fail with a 403"""
     headers = return_scoped_token["token"]
@@ -1324,7 +1421,7 @@ async def test_scope_remove_node(return_token, test_create_root_node, return_sco
         assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_update_node(test_create_root_node, return_token, return_scoped_token):
     """ Unscoped generate a root node and update it should fail with a 403"""
     headers = return_scoped_token["token"]
@@ -1354,7 +1451,7 @@ async def test_scope_update_node(test_create_root_node, return_token, return_sco
         assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_get_a_node(test_create_root_node, return_token, return_scoped_token):
     """ Unscoped get a single node by id should fail with a 403 """
     headers = return_scoped_token["token"]
@@ -1375,7 +1472,7 @@ async def test_scope_get_a_node(test_create_root_node, return_token, return_scop
         assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_add_child_node(test_create_root_node, return_token, return_scoped_token):
     """ Unscoped add a child node should fail with a 403 """
     headers = return_scoped_token["token"]
@@ -1404,7 +1501,7 @@ async def test_scope_add_child_node(test_create_root_node, return_token, return_
         assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
     """ Unscoped remove_subtree should fail with a 403 """
     headers = return_scoped_token["token"]
@@ -1428,7 +1525,7 @@ async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return
         assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
     """ Unscoped add subtree should fail with a 403 """
     scoped_headers = return_scoped_token["token"]
@@ -1457,7 +1554,7 @@ async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_to
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_list_all_saves(return_scoped_token):
     """ Unscoped generate a list of all the saves - should fail with a 403 """
     headers = return_scoped_token["token"]
@@ -1473,7 +1570,7 @@ async def test_scope_list_all_saves(return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_get_latest_save(return_scoped_token):
     """ unscopd load the latest save into the tree for a given user should fail with a 403"""
     headers = return_scoped_token["token"]
@@ -1492,7 +1589,7 @@ async def test_scope_get_latest_save(return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_get_save(test_create_root_node, return_token, return_scoped_token):
     """ Unscoped load the named save into the tree for a given user """
     headers = return_scoped_token["token"]
@@ -1515,7 +1612,7 @@ async def test_scope_get_save(test_create_root_node, return_token, return_scoped
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_delete_all_saves(return_scoped_token):
     """ Unscoped delete all saves should fail with a 403 """
     headers = return_scoped_token["token"]
@@ -1531,7 +1628,7 @@ async def test_scope_delete_all_saves(return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_update_user(return_token, return_scoped_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     headers = return_scoped_token["token"]
@@ -1549,7 +1646,7 @@ async def test_scope_update_user(return_token, return_scoped_token, dummy_user_u
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_delete_user(return_token, return_scoped_token):
     """ unscoped delete a user should fail with a 403"""
     headers = return_scoped_token["token"]
@@ -1565,21 +1662,39 @@ async def test_scope_delete_user(return_token, return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
-async def test_scope_get_user_by_username(test_add_user, dummy_user_to_add, return_scoped_token):
+@ pytest.mark.asyncio
+async def test_scope_get_user_by_username(return_simple_scoped_token):
     """ unscoped test retrieving a user document from the collection by username should fail with 403"""
-    # problem that we have here is that we're generating composite scopes that always contain user:read
-    # not sure how to manage this? as we only have one scope here rather than a dual scope.
-    # almost need to know upfront what we're testing against.
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+
+    headers = return_simple_scoped_token["token"]
+    scopes = return_simple_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
 
     if scopes == "user:reader":
         assert response.status_code == 200
     else:
-        #assert response.is_error == True
+        # assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+
+
+@ pytest.mark.asyncio
+async def test_scope_update_password(return_scoped_token):
+    """ unscoped test retrieving a user document from the collection by username should fail with 403"""
+
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
+    data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
+    print(f"data:{data}")
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users/password", json=data, headers=headers)
+
+    if scopes == "user:writer user:reader":
+        assert response.status_code == 200
+    else:
+        # assert response.is_error == True
         assert response.status_code == 403
         assert response.json() == {
             'detail': 'Insufficient permissions to complete action'}
