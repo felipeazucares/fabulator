@@ -82,7 +82,9 @@ oauth2_scheme = OAuth2PasswordBearer(
     scopes={"user:reader": "Read account details",
             "user:writer": "write account details",
             "tree:reader": "Read trees & nodes",
-            "tree:writer": "Administrator access"}
+            "tree:writer": "Write trees & nodes",
+            "usertype:writer": "Update user_types"
+            }
 )
 oauth = Authentication()
 

@@ -341,6 +341,7 @@ class UserStorage:
         self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
         self.database = self.client.fabulator
         self.user_collection = self.database.get_collection(collection_name)
+        self.tree_collection = self.database.get_collection("tree_collection")
 
     async def does_account_exist(self, account_id: str):
         """ return true or false based on account_id existence """
@@ -551,7 +552,7 @@ class UserStorage:
         return users_saves_helper(self.updated_user)
 
     async def delete_user_details(self, id: str) -> dict:
-        """ delete a user's details from the user collection """
+        """ delete a user's details from the user collection by document id"""
         self.id_to_delete = id
         self.console_display = ConsoleDisplay()
         if DEBUG:
@@ -564,6 +565,7 @@ class UserStorage:
                 message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
             print(e)
             raise
+
         return self.delete_response.deleted_count
 
     async def delete_user_details_by_account_id(self, account_id: str) -> dict:
@@ -578,6 +580,17 @@ class UserStorage:
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured delete user details from the database account_id was: {self.account_id_to_delete}")
+            print(e)
+            raise
+        # now remove any documents belonging to the users
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"Removing documents for {self.account_id_to_delete}")
+        try:
+            await self.tree_collection.delete_many({"account_id": self.account_id_to_delete})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured removing all documents for user account_id was: {self.account_id_to_delete}")
             print(e)
             raise
         return self.delete_response.deleted_count
