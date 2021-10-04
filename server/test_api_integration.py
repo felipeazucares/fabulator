@@ -94,7 +94,7 @@ async def test_add_user(dummy_user_to_add):
 
 
 @pytest.mark.asyncio
-@pytest.fixture(params=["user:reader", "user:writer", "tree:reader", "tree:writer"])
+@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
@@ -1568,10 +1568,14 @@ async def test_scope_delete_user(return_token, return_scoped_token):
 @pytest.mark.asyncio
 async def test_scope_get_user_by_username(test_add_user, dummy_user_to_add, return_scoped_token):
     """ unscoped test retrieving a user document from the collection by username should fail with 403"""
+    # problem that we have here is that we're generating composite scopes that always contain user:read
+    # not sure how to manage this? as we only have one scope here rather than a dual scope.
+    # almost need to know upfront what we're testing against.
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
+
     if scopes == "user:reader":
         assert response.status_code == 200
     else:
