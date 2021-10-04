@@ -182,6 +182,17 @@ class UpdateUserPassword(BaseModel):
         }
 
 
+class UpdateUserType(BaseModel):
+    user_type: UserType
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "user_type": "free",
+            }
+        }
+
+
 # -------------------------------------
 #   Classes for authentication
 # -------------------------------------

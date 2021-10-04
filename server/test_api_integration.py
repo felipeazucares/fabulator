@@ -49,7 +49,7 @@ def dummy_user_to_add():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "user:reader user:writer tree:reader tree:writer",
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer",
         "user_type": "free"
     }
 
@@ -92,7 +92,7 @@ async def test_add_user(dummy_user_to_add):
 
 
 @pytest.mark.asyncio
-@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
+@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
@@ -1073,6 +1073,21 @@ async def test_users_update_password(dummy_user_to_add, return_token):
     assert response.status_code == 200
 
 
+@pytest.mark.asyncio
+async def test_users_update_type(dummy_user_to_add, return_token):
+    """ test changing a user type """
+
+    headers = return_token
+    data = jsonable_encoder({"user_type": "premium"})
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users/type", json=data, headers=headers)
+
+    assert response.status_code == 200
+    assert response.is_error == False
+    assert response.json()["data"]["user_type"] == data["user_type"]
+
+
 # --------------------------
 #   Authentication tests
 # --------------------------
@@ -1343,6 +1358,20 @@ async def test_unauth_update_password(dummy_user_to_add, return_token):
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/password", json=data)
+
+    assert response.status_code == 401
+    assert response.is_error == True
+
+
+@pytest.mark.asyncio
+async def test_unauth_update_type(dummy_user_to_add, return_token):
+    """ test changing a user type """
+
+    headers = return_token
+    data = jsonable_encoder({"user_type": "premium"})
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.put("/users/type", json=data)
 
     assert response.status_code == 401
     assert response.is_error == True
@@ -1692,6 +1721,25 @@ async def test_scope_update_password(return_scoped_token):
         response = await ac.put("/users/password", json=data, headers=headers)
 
     if scopes == "user:writer user:reader":
+        assert response.status_code == 200
+    else:
+        # assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+
+
+@pytest.mark.asyncio
+async def test_scope_update_type(dummy_user_to_add, return_scoped_token):
+    """ test changing a user type """
+
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
+    data = jsonable_encoder({"user_type": "premium"})
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.put("/users/type", json=data)
+    if scopes == "usertype:writer user:reader":
         assert response.status_code == 200
     else:
         # assert response.is_error == True

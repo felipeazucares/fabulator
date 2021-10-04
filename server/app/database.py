@@ -12,6 +12,7 @@ from .models import (
     UserDetails,
     UpdateUserDetails,
     UpdateUserPassword,
+    UpdateUserType,
     TreeSaveSchema,
     saves_helper,
     users_saves_helper
@@ -21,9 +22,6 @@ from .models import (
 MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 
-# client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-# database = client.fabulator
-# tree_collection = database.get_collection("tree_collection")
 
 console_display = ConsoleDisplay()
 
@@ -510,6 +508,34 @@ class UserStorage:
             except Exception as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured updating user password id was: {self.account_id_to_update}")
+                print(e)
+                raise
+            try:
+                self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
+                print(e)
+                raise
+        else:
+            self.console_display.show_exception_message("Nothing to change")
+            raise
+        return users_saves_helper(self.updated_user)
+
+    async def update_user_type(self, account_id, user: UpdateUserType) -> dict:
+        """ update a user's type (free / premium) into the user collection """
+        self.account_id_to_update = account_id
+        self.user = user
+        if self.user.user_type is not None:
+            self.console_display = ConsoleDisplay()
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"update_type({self.account_id_to_update}) called")
+            try:
+                self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"user_type": self.user.user_type}})
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured updating user type id was: {self.account_id_to_update}")
                 print(e)
                 raise
             try:

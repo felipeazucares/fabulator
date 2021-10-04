@@ -32,6 +32,7 @@ from .models import (
     UserDetails,
     UpdateUserDetails,
     UpdateUserPassword,
+    UpdateUserType,
     Token,
     TokenData,
     ResponseModel
@@ -838,6 +839,30 @@ async def update_password(account_id: UserDetails = Security(get_current_active_
         try:
             db_storage = UserStorage(collection_name="user_collection")
             update_result = await db_storage.update_user_password(account_id=account_id, user=request)
+        except Exception as e:
+            console_display.show_exception_message(
+                message_to_show=f"Error occured updating user password:{account_id}")
+            raise
+        result = ResponseModel(
+            update_result, f"user password for {account_id} updated")
+        return result
+    else:
+        raise HTTPException(
+            status_code=401, detail=f"Invalid account_id requested")
+
+
+@ app.put("/users/type")
+async def update_type(account_id: UserDetails = Security(get_current_active_user_account, scopes=["usertype:writer"]), request: UpdateUserType = Body(...)) -> dict:
+    """ update a user type """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"update_type({request}) called")
+
+    if account_id != None:
+        try:
+            db_storage = UserStorage(collection_name="user_collection")
+            update_result = await db_storage.update_user_type(account_id=account_id, user=request)
         except Exception as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user password:{account_id}")
