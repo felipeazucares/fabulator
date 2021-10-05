@@ -9,6 +9,7 @@ from .models import UserDetails
 from typing import Optional
 import app.database as database
 import os
+import redis
 
 timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
