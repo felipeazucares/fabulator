@@ -5,7 +5,7 @@ from pytz import timezone
 from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
-from .models import UserDetails
+# from .models import UserDetails
 from typing import Optional
 import app.database as database
 import os
@@ -13,7 +13,6 @@ import redis
 
 timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-# oauth2_scheme = OAuth2PasswordBearer(
 
 
 class Authentication():
@@ -26,6 +25,7 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
+        self.conn = redis.Redis()
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -67,16 +67,18 @@ class Authentication():
         return True
 
     def add_blacklist_token(self, token):
-        with open('blacklist_db.txt', 'a') as file:
-            file.write(f'{token},')
-        return True
+        result = self.conn.lpush("token", token)
+
+        print(f"llen:{self.conn.llen('token')}")
+        print(f"result:{result}")
+        return result
 
     def is_token_blacklisted(self, token):
-        with open('blacklist_db.txt') as file:
-            content = file.read()
-            array = content[:-1].split(',')
-            for value in array:
-                if value == token:
-                    return True
+        blacklist = self.conn.lrange(
+            name=token, start=0, end=self.conn.llen("token"))
 
-        return False
+        print(f"blacklist:{blacklist}")
+        if(token in blacklist):
+            return True
+        else:
+            return False

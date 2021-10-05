@@ -1,4 +1,6 @@
+aioredis==2.0.0
 asgiref==3.3.4
+async-timeout==3.0.1
 attrs==21.2.0
 autopep8==1.5.7
 bcrypt==3.2.0
