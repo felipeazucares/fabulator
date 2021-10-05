@@ -207,6 +207,9 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         raise credentials_exception
     if datetime.now(timezone("gmt")) > token_data.expires:
         raise credentials_exception
+    # check if the token is blacklisted
+    if oauth.is_token_blacklisted(token):
+        raise credentials_exception
     # if we have a valid user and the token is not expired get the scopes
     token_data.scopes = list(set(token_data.scopes) &
                              set(user.user_role.split(" ")))
@@ -258,16 +261,15 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@ app.post("/logout", response_model=Token)
-async def login_for_access_token(current_user: UserDetails = Security(get_current_user, scopes=["user:reader"])):
+async def get_current_user_token(token: str = Depends(oauth2_scheme)):
+    return token
 
-    access_token_expires = timedelta(0)
-    # creates a token for a given user with an expiry in minutes
-    access_token = oauth.create_access_token(
-        data={"sub": current_user.username, "scopes": None},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+
+@ app.get("/logout")
+async def logout(token: str = Depends(get_current_user_token)):
+
+    if oauth.add_blacklist_token(token):
+        return {'result': True}
 
 
 @ app.get("/users/me/", response_model=UserDetails)
