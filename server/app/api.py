@@ -209,7 +209,6 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         raise credentials_exception
     # check if the token is blacklisted
     if oauth.is_token_blacklisted(token):
-        print(f"blacklist:{blacklist}")
         raise credentials_exception
     # if we have a valid user and the token is not expired get the scopes
     token_data.scopes = list(set(token_data.scopes) &

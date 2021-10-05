@@ -25,7 +25,7 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        self.conn = redis.Redis()
+        self.conn = redis.Redis(decode_responses=True)
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -69,7 +69,7 @@ class Authentication():
     def is_token_blacklisted(self, token):
         blacklist = self.conn.lrange(
             "token", start=0, end=-1)
-
+        # convert from binary?
         print(f"blacklist:{blacklist}")
         if(token in blacklist):
             return True
