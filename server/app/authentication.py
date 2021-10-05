@@ -62,20 +62,13 @@ class Authentication():
             to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
         return encoded_jwt
 
-    def init_blacklist_file(self):
-        open('blacklist_db.txt', 'a').close()
-        return True
-
     def add_blacklist_token(self, token):
         result = self.conn.lpush("token", token)
-
-        print(f"llen:{self.conn.llen('token')}")
-        print(f"result:{result}")
         return result
 
     def is_token_blacklisted(self, token):
         blacklist = self.conn.lrange(
-            name=token, start=0, end=self.conn.llen("token"))
+            "token", start=0, end=-1)
 
         print(f"blacklist:{blacklist}")
         if(token in blacklist):
