@@ -204,6 +204,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
     scopes: List[str] = []
+    expires: datetime
 
 
 # -------------------------------------

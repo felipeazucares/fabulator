@@ -11,7 +11,9 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta
+from time import tzname
+from pytz import timezone
+from datetime import timedelta, datetime
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi.security import (
@@ -50,7 +52,7 @@ TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
 TEST_USERNAME_TO_ADD2 = os.getenv(key="TESTUSERTOADD2")
 TEST_PASSWORD_TO_ADD2 = os.getenv(key="TESTPWDTOADD2")
 TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
-
+timezone(tzname[0]).localize(datetime.now())
 console_display = helpers.ConsoleDisplay()
 
 if DEBUG:
@@ -192,12 +194,20 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
         if account_id is None:
             raise credentials_exception
         token_scopes = payload.get("scopes", [])
-        token_data = TokenData(scopes=token_scopes, username=account_id)
+        expires = payload.get("exp")
+        token_data = TokenData(scopes=token_scopes,
+                               username=account_id, expires=expires)
     except (JWTError, ValidationError):
         raise credentials_exception
     user = await oauth.get_user_by_account_id(account_id=token_data.username)
     if user is None:
         raise credentials_exception
+    # check token expiration
+    if expires is None:
+        raise credentials_exception
+    if datetime.now(timezone("gmt")) > token_data.expires:
+        raise credentials_exception
+    # if we have a valid user and the token is not expired get the scopes
     token_data.scopes = list(set(token_data.scopes) &
                              set(user.user_role.split(" ")))
     if DEBUG:
@@ -243,6 +253,18 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     # creates a token for a given user with an expiry in minutes
     access_token = oauth.create_access_token(
         data={"sub": user.account_id, "scopes": form_data.scopes},
+        expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@ app.post("/logout", response_model=Token)
+async def login_for_access_token(current_user: UserDetails = Security(get_current_user, scopes=["user:reader"])):
+
+    access_token_expires = timedelta(0)
+    # creates a token for a given user with an expiry in minutes
+    access_token = oauth.create_access_token(
+        data={"sub": current_user.username, "scopes": None},
         expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}

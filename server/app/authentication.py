@@ -1,6 +1,8 @@
 
 from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timedelta
+from time import tzname
+from pytz import timezone
+from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
 from .models import UserDetails
@@ -8,6 +10,7 @@ from typing import Optional
 import app.database as database
 import os
 
+timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2_scheme = OAuth2PasswordBearer(
 
@@ -49,9 +52,10 @@ class Authentication():
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone("gmt")) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.now(timezone("gmt")) + \
+                timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(
             to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
