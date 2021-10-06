@@ -27,6 +27,7 @@ from .database import (
     UserStorage
 )
 from .models import (
+    ErrorResponseModel,
     SubTree,
     RequestAddSchema,
     RequestUpdateSchema,
@@ -267,7 +268,7 @@ async def get_current_user_token(token: str = Depends(oauth2_scheme)):
 @ app.get("/logout")
 async def logout(token: str = Depends(get_current_user_token)):
     if await oauth.add_blacklist_token(token):
-        return {'result': True}
+        return ResponseModel(data={"Logout": True}, message="Success")
 
 
 @ app.get("/users/me/", response_model=UserDetails)
@@ -797,7 +798,11 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
         console_display.show_exception_message(
             message_to_show="Error occured saving user details:{account_id}")
         raise
-    result = ResponseModel(save_result, "new user added")
+    if hasattr(save_result, "error"):
+        result = ErrorResponseModel(
+            save_result.error, 422, save_result.message)
+    else:
+        result = ResponseModel(save_result, "new user added")
     return result
 
 

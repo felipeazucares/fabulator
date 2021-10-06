@@ -15,7 +15,8 @@ from .models import (
     UpdateUserType,
     TreeSaveSchema,
     saves_helper,
-    users_saves_helper
+    users_saves_helper,
+    users_errors_helper
 )
 
 
@@ -123,12 +124,16 @@ class TreeStorage:
                 message_to_show=f"return_latest_save({self.account_id}) called")
         try:
             self.last_save = await self.tree_collection.find_one({"account_id": self.account_id}, sort=[("date_time", -1)])
+
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
             print(e)
             raise
-        return saves_helper(self.last_save)
+        if self.last_save is None:
+            return None
+        else:
+            return saves_helper(self.last_save)
 
     async def check_if_document_exists(self, save_id: str) -> int:
         """ return count of save documents in the tree_collection for supplied save_id """
@@ -202,15 +207,19 @@ class TreeStorage:
             print(e)
             raise
         # get the tree dict from the saved document
-        try:
-            self.last_save_tree = self.last_save["tree"]
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.last_save}")
-            print(e)
-            raise
-
-        return self.build_tree_from_dict(tree_dict=self.last_save_tree)
+        if self.last_save:
+            try:
+                self.last_save_tree = self.last_save["tree"]
+                self.tree = self.build_tree_from_dict(
+                    tree_dict=self.last_save_tree)
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.last_save}")
+                print(e)
+                raise
+        else:
+            self.tree = []
+        return self.tree
 
     def build_tree_from_dict(self, tree_dict: dict) -> Tree:
         """ return a tree built from provided dict structure  """
@@ -431,41 +440,48 @@ class UserStorage:
 
     async def save_user_details(self, user: UserDetails) -> dict:
         """ save a user's details into the user collection """
-        self.username = user.username
-        self.firstname = user.name.firstname
-        self.password = user.password
-        self.surname = user.name.surname
-        self.email = user.email
-        self.account_id = user.account_id
-        self.disabled = user.disabled
-        self.user_role = user.user_role
-        self.user_type = user.user_type
-        self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
-                                username=self.username, password=self.password,
-                                account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
-                                email=self.email, user_type=self.user_type)
-        self.console_display = ConsoleDisplay()
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"user: {self.user}")
-            self.console_display.show_debug_message(
-                message_to_show=f"save_user_details({self.user.account_id}) called")
-        try:
-            self.save_response = await self.user_collection.insert_one(jsonable_encoder(self.user))
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured saving user details from the database account_id was: {self.user.account_id}")
-            print(e)
-            raise
-        try:
-            self.new_user = await self.user_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
-            print(e)
-            raise
-
-        return users_saves_helper(self.new_user)
+        # check if username already exists
+        if await self.get_user_details_by_username(username=user.username) is None:
+            # check if email already exists
+            if await self.user_collection.find_one({"email": user.email}) is None:
+                self.username = user.username
+                self.firstname = user.name.firstname
+                self.password = user.password
+                self.surname = user.name.surname
+                self.email = user.email
+                self.account_id = user.account_id
+                self.disabled = user.disabled
+                self.user_role = user.user_role
+                self.user_type = user.user_type
+                self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
+                                        username=self.username, password=self.password,
+                                        account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
+                                        email=self.email, user_type=self.user_type)
+                self.console_display = ConsoleDisplay()
+                if DEBUG:
+                    self.console_display.show_debug_message(
+                        message_to_show=f"user: {self.user}")
+                    self.console_display.show_debug_message(
+                        message_to_show=f"save_user_details({self.user.account_id}) called")
+                try:
+                    self.save_response = await self.user_collection.insert_one(jsonable_encoder(self.user))
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured saving user details from the database account_id was: {self.user.account_id}")
+                    print(e)
+                    raise
+                try:
+                    self.new_user = await self.user_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
+                    print(e)
+                    raise
+                return users_saves_helper(self.new_user)
+            else:
+                return users_errors_helper({"error": "unable to save user", "message": "email already registered"})
+        else:
+            return users_errors_helper({"error": "unable to save user", "message": "username already registered"})
 
     async def update_user_details(self, account_id: str, user: UpdateUserDetails) -> dict:
         """ save a user's details into the user collection """

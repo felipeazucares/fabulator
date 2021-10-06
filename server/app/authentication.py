@@ -2,11 +2,13 @@
 # from fastapi.security import OAuth2PasswordBearer
 import os
 from time import tzname
+from jose.exceptions import ExpiredSignatureError
 from pytz import timezone
 from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
 from .models import TokenData
+from fastapi import HTTPException, status
 from typing import Optional
 import app.database as database
 import aioredis
@@ -68,14 +70,21 @@ class Authentication():
 
     async def add_blacklist_token(self, token):
         """ add the given token to the blacklist"""
-        payload = jwt.decode(token, self.SECRET_KEY,
-                             algorithms=[self.ALGORITHM])
-        account_id: str = payload.get("sub")
-        token_scopes = payload.get("scopes", [])
-        expires = payload.get("exp")
-        token_data = TokenData(scopes=token_scopes,
-                               username=account_id, expires=expires)
-
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        try:
+            payload = jwt.decode(token, self.SECRET_KEY,
+                                 algorithms=[self.ALGORITHM])
+            account_id: str = payload.get("sub")
+            token_scopes = payload.get("scopes", [])
+            expires = payload.get("exp")
+            token_data = TokenData(scopes=token_scopes,
+                                   username=account_id, expires=expires)
+        except ExpiredSignatureError:
+            raise credentials_exception
         result = await self.conn.setex(
             token, int((token_data.expires - datetime.now(timezone('gmt'))).total_seconds()), 1)
         return result

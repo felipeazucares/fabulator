@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, validator, ValidationError
+from redis.client import string_keys_to_dict
 from treelib import Tree
 from bson.objectid import ObjectId
 from enum import auto
@@ -101,12 +102,6 @@ class Name(BaseModel):
     firstname: str
     surname: str
 
-# create enum to hold user types
-
-
-# class UserRole(BaseModel):
-#     scopes: str
-
 
 class UserType(CamelStrEnum):
     free = auto()
@@ -160,6 +155,11 @@ class RetrievedUserDetails(BaseModel):
                 "user_type": "free"
             }
         }
+
+
+class UserDetailsError(BaseModel):
+    error: str
+    message: str
 
 
 class UserAccount(BaseModel):
@@ -223,8 +223,7 @@ def saves_helper(save) -> dict:
     return {
         "account_id": str(save["account_id"]),
         "tree": dict(save["tree"]),
-        "date_time": str(save["date_time"])
-    }
+        "date_time": str(save["date_time"])}
 
 
 def users_saves_helper(result) -> dict:
@@ -239,4 +238,12 @@ def users_saves_helper(result) -> dict:
         disabled=str(result["disabled"]),
         user_role=str(result["user_role"]),
         user_type=str(result["user_type"])
+    )
+
+
+def users_errors_helper(result):
+    """ converts dict to object """
+    return UserDetailsError(
+        error=result["error"],
+        message=result["message"]
     )
