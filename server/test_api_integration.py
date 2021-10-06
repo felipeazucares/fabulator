@@ -1088,6 +1088,24 @@ async def test_users_update_type(dummy_user_to_add, return_token):
     assert response.json()["data"]["user_type"] == data["user_type"]
 
 
+@pytest.mark.asyncio
+async def test_users_logout(return_token):
+    """ test changing a user type """
+    headers = return_token
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/logout", headers=headers)
+
+    assert response.status_code == 200
+    assert response.is_error == False
+    assert response.json()["result"] == True
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get(f"/users/me")
+
+    assert response.status_code == 401
+    assert response.is_error == True
+    assert response.json() == {'detail': 'Could not validate credentials'}
+
 # --------------------------
 #   Authentication tests
 # --------------------------

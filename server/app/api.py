@@ -208,7 +208,7 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
     if datetime.now(timezone("gmt")) > token_data.expires:
         raise credentials_exception
     # check if the token is blacklisted
-    if oauth.is_token_blacklisted(token):
+    if await oauth.is_token_blacklisted(token):
         raise credentials_exception
     # if we have a valid user and the token is not expired get the scopes
     token_data.scopes = list(set(token_data.scopes) &
@@ -220,7 +220,6 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
             message_to_show=f"Required endpoint scopes:{security_scopes.scopes}")
 
     for scope in security_scopes.scopes:
-        print(f"here:{scope}")
         if scope not in token_data.scopes:
             raise HTTPException(
                 status_code=403,
@@ -267,8 +266,7 @@ async def get_current_user_token(token: str = Depends(oauth2_scheme)):
 
 @ app.get("/logout")
 async def logout(token: str = Depends(get_current_user_token)):
-
-    if oauth.add_blacklist_token(token):
+    if await oauth.add_blacklist_token(token):
         return {'result': True}
 
 

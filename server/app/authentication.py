@@ -1,15 +1,17 @@
 
-from fastapi.security import OAuth2PasswordBearer
+# from fastapi.security import OAuth2PasswordBearer
 from time import tzname
 from pytz import timezone
 from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
-# from .models import UserDetails
+from .models import TokenData
 from typing import Optional
 import app.database as database
 import os
 import redis
+import asyncio
+import aioredis
 
 timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -25,7 +27,10 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        self.conn = redis.Redis(decode_responses=True)
+        #self.conn = redis.Redis(decode_responses=True)
+        self.conn = aioredis.from_url(
+            "redis://localhost", encoding="utf-8", decode_responses=True
+        )
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -51,6 +56,7 @@ class Authentication():
         return user
 
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None):
+        """ create an access token with an expiry date"""
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.now(timezone("gmt")) + expires_delta
@@ -62,16 +68,25 @@ class Authentication():
             to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
         return encoded_jwt
 
-    def add_blacklist_token(self, token):
-        result = self.conn.lpush("token", token)
+    async def add_blacklist_token(self, token):
+        """ add the given token to the blacklist"""
+        print(f"keys{self.conn.keys()}")
+        payload = jwt.decode(token, self.SECRET_KEY,
+                             algorithms=[self.ALGORITHM])
+        account_id: str = payload.get("sub")
+        token_scopes = payload.get("scopes", [])
+        expires = payload.get("exp")
+        print(f"token:{token}")
+        token_data = TokenData(scopes=token_scopes,
+                               username=account_id, expires=expires)
+
+        result = await self.conn.setex(
+            token, int((token_data.expires - datetime.now(timezone('gmt'))).total_seconds()), 1)
         return result
 
-    def is_token_blacklisted(self, token):
-        blacklist = self.conn.lrange(
-            "token", start=0, end=-1)
-        # convert from binary?
-        print(f"blacklist:{blacklist}")
-        if(token in blacklist):
+    async def is_token_blacklisted(self, token):
+        """ return true if supplied token is in the blacklist"""
+        if(await self.conn.get(token)):
             return True
         else:
             return False
