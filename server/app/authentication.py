@@ -1,5 +1,6 @@
 
 # from fastapi.security import OAuth2PasswordBearer
+import os
 from time import tzname
 from pytz import timezone
 from datetime import timedelta, datetime
@@ -8,9 +9,6 @@ from passlib.context import CryptContext
 from .models import TokenData
 from typing import Optional
 import app.database as database
-import os
-import redis
-import asyncio
 import aioredis
 
 timezone(tzname[0]).localize(datetime.now())
@@ -70,13 +68,11 @@ class Authentication():
 
     async def add_blacklist_token(self, token):
         """ add the given token to the blacklist"""
-        print(f"keys{self.conn.keys()}")
         payload = jwt.decode(token, self.SECRET_KEY,
                              algorithms=[self.ALGORITHM])
         account_id: str = payload.get("sub")
         token_scopes = payload.get("scopes", [])
         expires = payload.get("exp")
-        print(f"token:{token}")
         token_data = TokenData(scopes=token_scopes,
                                username=account_id, expires=expires)
 
