@@ -11,6 +11,7 @@ from typing import Optional
 import app.database as database
 import aioredis
 
+REDISHOST = os.getenv(key="REDISHOST")
 timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -25,9 +26,8 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        #self.conn = redis.Redis(decode_responses=True)
         self.conn = aioredis.from_url(
-            "redis://localhost", encoding="utf-8", decode_responses=True
+            REDISHOST, encoding="utf-8", decode_responses=True
         )
 
     def verify_password(self, plain_password, hashed_password):
