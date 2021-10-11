@@ -91,7 +91,10 @@ class Authentication():
 
     async def is_token_blacklisted(self, token):
         """ return true if supplied token is in the blacklist"""
-        if(await self.conn.get(token)):
+        conn = aioredis.from_url(
+            REDISHOST, encoding="utf-8", decode_responses=True
+        )
+        if(await conn.get(token)):
             return True
         else:
             return False
