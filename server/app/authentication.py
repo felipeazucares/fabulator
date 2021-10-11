@@ -28,9 +28,6 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        self.conn = aioredis.from_url(
-            REDISHOST, encoding="utf-8", decode_responses=True
-        )
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -74,6 +71,9 @@ class Authentication():
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+        self.conn = await aioredis.from_url(
+            REDISHOST, encoding="utf-8", decode_responses=True
         )
         try:
             payload = jwt.decode(token, self.SECRET_KEY,

@@ -1097,7 +1097,7 @@ async def test_users_logout(return_token):
 
     assert response.status_code == 200
     assert response.is_error == False
-    assert response.json()["result"] == True
+    assert response.json()["data"]["Logout"] == True
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
@@ -1627,8 +1627,7 @@ async def test_scope_get_latest_save(return_scoped_token):
     async with httpx.AsyncClient(app=api.app) as client:
         response = await client.get(f"http://localhost:8000/loads", headers=headers)
     if scopes == "tree:reader user:reader":
-        # should currently fail with 500 because we haven't saved anything for this user - but does need to be fixed
-        assert response.status_code == 500
+        assert response.status_code == 200
     else:
         assert response.is_error == True
         assert response.status_code == 403
