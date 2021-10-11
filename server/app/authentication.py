@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from typing import Optional
 import app.database as database
 import aioredis
+import redis
 
 REDISHOST = os.getenv(key="REDISHOST")
 timezone(tzname[0]).localize(datetime.now())
@@ -65,16 +66,14 @@ class Authentication():
             to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
         return encoded_jwt
 
-    async def add_blacklist_token(self, token):
+    def add_blacklist_token(self, token):
         """ add the given token to the blacklist"""
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        self.conn = await aioredis.from_url(
-            REDISHOST, encoding="utf-8", decode_responses=True
-        )
+        r = redis.Redis()
         try:
             payload = jwt.decode(token, self.SECRET_KEY,
                                  algorithms=[self.ALGORITHM])
@@ -85,17 +84,18 @@ class Authentication():
                                    username=account_id, expires=expires)
         except ExpiredSignatureError:
             raise credentials_exception
-        result = await self.conn.setex(
+        result = r.setex(
             token, int((token_data.expires - datetime.now(timezone('gmt'))).total_seconds()), 1)
+        r.close()
         return result
 
-    async def is_token_blacklisted(self, token):
+    def is_token_blacklisted(self, token):
         """ return true if supplied token is in the blacklist"""
         # need to create a new instance of aioredis to get pytests to work
-        conn = aioredis.from_url(
-            REDISHOST, encoding="utf-8", decode_responses=True
-        )
-        if(await conn.get(token)):
+        r = redis.Redis()
+        if(r.get(token)):
+            r.close()
             return True
         else:
+            r.close()
             return False
