@@ -91,6 +91,7 @@ class Authentication():
 
     async def is_token_blacklisted(self, token):
         """ return true if supplied token is in the blacklist"""
+        # need to create a new instance of aioredis to get pytests to work
         conn = aioredis.from_url(
             REDISHOST, encoding="utf-8", decode_responses=True
         )
