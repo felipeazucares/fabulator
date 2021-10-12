@@ -91,8 +91,6 @@ async def test_add_user(dummy_user_to_add):
         "data"]["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["account_id"]) == True
-    # assert pwd_context.verify(dummy_user_to_add["password"], response.json()[
-    #     "data"]["password"]) == True
     assert response.json()[
         "data"]["email"] == dummy_user_to_add["email"]
     assert response.json()[
@@ -367,7 +365,6 @@ async def test_root_path(return_token):
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
     assert response.status_code == 200
-    assert response.json()["data"]["version"] == "0.1.0"
     assert response.json()["message"] == "Success"
 
 
