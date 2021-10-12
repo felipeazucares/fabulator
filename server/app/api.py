@@ -81,7 +81,7 @@ app.add_middleware(
 )
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="get_token",
+    tokenUrl="login",
     scopes={"user:reader": "Read account details",
             "user:writer": "write account details",
             "tree:reader": "Read trees & nodes",
@@ -242,7 +242,7 @@ async def get_current_active_user_account(current_user: UserDetails = Security(g
     return current_user.account_id
 
 
-@ app.post("/get_token", response_model=Token)
+@ app.post("/login", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = await oauth.authenticate_user(
         form_data.username, form_data.password)
@@ -271,9 +271,9 @@ def logout(token: str = Depends(get_current_user_token)):
         return ResponseModel(data={"Logout": True}, message="Success")
 
 
-@ app.get("/users/me/", response_model=UserDetails)
-async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
-    return current_user
+# @ app.get("/users/me/", response_model=UserDetails)
+# async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
+#     return current_user
 
 
 # ------------------------
@@ -312,6 +312,10 @@ async def get_tree_root(account_id: UserDetails = Security(get_current_active_us
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_tree_root() called")
+        console_display.show_debug_message(
+            message_to_show=f"tree type:{type(tree)}")
+        # console_display.show_debug_message(
+        #     message_to_show=f"tree content:{tree}")
     try:
         root_node = tree.root
     except Exception as e:
@@ -689,6 +693,9 @@ async def get_latest_save(account_id: UserDetails = Security(get_current_active_
     if await routes_helper.account_id_exists(account_id=account_id):
         try:
             tree = await db_storage.load_latest_into_working_tree(account_id=account_id)
+            if DEBUG:
+                console_display.show_debug_message(
+                    message_to_show=f"tree type:{type(tree)}")
         except Exception as e:
             console_display.show_exception_message(
                 message_to_show="Error occured loading latest save into working tree")
@@ -799,8 +806,8 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
             message_to_show="Error occured saving user details:{account_id}")
         raise
     if hasattr(save_result, "error"):
-        result = ErrorResponseModel(
-            save_result.error, 422, save_result.message)
+        raise HTTPException(
+            status_code=422, detail=save_result.message)
     else:
         result = ResponseModel(save_result, "new user added")
     return result

@@ -55,6 +55,20 @@ def dummy_user_to_add():
 
 
 @pytest.fixture
+def dummy_user_to_add_duplicate_email():
+    return {
+        "name": {"firstname": "John", "surname": "Maginot"},
+        "username": "duplicate_email",
+        "password": "duplicate_email",
+        "account_id": None,
+        "email": "john_maginot@fictional.com",
+        "disabled": False,
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer",
+        "user_type": "free"
+    }
+
+
+@pytest.fixture
 @pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
@@ -148,7 +162,7 @@ async def return_scoped_token(request):
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+        response = await ac.post(f"http://localhost:8000/login", data=form_data)
     assert response.status_code == 200
     return {"token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
             "scopes": form_data["scope"]}
@@ -208,7 +222,7 @@ async def return_simple_scoped_token(request):
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+        response = await ac.post(f"http://localhost:8000/login", data=form_data)
     assert response.status_code == 200
     return {"token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
             "scopes": form_data["scope"]}
@@ -243,7 +257,7 @@ async def return_token(test_add_user, dummy_user_to_add):
         "scope": dummy_user_to_add["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
+        response = await ac.post(f"http://localhost:8000/login", data=form_data)
     assert response.status_code == 200
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
@@ -980,6 +994,28 @@ async def test_saves_delete_all_saves(return_token):
 # ------------------------
 
 @pytest.mark.asyncio
+async def test_users_add_duplicate_user(dummy_user_to_add, test_add_user):
+    """ Add a new user so that we can authorise against it"""
+    data = jsonable_encoder(dummy_user_to_add)
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 422
+    assert response.json()[
+        "detail"] == "username already registered"
+
+
+@pytest.mark.asyncio
+async def test_users_add_duplicate_email(test_add_user, dummy_user_to_add_duplicate_email):
+    """ Add a new user so that we can authorise against it"""
+    data = jsonable_encoder(dummy_user_to_add_duplicate_email)
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 422
+    assert response.json()[
+        "detail"] == "email already registered"
+
+
+@pytest.mark.asyncio
 async def test_users_update_user(return_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     headers = return_token
@@ -1027,20 +1063,22 @@ async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.get(f"/users/me")
-    assert response.json()[
+        response = await ac.get(f"/users")
+    assert response.json()['data'][
         "name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
-    assert response.json()[
+    assert response.json()['data'][
         "name"]["surname"] == dummy_user_to_add["name"]["surname"]
-    assert response.json()["username"] == dummy_user_to_add["username"]
+    assert response.json()['data']["username"] == dummy_user_to_add["username"]
     assert pwd_context.verify(
-        dummy_user_to_add["password"], response.json()["password"]) == True
+        dummy_user_to_add["password"], response.json()['data']["password"]) == True
     assert pwd_context.verify(
-        dummy_user_to_add["username"], response.json()["account_id"]) == True
-    assert response.json()["email"] == dummy_user_to_add["email"]
-    assert response.json()["disabled"] == dummy_user_to_add["disabled"]
-    assert response.json()["user_role"] == dummy_user_to_add["user_role"]
-    assert response.json()["user_type"] == dummy_user_to_add["user_type"]
+        dummy_user_to_add["username"], response.json()['data']["account_id"]) == True
+    assert response.json()['data']["email"] == dummy_user_to_add["email"]
+    assert response.json()['data']["disabled"] == dummy_user_to_add["disabled"]
+    assert response.json()[
+        'data']["user_role"] == dummy_user_to_add["user_role"]
+    assert response.json()[
+        'data']["user_type"] == dummy_user_to_add["user_type"]
     # remove the user document we just created
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
@@ -1069,7 +1107,7 @@ async def test_users_update_password(dummy_user_to_add, return_token):
         "scope": dummy_user_to_add["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/get_token", headers=headers, data=form_data)
+        response = await ac.post(f"http://localhost:8000/login", headers=headers, data=form_data)
     assert response.status_code == 200
 
 
@@ -1100,7 +1138,7 @@ async def test_users_logout(return_token):
     assert response.json()["data"]["Logout"] == True
 
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.get(f"/users/me")
+        response = await ac.get(f"/users")
 
     assert response.status_code == 401
     assert response.is_error == True
@@ -1357,7 +1395,7 @@ async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, ret
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/users/me")
+        response = await ac.get(f"/users")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
@@ -1715,7 +1753,7 @@ async def test_scope_get_user_by_username(return_simple_scoped_token):
     headers = return_simple_scoped_token["token"]
     scopes = return_simple_scoped_token["scopes"]
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.get(f"/users/me")
+        response = await ac.get(f"/users")
 
     if scopes == "user:reader":
         assert response.status_code == 200

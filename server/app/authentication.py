@@ -11,7 +11,6 @@ from .models import TokenData
 from fastapi import HTTPException, status
 from typing import Optional
 import app.database as database
-import aioredis
 import redis
 
 REDISHOST = os.getenv(key="REDISHOST")

@@ -218,7 +218,7 @@ class TreeStorage:
                 print(e)
                 raise
         else:
-            self.tree = []
+            self.tree = Tree()
         return self.tree
 
     def build_tree_from_dict(self, tree_dict: dict) -> Tree:
