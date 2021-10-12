@@ -176,8 +176,40 @@ class RoutesHelper():
 #     Authenticaton routines
 # ----------------------------
 
+@ app.post("/login", response_model=Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """ main login route for oauth authentication flow - returns bearer token """
+    user = await oauth.authenticate_user(
+        form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # creates a token for a given user with an expiry in minutes
+    access_token = oauth.create_access_token(
+        data={"sub": user.account_id, "scopes": form_data.scopes},
+        expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+async def get_current_user_token(token: str = Depends(oauth2_scheme)):
+    """ returns current user token for logout """
+    return token
+
+
+@ app.get("/logout")
+def logout(token: str = Depends(get_current_user_token)):
+    """ logsout current user by add token to redis managed blacklist """
+    if oauth.add_blacklist_token(token):
+        return ResponseModel(data={"Logout": True}, message="Success")
+
+
 async def get_current_user(security_scopes: SecurityScopes, token: str = Depends(oauth2_scheme)):
-    """ authenticate user and scope and return token """
+    """ authenticate user and scope return user class """
     if security_scopes.scopes:
         authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
     else:
@@ -230,51 +262,10 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
     return user
 
 
-async def get_current_active_user(current_user: UserDetails = Security(get_current_user, scopes=["user:reader"])):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-
 async def get_current_active_user_account(current_user: UserDetails = Security(get_current_user, scopes=["user:reader"])):
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user.account_id
-
-
-@ app.post("/login", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await oauth.authenticate_user(
-        form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    # creates a token for a given user with an expiry in minutes
-    access_token = oauth.create_access_token(
-        data={"sub": user.account_id, "scopes": form_data.scopes},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-async def get_current_user_token(token: str = Depends(oauth2_scheme)):
-    return token
-
-
-@ app.get("/logout")
-def logout(token: str = Depends(get_current_user_token)):
-    if oauth.add_blacklist_token(token):
-        return ResponseModel(data={"Logout": True}, message="Success")
-
-
-# @ app.get("/users/me/", response_model=UserDetails)
-# async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
-#     return current_user
-
 
 # ------------------------
 #         Misc
