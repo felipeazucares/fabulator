@@ -94,6 +94,47 @@ class SubTree(BaseModel):
     sub_tree: dict
 
 # -------------------------------------
+#   Classes for Projects
+# -------------------------------------
+
+
+class CreateProject(BaseModel):
+    """ model for user data input"""
+    name: str
+    description: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "My new project name",
+                "description": "My new project description"
+            }
+        }
+
+
+class RetrieveProject(BaseModel):
+    project_id: str
+    name: str
+    description: Optional[str] = None
+    owner_id: str
+    create_date: datetime
+    modified_date: datetime
+
+
+class UpdateProject(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "My updated project name",
+                "description": "My updated project description"
+            }
+        }
+
+
+# -------------------------------------
 #   Classes for user account
 # -------------------------------------
 

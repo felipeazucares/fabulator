@@ -24,10 +24,13 @@ from fastapi.security import (
 
 from .database import (
     TreeStorage,
-    UserStorage
+    UserStorage,
+    ProjectStorage
 )
 from .models import (
-    ErrorResponseModel,
+    CreateProject,
+    RetrieveProject,
+    UpdateProject,
     SubTree,
     RequestAddSchema,
     RequestUpdateSchema,
@@ -923,6 +926,35 @@ async def delete_user(account_id: UserDetails = Security(get_current_active_user
     else:
         raise HTTPException(
             status_code=404, detail=f"No user record found for id:{account_id}")
+
+# ------------------------
+#         Projects
+# ------------------------
+
+
+@ app.post("/projects")
+async def create_project(account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: CreateProject = Body(...)):
+    """ create a project """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"create_project({request}) called")
+    try:
+        db_storage = ProjectStorage(collection_name="project_collection")
+        # populate the project model with all the user details
+        project_to_create = RetrieveProject(project_id=pwd_context.hash(request.name), name=request.name, description=request.description,
+                                            date_created=datetime.now, date_modfied=datetime.now, owner_id=account_id)
+        save_result = await db_storage.create_project(project=project_to_create)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured creating project for :{account_id}")
+        raise
+    if hasattr(save_result, "error"):
+        raise HTTPException(
+            status_code=422, detail=save_result.message)
+    else:
+        result = ResponseModel(save_result, "new project added")
+    return result
 
 # Create global tree & subtrees
 tree = initialise_tree()

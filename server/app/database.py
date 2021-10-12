@@ -14,6 +14,9 @@ from .models import (
     UpdateUserPassword,
     UpdateUserType,
     TreeSaveSchema,
+    RetrieveProject,
+    UpdateProject,
+    CreateProject,
     saves_helper,
     users_saves_helper,
     users_errors_helper
@@ -642,3 +645,28 @@ class UserStorage:
             print(e)
             raise
         return self.user_count
+
+
+class ProjectStorage():
+
+    def __init__(self, collection_name):
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+        self.database = self.client.fabulator
+        self.project_collection = self.database.get_collection(collection_name)
+
+    async def create_project(self, project=RetrieveProject) -> dict:
+        # check if username already exists
+        self.project = project
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"create_project({self.project.name}) called")
+        try:
+            self.save_response = await self.project_collection.insert_one(jsonable_encoder(self.project))
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured saving project, owner_id was: {self.project.owner_id}")
+            print(e)
+            raise
+
+        return self.save_response
