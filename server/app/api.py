@@ -89,7 +89,8 @@ oauth2_scheme = OAuth2PasswordBearer(
             "user:writer": "write account details",
             "tree:reader": "Read trees & nodes",
             "tree:writer": "Write trees & nodes",
-            "usertype:writer": "Update user_types"
+            "usertype:writer": "Update user_types",
+            "project:writer": "Write project details"
             }
 )
 oauth = Authentication()
@@ -943,7 +944,7 @@ async def create_project(account_id: UserDetails = Security(get_current_active_u
         db_storage = ProjectStorage(collection_name="project_collection")
         # populate the project model with all the user details
         project_to_create = RetrieveProject(project_id=pwd_context.hash(request.name), name=request.name, description=request.description,
-                                            date_created=datetime.now, date_modfied=datetime.now, owner_id=account_id)
+                                            create_date=datetime.now(timezone("gmt")), modified_date=datetime.now(timezone("gmt")), owner_id=account_id)
         save_result = await db_storage.create_project(project=project_to_create)
     except Exception as e:
         console_display.show_exception_message(
