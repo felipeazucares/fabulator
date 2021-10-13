@@ -950,12 +950,25 @@ async def create_project(account_id: UserDetails = Security(get_current_active_u
         console_display.show_exception_message(
             message_to_show="Error occured creating project for :{account_id}")
         raise
-    if hasattr(save_result, "error"):
-        raise HTTPException(
-            status_code=422, detail=save_result.message)
-    else:
-        result = ResponseModel(save_result, "new project added")
-    return result
+    return ResponseModel(save_result, "new project added")
+
+
+@ app.get("/projects/{project_id}")
+async def get_project(project_id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:reader"])):
+    """ get a project document from the project collection given its project_id"""
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"get_project({project_id}) called")
+    try:
+        db_storage = ProjectStorage(collection_name="project_collection")
+        project_details = await db_storage.get_project_details(account_id=account_id, project_id=project_id)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured getting project document with id :{project_id}")
+        raise
+    return ResponseModel(project_details, "success")
+
 
 # Create global tree & subtrees
 tree = initialise_tree()

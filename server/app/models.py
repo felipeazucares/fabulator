@@ -158,6 +158,7 @@ class UserDetails(BaseModel):
     disabled: Optional[bool] = False
     user_role: str
     user_type: UserType
+    projects: List
 
     class Config:
         schema_extra = {
@@ -169,7 +170,8 @@ class UserDetails(BaseModel):
                 "email": "ben@kenobi.com",
                 "disabled": False,
                 "user_role": "user:reader,user:writer,tree:reader,tree:writer",
-                "user_type": "free"
+                "user_type": "free",
+                "projects": ["project_id1", "project_id2"]
             }
         }
 
@@ -183,6 +185,7 @@ class RetrievedUserDetails(BaseModel):
     disabled: Optional[bool] = False
     user_role: str
     user_type: UserType
+    projects: List
 
     class Config:
         schema_extra = {
@@ -193,7 +196,8 @@ class RetrievedUserDetails(BaseModel):
                 "email": "ben@kenobi.com",
                 "disabled": False,
                 "user_role": "user:reader,user:writer,tree:reader,tree:writer",
-                "user_type": "free"
+                "user_type": "free",
+                "projects": ["project_id1", "project_id2"]
             }
         }
 
@@ -278,7 +282,8 @@ def users_saves_helper(result) -> RetrievedUserDetails:
         email=EmailStr(result["email"]),
         disabled=str(result["disabled"]),
         user_role=str(result["user_role"]),
-        user_type=str(result["user_type"])
+        user_type=str(result["user_type"]),
+        projects=list(result["projects"])
     )
 
 

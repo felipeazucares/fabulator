@@ -457,10 +457,11 @@ class UserStorage:
                 self.disabled = user.disabled
                 self.user_role = user.user_role
                 self.user_type = user.user_type
+                self.projects = user.projects
                 self.user = UserDetails(name={"firstname": self.firstname, "surname": self.surname},
                                         username=self.username, password=self.password,
                                         account_id=self.account_id, disabled=self.disabled, user_role=self.user_role,
-                                        email=self.email, user_type=self.user_type)
+                                        email=self.email, user_type=self.user_type, projects=self.projects)
                 self.console_display = ConsoleDisplay()
                 if DEBUG:
                     self.console_display.show_debug_message(
@@ -654,6 +655,7 @@ class ProjectStorage():
         self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
         self.database = self.client.fabulator
         self.project_collection = self.database.get_collection(collection_name)
+        self.user_collection = self.database.get_collection("user_collection")
 
     async def create_project(self, project=RetrieveProject) -> dict:
         # check if username already exists
@@ -669,6 +671,13 @@ class ProjectStorage():
                 message_to_show=f"Exception occured saving project, owner_id was: {self.project.owner_id}")
             print(e)
             raise
+        try:
+            self.update_response = await self.user_collection.update_one({"account_id": self.project.owner_id}, {'$push': {"projects": self.project.project_id}})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured adding project, to user: {self.project.owner_id}")
+            print(e)
+            raise
         if DEBUG:
             self.console_display.show_debug_message(
                 message_to_show=f"create_project({self.save_response}) called")
@@ -680,3 +689,36 @@ class ProjectStorage():
             print(e)
             raise
         return project_saves_helper(self.new_project)
+
+    async def get_project_details(self, account_id: str, project_id: str):
+        """ return the a user's details given their username - used for log in """
+        # have to have this in there to avoid event_loop_closed errors during testing
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+        self.database = self.client.fabulator
+        self.user_collection = self.database.get_collection("user_collection")
+        self.account_id = account_id
+        self.project_id = project_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"get_project_details({self.account_id,self.project_id}) called")
+        try:
+            user_deets = await self.user_collection.find_one({"account_id": self.account_id})
+            if user_deets is not None:
+                self.user_details = UserDetails(**user_deets)
+            else:
+                self.user_details = None
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database username was: {self.username}")
+            print(e)
+            raise
+        # check that the user owns this project - if they don't return an error message can we raise an exception?
+        if project_id in self.user_details.projects:
+            # go get the dewtails
+            pass
+        else:
+            # return an error
+            pass
+
+        return self.user_details

@@ -49,12 +49,13 @@ def dummy_user_to_add():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer",
-        "user_type": "free"
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer",
+        "user_type": "free",
+        "projects": []
     }
 
 
-@pytest.fixture
+@ pytest.fixture
 def dummy_user_to_add_duplicate_email():
     return {
         "name": {"firstname": "John", "surname": "Maginot"},
@@ -63,13 +64,14 @@ def dummy_user_to_add_duplicate_email():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer",
-        "user_type": "free"
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer",
+        "user_type": "free",
+        "projects": []
     }
 
 
-@pytest.fixture
-@pytest.mark.asyncio
+@ pytest.fixture
+@ pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
@@ -103,8 +105,8 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 
-@pytest.mark.asyncio
-@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer"])
+@ pytest.mark.asyncio
+@ pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer", "project:writer"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
@@ -166,8 +168,8 @@ async def return_scoped_token(request):
             "scopes": form_data["scope"]}
 
 
-@pytest.mark.asyncio
-@pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
+@ pytest.mark.asyncio
+@ pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
 async def return_simple_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
@@ -1140,6 +1142,38 @@ async def test_users_logout(return_token):
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Could not validate credentials'}
+
+# --------------------------
+#   Project tests
+# --------------------------
+
+
+@ pytest.fixture
+def dummy_project():
+    return{
+        "name": "Dummy test project",
+        "description": "Dummy project description"
+    }
+
+
+@pytest.mark.asyncio
+async def test_projects_create_project(return_token, dummy_user_to_add, dummy_project):
+    """ Add a new project """
+    headers = return_token
+    data = jsonable_encoder(dummy_project)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"] == dummy_project["name"]
+    assert response.json()[
+        "data"]["description"] == dummy_project["description"]
+    assert pwd_context.verify(dummy_project["name"], response.json()[
+        "data"]["project_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["owner_id"]) == True
+
 
 # --------------------------
 #   Authentication tests
