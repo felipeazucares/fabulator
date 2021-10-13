@@ -267,7 +267,7 @@ def saves_helper(save) -> dict:
         "date_time": str(save["date_time"])}
 
 
-def users_saves_helper(result) -> dict:
+def users_saves_helper(result) -> RetrievedUserDetails:
     """ converts dict returned to object"""
     return RetrievedUserDetails(
         id=str(ObjectId(result["_id"])),
@@ -287,4 +287,18 @@ def users_errors_helper(result):
     return UserDetailsError(
         error=result["error"],
         message=result["message"]
+    )
+
+
+def project_saves_helper(result) -> RetrieveProject:
+    """ converts dict returned to object"""
+    return RetrieveProject(
+        project_id=str(result["project_id"]),
+        name=str(result["name"]),
+        owner_id=str(result["owner_id"]),
+        description=str(result["description"]),
+        create_date=datetime.strptime(
+            result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
+        modified_date=datetime.strptime(
+            result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
     )

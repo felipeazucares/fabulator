@@ -17,6 +17,7 @@ from .models import (
     RetrieveProject,
     UpdateProject,
     CreateProject,
+    project_saves_helper,
     saves_helper,
     users_saves_helper,
     users_errors_helper
@@ -668,5 +669,14 @@ class ProjectStorage():
                 message_to_show=f"Exception occured saving project, owner_id was: {self.project.owner_id}")
             print(e)
             raise
-
-        return self.save_response
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"create_project({self.save_response}) called")
+        try:
+            self.new_project = await self.project_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
+            print(e)
+            raise
+        return project_saves_helper(self.new_project)
