@@ -18,6 +18,7 @@ from .models import (
     UpdateProject,
     CreateProject,
     project_saves_helper,
+    project_errors_helper,
     saves_helper,
     users_saves_helper,
     users_errors_helper
@@ -710,15 +711,26 @@ class ProjectStorage():
                 self.user_details = None
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving user details from the database username was: {self.username}")
+                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
             print(e)
             raise
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"self.user_details.projects: {self.user_details.projects}")
         # check that the user owns this project - if they don't return an error message can we raise an exception?
         if project_id in self.user_details.projects:
-            # go get the dewtails
-            pass
+            # go get the details
+            try:
+                self.project_details = await self.project_collection.find_one({"project_id": self.project_id})
+                if DEBUG:
+                    self.console_display.show_debug_message(
+                        message_to_show=f"self.project_details: {self.project_details}")
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retrieving user details from the database username was: {self.project_id}")
+                print(e)
+                raise
+            return project_saves_helper(self.project_details)
         else:
             # return an error
-            pass
-
-        return self.user_details
+            return project_errors_helper({"error": "Unable to retrieve project", "message": "project does not belong to user"})

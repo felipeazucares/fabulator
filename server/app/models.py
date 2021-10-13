@@ -134,6 +134,11 @@ class UpdateProject(BaseModel):
         }
 
 
+class ProjectDetailsError(BaseModel):
+    error: str
+    message: str
+
+
 # -------------------------------------
 #   Classes for user account
 # -------------------------------------
@@ -306,4 +311,12 @@ def project_saves_helper(result) -> RetrieveProject:
             result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
         modified_date=datetime.strptime(
             result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
+    )
+
+
+def project_errors_helper(result):
+    """ converts dict to object """
+    return ProjectDetailsError(
+        error=result["error"],
+        message=result["message"]
     )

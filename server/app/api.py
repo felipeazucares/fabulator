@@ -90,7 +90,8 @@ oauth2_scheme = OAuth2PasswordBearer(
             "tree:reader": "Read trees & nodes",
             "tree:writer": "Write trees & nodes",
             "usertype:writer": "Update user_types",
-            "project:writer": "Write project details"
+            "project:writer": "Write project details",
+            "project:reader": "read project details"
             }
 )
 oauth = Authentication()
@@ -967,7 +968,11 @@ async def get_project(project_id: str, account_id: UserDetails = Security(get_cu
         console_display.show_exception_message(
             message_to_show="Error occured getting project document with id :{project_id}")
         raise
-    return ResponseModel(project_details, "success")
+    if hasattr(project_details, "error"):
+        raise HTTPException(
+            status_code=404, detail=f"Unable to retrieve project: {project_details.message}")
+    else:
+        return ResponseModel(project_details, "success")
 
 
 # Create global tree & subtrees
