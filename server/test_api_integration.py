@@ -176,7 +176,8 @@ async def return_scoped_token(request):
         "email": "tscoped@fictional.com",
         "disabled": False,
         "user_role": user_scopes,
-        "user_type": "free"
+        "user_type": "free",
+        "projects": []
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
     # first check to see if the user exists
@@ -236,7 +237,8 @@ async def return_simple_scoped_token(request):
         "email": "tscoped@fictional.com",
         "disabled": False,
         "user_role": user_scopes,
-        "user_type": "free"
+        "user_type": "free",
+        "projects": []
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
     # first check to see if the user exists
@@ -1918,7 +1920,6 @@ async def test_scope_get_user_by_username(return_simple_scoped_token):
     if scopes == "user:reader":
         assert response.status_code == 200
     else:
-        # assert response.is_error == True
         assert response.status_code == 403
         assert response.json() == {
             'detail': 'Insufficient permissions to complete action'}
@@ -1938,7 +1939,6 @@ async def test_scope_update_password(return_scoped_token):
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
     else:
-        # assert response.is_error == True
         assert response.status_code == 403
         assert response.json() == {
             'detail': 'Insufficient permissions to complete action'}
@@ -1957,7 +1957,46 @@ async def test_scope_update_type(dummy_user_to_add, return_scoped_token):
     if scopes == "usertype:writer user:reader":
         assert response.status_code == 200
     else:
-        # assert response.is_error == True
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+
+
+@ pytest.mark.asyncio
+async def test_scope_create_project(dummy_project, return_scoped_token):
+    """ test unscoped create a project """
+    data = jsonable_encoder(dummy_project)
+    headers = return_scoped_token["token"]
+    scopes = return_scoped_token["scopes"]
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post("/projects", json=data, headers=headers)
+
+    if scopes == "project:writer user:reader":
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 403
+        assert response.json() == {
+            'detail': 'Insufficient permissions to complete action'}
+
+
+@ pytest.mark.asyncio
+async def test_scope_get_project(create_dummy_project, return_scoped_token):
+    """ test unscoped get a project """
+    scopes = return_scoped_token["scopes"]
+    headers = return_scoped_token["token"]
+    params = {"project_id": create_dummy_project["project_id"]}
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/projects/", params=params, headers=headers)
+    if scopes == "project:reader user:reader":
+        # we'll settle for a 404 here because even though we have the correct scopes to proceed
+        # the access attempt should fail because the accessing account_id won't be the same as the
+        # that which created it, this is because the hashing algorithm that generates the account_id
+        # automatically salts it so each account_id is unique even if the username is the same.
+        # Amount of work required to get a 200 is non trivial
+        # as we'd need to create a document from a user then flex their scopes to be able to test getting the doc
+        assert response.status_code == 404
+    else:
         assert response.status_code == 403
         assert response.json() == {
             'detail': 'Insufficient permissions to complete action'}
