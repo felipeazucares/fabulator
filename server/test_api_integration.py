@@ -1,6 +1,7 @@
 
 # from fastapi.param_functions import Form
-from app.api import TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO_ADD2, TEST_PASSWORD_TO_ADD2, TEST_PASSWORD_TO_CHANGE
+from logging import error
+from app.api import TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO_ADD2, TEST_PASSWORD_TO_ADD2, TEST_PASSWORD_TO_CHANGE, TEST_USERNAME_TO_ADD3, TEST_PASSWORD_TO_ADD3
 import pytest
 import asyncio
 import os
@@ -49,7 +50,22 @@ def dummy_user_to_add():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer",
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer project:reader",
+        "user_type": "free",
+        "projects": []
+    }
+
+
+@pytest.fixture
+def dummy_user_to_add2():
+    return {
+        "name": {"firstname": "John", "surname": "Maginot"},
+        "username": TEST_USERNAME_TO_ADD3,
+        "password": TEST_PASSWORD_TO_ADD3,
+        "account_id": None,
+        "email": "jackmaginot@fictional.com",
+        "disabled": False,
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer project:reader",
         "user_type": "free",
         "projects": []
     }
@@ -64,7 +80,7 @@ def dummy_user_to_add_duplicate_email():
         "account_id": None,
         "email": "john_maginot@fictional.com",
         "disabled": False,
-        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer",
+        "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer project:reader",
         "user_type": "free",
         "projects": []
     }
@@ -105,8 +121,43 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 
+@ pytest.fixture
 @ pytest.mark.asyncio
-@ pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer", "project:writer"])
+async def test_add_user2(dummy_user_to_add2):
+    """ Add a 2nd dummy user so that we can test filtering functions"""
+    data = jsonable_encoder(dummy_user_to_add2)
+    # first check to see if the user exists
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user_to_add2['username'])
+    if user is not None:
+        result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+        assert result == 1
+    # now post a new dummy user
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/users", json=data)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"]["firstname"] == dummy_user_to_add2["name"]["firstname"]
+    assert response.json()[
+        "data"]["name"]["surname"] == dummy_user_to_add2["name"]["surname"]
+    assert response.json()[
+        "data"]["username"] == dummy_user_to_add2["username"]
+    assert pwd_context.verify(dummy_user_to_add2["username"], response.json()[
+        "data"]["account_id"]) == True
+    assert response.json()[
+        "data"]["email"] == dummy_user_to_add2["email"]
+    assert response.json()[
+        "data"]["disabled"] == dummy_user_to_add2["disabled"]
+    assert response.json()[
+        "data"]["user_role"] == dummy_user_to_add2["user_role"]
+    assert response.json()[
+        "data"]["user_type"] == dummy_user_to_add2["user_type"]
+    # return id of record created
+    return(response.json()["data"]["id"])
+
+
+@ pytest.mark.asyncio
+@ pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer", "project:writer", "project:reader"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
 
@@ -255,6 +306,22 @@ async def return_token(test_add_user, dummy_user_to_add):
         "username": dummy_user_to_add["username"],
         "password": dummy_user_to_add["password"],
         "scope": dummy_user_to_add["user_role"].replace(",", " ")
+    }
+    async with httpx.AsyncClient(app=api.app) as ac:
+        response = await ac.post(f"http://localhost:8000/login", data=form_data)
+    assert response.status_code == 200
+    return {"Authorization": "Bearer " + str(response.json()["access_token"])}
+
+
+@pytest.mark.asyncio
+@pytest.fixture
+async def return_token2(test_add_user2, dummy_user_to_add2):
+    """ test user 2 login """
+    assert test_add_user2 is not None
+    form_data = {
+        "username": dummy_user_to_add2["username"],
+        "password": dummy_user_to_add2["password"],
+        "scope": dummy_user_to_add2["user_role"].replace(",", " ")
     }
     async with httpx.AsyncClient(app=api.app) as ac:
         response = await ac.post(f"http://localhost:8000/login", data=form_data)
@@ -1173,6 +1240,87 @@ async def test_projects_create_project(return_token, dummy_user_to_add, dummy_pr
         "data"]["project_id"]) == True
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["owner_id"]) == True
+    project_id = response.json()["data"]["project_id"]
+
+    # check that the project was added to the user record
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get("/users", headers=headers)
+    assert response.status_code == 200
+    assert project_id in response.json()["data"]["projects"]
+
+
+@pytest.mark.asyncio
+async def test_projects_get_project(return_token, dummy_user_to_add, dummy_project):
+    """ Add a new project """
+    headers = return_token
+    data = jsonable_encoder(dummy_project)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"] == dummy_project["name"]
+    assert response.json()[
+        "data"]["description"] == dummy_project["description"]
+    assert pwd_context.verify(dummy_project["name"], response.json()[
+        "data"]["project_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["owner_id"]) == True
+    project_id = response.json()["data"]["project_id"]
+
+    # now get the project from the projects_collection
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/projects/{project_id}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"] == dummy_project["name"]
+    assert response.json()[
+        "data"]["description"] == dummy_project["description"]
+    assert pwd_context.verify(dummy_project["name"], response.json()[
+        "data"]["project_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["owner_id"]) == True
+
+
+@pytest.mark.asyncio
+async def test_projects_get_nonexistent_project(return_token):
+    """ Check we get a 404 for a non-existent project_id """
+    headers = return_token
+    # create nonsense proejct id
+    project_id = "$2b$12$/ia88rVKjgBwvD.r9zk//OVT4tWum6U1j.KFMYs1SUGGARSPHILIP"
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/projects/{project_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.is_error
+
+
+@pytest.mark.asyncio
+async def test_projects_get_unowned_project(return_token, dummy_user_to_add, return_token2, dummy_project):
+    """ Ensure we can't see another users projects"""
+    headers = return_token
+    data = jsonable_encoder(dummy_project)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()[
+        "data"]["name"] == dummy_project["name"]
+    assert response.json()[
+        "data"]["description"] == dummy_project["description"]
+    assert pwd_context.verify(dummy_project["name"], response.json()[
+        "data"]["project_id"]) == True
+    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+        "data"]["owner_id"]) == True
+    project_id = response.json()["data"]["project_id"]
+
+    headers2 = return_token2
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/projects/{project_id}", headers=headers2)
+    assert response.status_code == 404
+    assert response.is_error
 
 
 # --------------------------
@@ -1206,8 +1354,8 @@ async def test_unauth_create_root_node(return_token,
     data = jsonable_encoder({
         "description": "Unit test description",
         "previous": "previous node",
-                            "next": "next node",
-                            "text": "Unit test text for root node",
+        "next": "next node",
+        "text": "Unit test text for root node",
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
 
@@ -1437,7 +1585,7 @@ async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, ret
     assert response.json()["data"] == 1
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_update_password(dummy_user_to_add, return_token):
     """ test unauthorized changing a user password - should fail with 401"""
 
@@ -1450,7 +1598,7 @@ async def test_unauth_update_password(dummy_user_to_add, return_token):
     assert response.is_error == True
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_unauth_update_type(dummy_user_to_add, return_token):
     """ test changing a user type """
 
@@ -1815,7 +1963,7 @@ async def test_scope_update_password(return_scoped_token):
             'detail': 'Insufficient permissions to complete action'}
 
 
-@pytest.mark.asyncio
+@ pytest.mark.asyncio
 async def test_scope_update_type(dummy_user_to_add, return_scoped_token):
     """ test changing a user type """
 

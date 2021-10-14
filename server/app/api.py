@@ -56,6 +56,8 @@ TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
 TEST_USERNAME_TO_ADD2 = os.getenv(key="TESTUSERTOADD2")
 TEST_PASSWORD_TO_ADD2 = os.getenv(key="TESTPWDTOADD2")
 TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
+TEST_USERNAME_TO_ADD3 = os.getenv(key="TESTUSERTOADD3")
+TEST_PASSWORD_TO_ADD3 = os.getenv(key="TESTPWDTOADD3")
 timezone(tzname[0]).localize(datetime.now())
 console_display = helpers.ConsoleDisplay()
 
