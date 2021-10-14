@@ -14,6 +14,8 @@ from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from jose import jwt
 from passlib.context import CryptContext
+from time import sleep
+import urllib.parse
 
 
 app = FastAPI()
@@ -1223,9 +1225,10 @@ def dummy_project():
     }
 
 
+@pytest.fixture
 @pytest.mark.asyncio
-async def test_projects_create_project(return_token, dummy_user_to_add, dummy_project):
-    """ Add a new project """
+async def create_dummy_project(return_token, dummy_user_to_add, dummy_project):
+    """ Add a new project for tests """
     headers = return_token
     data = jsonable_encoder(dummy_project)
 
@@ -1240,39 +1243,32 @@ async def test_projects_create_project(return_token, dummy_user_to_add, dummy_pr
         "data"]["project_id"]) == True
     assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
         "data"]["owner_id"]) == True
-    project_id = response.json()["data"]["project_id"]
+    assert response.status_code == 200
+    return {"project_id": response.json()["data"]["project_id"],
+            "owner_token": headers,
+            "dummy_user": dummy_user_to_add}
 
+
+@pytest.mark.asyncio
+async def test_projects_create_project(create_dummy_project):
+    """ test the project we've just created """
+    headers = create_dummy_project["owner_token"]
     # check that the project was added to the user record
-
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
         response = await ac.get("/users", headers=headers)
     assert response.status_code == 200
-    assert project_id in response.json()["data"]["projects"]
+    assert create_dummy_project["project_id"] in response.json()[
+        "data"]["projects"]
 
 
 @pytest.mark.asyncio
-async def test_projects_get_project(return_token, dummy_user_to_add, dummy_project):
-    """ Add a new project """
-    headers = return_token
-    data = jsonable_encoder(dummy_project)
-
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post("/projects", json=data, headers=headers)
-    assert response.status_code == 200
-    assert response.json()[
-        "data"]["name"] == dummy_project["name"]
-    assert response.json()[
-        "data"]["description"] == dummy_project["description"]
-    assert pwd_context.verify(dummy_project["name"], response.json()[
-        "data"]["project_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
-        "data"]["owner_id"]) == True
-    project_id = response.json()["data"]["project_id"]
-
+async def test_projects_get_project(create_dummy_project, dummy_project):
+    """ get a project that we added and are the owner of """
     # now get the project from the projects_collection
-
+    headers = create_dummy_project["owner_token"]
+    params = {"project_id": create_dummy_project["project_id"]}
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/{project_id}", headers=headers)
+        response = await ac.get(f"/projects/", params=params, headers=headers)
     assert response.status_code == 200
     assert response.json()[
         "data"]["name"] == dummy_project["name"]
@@ -1280,7 +1276,7 @@ async def test_projects_get_project(return_token, dummy_user_to_add, dummy_proje
         "data"]["description"] == dummy_project["description"]
     assert pwd_context.verify(dummy_project["name"], response.json()[
         "data"]["project_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
+    assert pwd_context.verify(create_dummy_project["dummy_user"]["username"], response.json()[
         "data"]["owner_id"]) == True
 
 
@@ -1298,27 +1294,12 @@ async def test_projects_get_nonexistent_project(return_token):
 
 
 @pytest.mark.asyncio
-async def test_projects_get_unowned_project(return_token, dummy_user_to_add, return_token2, dummy_project):
+async def test_projects_get_unowned_project(create_dummy_project, return_token2):
     """ Ensure we can't see another users projects"""
-    headers = return_token
-    data = jsonable_encoder(dummy_project)
-
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post("/projects", json=data, headers=headers)
-    assert response.status_code == 200
-    assert response.json()[
-        "data"]["name"] == dummy_project["name"]
-    assert response.json()[
-        "data"]["description"] == dummy_project["description"]
-    assert pwd_context.verify(dummy_project["name"], response.json()[
-        "data"]["project_id"]) == True
-    assert pwd_context.verify(dummy_user_to_add["username"], response.json()[
-        "data"]["owner_id"]) == True
-    project_id = response.json()["data"]["project_id"]
-
+    params = {"project_id": create_dummy_project["project_id"]}
     headers2 = return_token2
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/{project_id}", headers=headers2)
+        response = await ac.get(f"/projects/", headers=headers2, params=params)
     assert response.status_code == 404
     assert response.is_error
 

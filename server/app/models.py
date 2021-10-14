@@ -163,7 +163,7 @@ class UserDetails(BaseModel):
     disabled: Optional[bool] = False
     user_role: str
     user_type: UserType
-    projects: List
+    projects: set
 
     class Config:
         schema_extra = {
@@ -190,7 +190,7 @@ class RetrievedUserDetails(BaseModel):
     disabled: Optional[bool] = False
     user_role: str
     user_type: UserType
-    projects: List
+    projects: set
 
     class Config:
         schema_extra = {
@@ -288,7 +288,7 @@ def users_saves_helper(result) -> RetrievedUserDetails:
         disabled=str(result["disabled"]),
         user_role=str(result["user_role"]),
         user_type=str(result["user_type"]),
-        projects=list(result["projects"])
+        projects=set(result["projects"])
     )
 
 

@@ -956,9 +956,11 @@ async def create_project(account_id: UserDetails = Security(get_current_active_u
     return ResponseModel(save_result, "new project added")
 
 
-@ app.get("/projects/{project_id}")
+@ app.get("/projects/")
 async def get_project(project_id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:reader"])):
     """ get a project document from the project collection given its project_id"""
+    # project_id is a query parameter as the hash can contain special characters
+    # which would screw up url/routing
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
@@ -968,7 +970,7 @@ async def get_project(project_id: str, account_id: UserDetails = Security(get_cu
         project_details = await db_storage.get_project_details(account_id=account_id, project_id=project_id)
     except Exception as e:
         console_display.show_exception_message(
-            message_to_show="Error occured getting project document with id :{project_id}")
+            message_to_show=f"Error occured getting project document with id :{project_id}")
         raise
     if hasattr(project_details, "error"):
         raise HTTPException(

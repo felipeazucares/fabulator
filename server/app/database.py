@@ -717,9 +717,8 @@ class ProjectStorage():
         if DEBUG:
             self.console_display.show_debug_message(
                 message_to_show=f"self.user_details.projects: {self.user_details.projects}")
-        # check that the user owns this project - if they don't return an error message can we raise an exception?
+        # check that the user owns this project - if they don't return an error message can we raise an exception
         if project_id in self.user_details.projects:
-            # go get the details
             try:
                 self.project_details = await self.project_collection.find_one({"project_id": self.project_id})
                 if DEBUG:
