@@ -1945,7 +1945,7 @@ async def test_scope_update_password(return_scoped_token):
 
 
 @ pytest.mark.asyncio
-async def test_scope_update_type(dummy_user_to_add, return_scoped_token):
+async def test_scope_update_type(return_scoped_token):
     """ test changing a user type """
 
     headers = return_scoped_token["token"]
