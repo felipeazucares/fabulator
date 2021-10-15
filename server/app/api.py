@@ -936,26 +936,6 @@ async def delete_user(account_id: UserDetails = Security(get_current_active_user
 # ------------------------
 
 
-@ app.post("/projects")
-async def create_project(account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: CreateProject = Body(...)):
-    """ create a project """
-    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    if DEBUG:
-        console_display.show_debug_message(
-            f"create_project({request}) called")
-    try:
-        db_storage = ProjectStorage(collection_name="project_collection")
-        # populate the project model with all the user details
-        project_to_create = RetrieveProject(project_id=pwd_context.hash(request.name), name=request.name, description=request.description,
-                                            create_date=datetime.utcnow(), modified_date=datetime.utcnow(), owner_id=account_id)
-        save_result = await db_storage.create_project(project=project_to_create)
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show="Error occured creating project for :{account_id}")
-        raise
-    return ResponseModel(save_result, "new project added")
-
-
 @ app.get("/projects/")
 async def get_project(project_id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:reader"])):
     """ get a project document from the project collection given its project_id"""
@@ -978,6 +958,45 @@ async def get_project(project_id: str, account_id: UserDetails = Security(get_cu
     else:
         return ResponseModel(project_details, "success")
 
+
+@ app.post("/projects")
+async def create_project(account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: CreateProject = Body(...)):
+    """ create a project """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"create_project({request}) called")
+    try:
+        db_storage = ProjectStorage(collection_name="project_collection")
+        # populate the project model with all the user details
+        project_to_create = RetrieveProject(project_id=pwd_context.hash(request.name), name=request.name, description=request.description,
+                                            create_date=datetime.utcnow(), modified_date=datetime.utcnow(), owner_id=account_id)
+        save_result = await db_storage.create_project(project=project_to_create)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured creating project for :{account_id}")
+        raise
+    return ResponseModel(save_result, "new project added")
+
+
+@ app.put("/projects")
+async def update_project(account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: UpdateProject = Body(...)):
+    """ update a project """
+    DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+    if DEBUG:
+        console_display.show_debug_message(
+            f"update_project({request}) called")
+    try:
+        db_storage = ProjectStorage(collection_name="project_collection")
+        # populate the project model with all the updated user details
+        project_to_update = UpdateProject(project_id=request.project_id, name=request.name, description=request.description,
+                                          modified_date=datetime.utcnow())
+        save_result = await db_storage.update_project(account_id=account_id, project=project_to_update)
+    except Exception as e:
+        console_display.show_exception_message(
+            message_to_show="Error occured updating project for :{account_id}")
+        raise
+    return ResponseModel(save_result, "project updated")
 
 # Create global tree & subtrees
 tree = initialise_tree()
