@@ -1594,6 +1594,30 @@ async def test_unauth_update_type(dummy_user_to_add, return_token):
     assert response.status_code == 401
     assert response.is_error == True
 
+
+@pytest.mark.asyncio
+async def test_unauth_get_project(create_dummy_project, dummy_project):
+    """ Unauth get a project that we added and are the owner of """
+    # now get the project from the projects_collection
+    headers = create_dummy_project["owner_token"]
+    params = {"project_id": create_dummy_project["project_id"]}
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/projects/", params=params)
+    assert response.status_code == 401
+    assert response.is_error == True
+
+
+@pytest.mark.asyncio
+async def test_unauth_create_project(return_token, dummy_user_to_add, dummy_project):
+    """ Add a new project for tests """
+    headers = return_token
+    data = jsonable_encoder(dummy_project)
+
+    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+        response = await ac.post("/projects", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+
 # -------------------------------
 #   Scope (authentication) tests
 # -------------------------------
