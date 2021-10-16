@@ -7,6 +7,7 @@ from treelib import Tree
 from fastapi.encoders import jsonable_encoder
 from app.helpers import ConsoleDisplay
 from bson.objectid import ObjectId
+import datetime
 
 from .models import (
     UserDetails,
@@ -733,3 +734,63 @@ class ProjectStorage():
         else:
             # return an error
             return project_errors_helper({"error": "Unable to retrieve project", "message": "project does not belong to user"})
+
+    async def update_project_details(self, account_id: str, project_id: str, modified_date: datetime.datetime, project: UpdateProject):
+        """ update project details for a given project """
+        # have to have this in there to avoid event_loop_closed errors during testing
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+        self.database = self.client.fabulator
+        self.user_collection = self.database.get_collection("user_collection")
+        self.account_id = account_id
+        self.project_update = project
+        self.project_id = project_id
+        self.modified_date = modified_date
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"update_project_details({self.account_id,self.project_id}) called")
+        try:
+            user_deets = await self.user_collection.find_one({"account_id": self.account_id})
+            if user_deets is not None:
+                self.user_details = UserDetails(**user_deets)
+            else:
+                self.user_details = None
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
+            print(e)
+            raise
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"self.user_details.projects: {self.user_details.projects}")
+        # check that the user owns this project - if they don't return an error message can we raise an exception
+        if self.project_id in self.user_details.projects:
+            try:
+                if self.project_update.name:
+                    self.update_details = await self.project_collection.update_one({"project_id": self.project_id}, {'$set': {"name": self.project_update.name}})
+                if self.project_update.description:
+                    self.update_details = await self.project_collection.update_one({"project_id": self.project_id}, {'$set': {"description": self.project_update.description}})
+                if self.modified_date:
+                    self.update_details = await self.project_collection.update_one({"project_id": self.project_id}, {'$set': {"modified_date": self.modified_date}})
+                if DEBUG:
+                    self.console_display.show_debug_message(
+                        message_to_show=f"self.update_details: {self.update_details}")
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured updating user details from the database username was: {self.project_id}")
+                print(e)
+                raise
+            try:
+                self.project_details = await self.project_collection.find_one({"project_id": self.project_id})
+                if DEBUG:
+                    self.console_display.show_debug_message(
+                        message_to_show=f"self.project_details: {self.project_details}")
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured retrieving user details from the database username was: {self.project_id}")
+                print(e)
+                raise
+            return project_saves_helper(self.project_details)
+        else:
+            # return an error
+            return project_errors_helper({"error": "Unable to update project", "message": "project does not belong to user"})

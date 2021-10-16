@@ -980,7 +980,7 @@ async def create_project(account_id: UserDetails = Security(get_current_active_u
 
 
 @ app.put("/projects")
-async def update_project(account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: UpdateProject = Body(...)):
+async def update_project(project_id: str, account_id: UserDetails = Security(get_current_active_user_account, scopes=["project:writer"]), request: UpdateProject = Body(...)):
     """ update a project """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -989,9 +989,9 @@ async def update_project(account_id: UserDetails = Security(get_current_active_u
     try:
         db_storage = ProjectStorage(collection_name="project_collection")
         # populate the project model with all the updated user details
-        project_to_update = UpdateProject(project_id=request.project_id, name=request.name, description=request.description,
-                                          modified_date=datetime.utcnow())
-        save_result = await db_storage.update_project(account_id=account_id, project=project_to_update)
+        project_to_update = UpdateProject(
+            project_id=project_id, name=request.name, description=request.description)
+        save_result = await db_storage.update_project_details(account_id=account_id, project_id=project_id, modified_date=datetime.utcnow(), project=project_to_update)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured updating project for :{account_id}")

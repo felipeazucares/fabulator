@@ -122,7 +122,6 @@ class RetrieveProject(BaseModel):
 
 
 class UpdateProject(BaseModel):
-    project_id: str
     name: Optional[str] = None
     description: Optional[str] = None
 
