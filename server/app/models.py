@@ -309,8 +309,9 @@ def project_saves_helper(result) -> RetrieveProject:
         description=str(result["description"]),
         create_date=datetime.strptime(
             result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
-        modified_date=datetime.strptime(
-            result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
+        modified_date=result["modified_date"]
+        # modified_date=datetime.strptime(
+        #     result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
     )
 
 
