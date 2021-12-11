@@ -1,20 +1,18 @@
 import os
-from pydantic.error_wrappers import ValidationError
-import app.config  # loads the load_env lib to access .env file
-import app.helpers as helpers
-from app.authentication import Authentication
-from treelib import Tree
-from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
-from typing import List, Optional
-from fastapi.encoders import jsonable_encoder
-from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-from fastapi.security import OAuth2PasswordRequestForm
 from time import tzname
 from pytz import timezone
+from typing import List, Optional
 from datetime import timedelta, datetime
+from treelib import Tree
+from pydantic.error_wrappers import ValidationError
 from jose import JWTError, jwt
+from app import config
+from app import helpers
+from app.authentication import Authentication
 from passlib.context import CryptContext
+from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import (
     OAuth2PasswordBearer,
     OAuth2PasswordRequestForm,
@@ -66,7 +64,7 @@ if DEBUG:
 #      FABULATOR
 # ------------------------
 app = FastAPI()
-version = "0.8.0"
+VERSION = "0.8.0"
 
 origins = ["http://localhost:8000", "localhost:8000"]
 
@@ -109,6 +107,7 @@ class RoutesHelper:
         self.DEBUG = bool(os.getenv("DEBUG", "False") == "True")
 
     async def account_id_exists(self, account_id):
+
         self.account_id = account_id
         if self.DEBUG:
             self.console_display.show_debug_message(
@@ -322,7 +321,7 @@ async def get(
             )
 
     return ResponseModel(
-        data={"version": version, "username": current_user.username}, message="Success"
+        data={"version": VERSION, "username": current_user.username}, message="Success"
     )
 
 
