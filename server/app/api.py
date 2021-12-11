@@ -37,7 +37,6 @@ from .models import (
     ResponseModel,
 )
 
-
 # set env variables flag
 
 DEBUG = bool(os.getenv("DEBUG", "False") == "True")
