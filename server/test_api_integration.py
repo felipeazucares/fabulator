@@ -61,11 +61,11 @@ def dummy_user_to_add():
 @pytest.fixture
 def dummy_user_to_add2():
     return {
-        "name": {"firstname": "John", "surname": "Maginot"},
+        "name": {"firstname": "Blanche", "surname": "Dubois"},
         "username": TEST_USERNAME_TO_ADD3,
         "password": TEST_PASSWORD_TO_ADD3,
         "account_id": None,
-        "email": "jackmaginot@fictional.com",
+        "email": "blanchedubois@fictional.com",
         "disabled": False,
         "user_role": "user:reader user:writer tree:reader tree:writer usertype:writer project:writer project:reader",
         "user_type": "free",
@@ -1298,10 +1298,10 @@ async def test_projects_get_nonexistent_project(return_token):
 @pytest.mark.asyncio
 async def test_projects_get_unowned_project(create_dummy_project, return_token2):
     """ Ensure we can't see another users projects"""
-    params = {"project_id": create_dummy_project["project_id"]}
+    params = create_dummy_project["project_id"]
     headers2 = return_token2
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/", headers=headers2, params=params)
+        response = await ac.get(f"/projects/{params}", headers=headers2, params=params)
     assert response.status_code == 404
     assert response.is_error
 
