@@ -117,10 +117,6 @@ class Authentication:
             self.console_display.show_debug_message(
                 message_to_show=f"REDISPORT:{REDISPORT}"
             )
-            # TODO: REMOVE THIS
-                        self.console_display.show_debug_message(
-                message_to_show=f"REDISPASSWORD:{REDISPASSWORD}"
-            )
         redis_client = redis.StrictRedis(
             host=REDISHOST, port=REDISPORT, password=REDISPASSWORD
         )
