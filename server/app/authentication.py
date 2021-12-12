@@ -11,11 +11,15 @@ from fastapi import HTTPException, status
 from typing import Optional
 import app.database as database
 import redis
+from app.helpers import ConsoleDisplay
 
 REDISHOST = os.getenv(key="REDISHOST")
 REDISPORT = os.getenv(key="REDISPORT")
+REDISPASSWORD = os.getenv(key="REDISPASSWORD")
 timezone(tzname[0]).localize(datetime.now())
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+DEBUG = bool(os.getenv("DEBUG", "False") == "True")
 
 
 class Authentication:
@@ -25,6 +29,7 @@ class Authentication:
         self.ALGORITHM = os.getenv("ALGORITHM")
         self.ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
         self.user_storage = database.UserStorage(collection_name="user_collection")
+        self.console_display = ConsoleDisplay()
 
     def verify_password(self, plain_password, hashed_password):
         return pwd_context.verify(plain_password, hashed_password)
@@ -73,7 +78,16 @@ class Authentication:
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        redis_client = redis.StrictRedis(host=REDISHOST, port=REDISPORT)
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"REDISHOST:{REDISHOST}"
+            )
+            self.console_display.show_debug_message(
+                message_to_show=f"REDISPORT:{REDISPORT}"
+            )
+        redis_client = redis.StrictRedis(
+            host=REDISHOST, port=REDISPORT, password=REDISPASSWORD
+        )
 
         try:
             payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
@@ -96,7 +110,20 @@ class Authentication:
     def is_token_blacklisted(self, token):
         """return true if supplied token is in the blacklist"""
         # need to create a new instance of aioredis to get pytests to work
-        redis_client = redis.StrictRedis(host=REDISHOST, port=REDISPORT)
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"REDISHOST:{REDISHOST}"
+            )
+            self.console_display.show_debug_message(
+                message_to_show=f"REDISPORT:{REDISPORT}"
+            )
+            # TODO: REMOVE THIS
+                        self.console_display.show_debug_message(
+                message_to_show=f"REDISPASSWORD:{REDISPASSWORD}"
+            )
+        redis_client = redis.StrictRedis(
+            host=REDISHOST, port=REDISPORT, password=REDISPASSWORD
+        )
         if redis_client.get(token):
             redis_client.close()
             return True
