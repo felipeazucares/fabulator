@@ -8,7 +8,7 @@ from enum import auto
 from fastapi_restful.enums import CamelStrEnum
 
 
-# -------------------------------------
+# --------------------------------------
 #   Classes for http requests
 # -------------------------------------
 
@@ -29,7 +29,7 @@ class RequestAddSchema(BaseModel):
                 "next": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "description": "John meets his evil twin in a bar",
                 "text": "John walked into the bar. He pulled up a stool and sat down",
-                "tags": ['main plot', 'john', 'evil twin']
+                "tags": ["main plot", "john", "evil twin"],
             }
         }
 
@@ -52,7 +52,7 @@ class RequestUpdateSchema(BaseModel):
                 "next": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "description": "John's evil twin escapes into another dimension",
                 "text": "There was a strange burning smell coming from the room next door",
-                "tags": ['main plot', 'john', 'evil twin', 'Mirror Universe']
+                "tags": ["main plot", "john", "evil twin", "Mirror Universe"],
             }
         }
 
@@ -74,6 +74,7 @@ def ResponseModel(data, message):
 def ErrorResponseModel(error, code, message):
     return {"error": error, "code": code, "message": message}
 
+
 # -------------------------------------
 #   Classes for tree node data
 # -------------------------------------
@@ -93,13 +94,15 @@ class SubTree(BaseModel):
 
     sub_tree: dict
 
+
 # -------------------------------------
 #   Classes for Projects
 # -------------------------------------
 
 
 class CreateProject(BaseModel):
-    """ model for user data input"""
+    """model for user data input"""
+
     name: str
     description: Optional[str] = None
 
@@ -107,7 +110,7 @@ class CreateProject(BaseModel):
         schema_extra = {
             "example": {
                 "name": "My new project name",
-                "description": "My new project description"
+                "description": "My new project description",
             }
         }
 
@@ -129,7 +132,7 @@ class UpdateProject(BaseModel):
         schema_extra = {
             "example": {
                 "name": "My updated project name",
-                "description": "My updated project description"
+                "description": "My updated project description",
             }
         }
 
@@ -176,7 +179,7 @@ class UserDetails(BaseModel):
                 "disabled": False,
                 "user_role": "user:reader,user:writer,tree:reader,tree:writer",
                 "user_type": "free",
-                "projects": ["project_id1", "project_id2"]
+                "projects": ["project_id1", "project_id2"],
             }
         }
 
@@ -202,7 +205,7 @@ class RetrievedUserDetails(BaseModel):
                 "disabled": False,
                 "user_role": "user:reader,user:writer,tree:reader,tree:writer",
                 "user_type": "free",
-                "projects": ["project_id1", "project_id2"]
+                "projects": ["project_id1", "project_id2"],
             }
         }
 
@@ -262,7 +265,7 @@ class TokenData(BaseModel):
 # -------------------------------------
 
 
-class TreeSaveSchema():
+class TreeSaveSchema:
     def __init__(self, account_id: str, tree: Tree):
         self.account_id = account_id
         self.tree = tree
@@ -273,42 +276,41 @@ def saves_helper(save) -> dict:
     return {
         "account_id": str(save["account_id"]),
         "tree": dict(save["tree"]),
-        "date_time": str(save["date_time"])}
+        "date_time": str(save["date_time"]),
+    }
 
 
 def users_saves_helper(result) -> RetrievedUserDetails:
-    """ converts dict returned to object"""
+    """converts dict returned to object"""
     return RetrievedUserDetails(
         id=str(ObjectId(result["_id"])),
-        name=Name(firstname=str(result["name"]["firstname"]),
-                  surname=result["name"]["surname"]),
+        name=Name(
+            firstname=str(result["name"]["firstname"]),
+            surname=result["name"]["surname"],
+        ),
         username=str(result["username"]),
         account_id=str(result["account_id"]),
         email=EmailStr(result["email"]),
         disabled=str(result["disabled"]),
         user_role=str(result["user_role"]),
         user_type=str(result["user_type"]),
-        projects=set(result["projects"])
+        projects=set(result["projects"]),
     )
 
 
 def users_errors_helper(result):
-    """ converts dict to object """
-    return UserDetailsError(
-        error=result["error"],
-        message=result["message"]
-    )
+    """converts dict to object"""
+    return UserDetailsError(error=result["error"], message=result["message"])
 
 
 def project_saves_helper(result) -> RetrieveProject:
-    """ converts dict returned to object"""
+    """converts dict returned to object"""
     return RetrieveProject(
         project_id=str(result["project_id"]),
         name=str(result["name"]),
         owner_id=str(result["owner_id"]),
         description=str(result["description"]),
-        create_date=datetime.strptime(
-            result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
+        create_date=datetime.strptime(result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
         modified_date=result["modified_date"]
         # modified_date=datetime.strptime(
         #     result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
@@ -316,8 +318,5 @@ def project_saves_helper(result) -> RetrieveProject:
 
 
 def project_errors_helper(result):
-    """ converts dict to object """
-    return ProjectDetailsError(
-        error=result["error"],
-        message=result["message"]
-    )
+    """converts dict to object"""
+    return ProjectDetailsError(error=result["error"], message=result["message"])
