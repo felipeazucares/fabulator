@@ -11,4 +11,4 @@ services:
     image: "redis:alpine"
     command: redis-server --requirepass hashing-bibliotech   
     ports: 
-      - "6380:6379"    
+      - "6379:6379"    
