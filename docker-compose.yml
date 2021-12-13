@@ -1,7 +1,8 @@
 version: "3.9"
 services:
   web:
-    build: .
+    image: "felipeazucares/fabulator:latest"
+    #build: .
     ports:
       - "4900:8000"
   
