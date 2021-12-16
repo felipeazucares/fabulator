@@ -244,6 +244,17 @@ class UpdateUserPassword(BaseModel):
         }
 
 
+class UpdateCurrentProject(BaseModel):
+    current_project: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "current_project": "$2b$12$w6HZqcivF6yDbB8Pqig4jkYxhQ0kWjPiv.CFk.U7tdSuXLUkyIXXW",
+            }
+        }
+
+
 class UpdateUserType(BaseModel):
     user_type: UserType
 
