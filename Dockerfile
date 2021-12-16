@@ -6,5 +6,5 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./server /code
 # copy across the docker version of the .env file  so we connect to containerised redis 
 COPY ./server/.env_docker /code/.env
-EXPOSE 4900
+EXPOSE 8000
 CMD ["python", "main.py"]
