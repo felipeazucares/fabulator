@@ -32,7 +32,7 @@ from .models import (
     UpdateUserDetails,
     UpdateUserPassword,
     UpdateUserType,
-    UpdateCurrentProject,
+    #    UpdateCurrentProject,
     Token,
     TokenData,
     ResponseModel,
@@ -1116,30 +1116,14 @@ async def update_current_project(
     account_id: UserDetails = Security(
         get_current_active_user_account, scopes=["user:writer"]
     ),
-    request: UpdateCurrentProject = Body(...),
 ) -> dict:
     """update a current_project setting in a user document"""
+
     DEBUG = bool(os.getenv("DEBUG", "False") == "True")
     if DEBUG:
-        console_display.show_debug_message(f"update_current_project({request}) called")
-    print(f"request:{request}")
-    # TODO:
-    # first try and get the project to see if we own it.
-    #
-    try:
-        db_storage = ProjectStorage(collection_name="project_collection")
-        project_details = await db_storage.get_project_details(
-            account_id=account_id, project_id=project_id
+        console_display.show_debug_message(
+            f"update_current_project({current_project_id}) called"
         )
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show=f"Error occured getting project document with id :{project_id}"
-        )
-        raise
-    #
-    # TODO:
-    # if we're here then we're the projct owner - need to check that
-    # so we then try and update the user
 
     try:
         db_storage = UserStorage(collection_name="user_collection")
@@ -1151,29 +1135,16 @@ async def update_current_project(
             message_to_show=f"Error occured updating user details:{account_id}"
         )
         raise
-    result = ResponseModel(update_result, f"user {account_id} updated")
-    return result
-
-    # if we own it then update the user with the new current_project_id
-
-    # make sure that payload account_id is the same as the one that we're
-    # logged in under
-    # request.new_password = pwd_context.hash(request.new_password)
-    # if account_id is not None:
-    #     try:
-    #         db_storage = UserStorage(collection_name="user_collection")
-    #         update_result = await db_storage.update_user_password(
-    #             account_id=account_id, user=request
-    #         )
-    #     except Exception as e:
-    #         console_display.show_exception_message(
-    #             message_to_show=f"Error occured updating user password:{account_id}"
-    #         )
-    #         raise
-    #     result = ResponseModel(update_result, f"user password for {account_id} updated")
-    #     return result
-    # else:
-    #     raise HTTPException(status_code=401, detail=f"Invalid account_id requested")
+    if hasattr(update_result, "error"):
+        raise HTTPException(
+            status_code=404,
+            detail=f"No corresponding project id found for account_id:{account_id}",
+        )
+    else:
+        result = ResponseModel(
+            update_result, f"user {account_id} current_project updated"
+        )
+        return result
 
 
 @app.delete("/users")

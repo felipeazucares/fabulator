@@ -244,15 +244,15 @@ class UpdateUserPassword(BaseModel):
         }
 
 
-class UpdateCurrentProject(BaseModel):
-    current_project: str
+# class UpdateCurrentProject(BaseModel):
+#     current_project: str
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "current_project": "$2b$12$w6HZqcivF6yDbB8Pqig4jkYxhQ0kWjPiv.CFk.U7tdSuXLUkyIXXW",
-            }
-        }
+#     class Config:
+#         schema_extra = {
+#             "example": {
+#                 "current_project": "$2b$12$w6HZqcivF6yDbB8Pqig4jkYxhQ0kWjPiv.CFk.U7tdSuXLUkyIXXW",
+#             }
+#         }
 
 
 class UpdateUserType(BaseModel):
@@ -315,6 +315,7 @@ def users_saves_helper(result) -> RetrievedUserDetails:
         user_role=str(result["user_role"]),
         user_type=str(result["user_type"]),
         projects=set(result["projects"]),
+        current_project=str(result["current_project"]),
     )
 
 
@@ -331,9 +332,7 @@ def project_saves_helper(result) -> RetrieveProject:
         owner_id=str(result["owner_id"]),
         description=str(result["description"]),
         create_date=datetime.strptime(result["create_date"], "%Y-%m-%dT%H:%M:%S.%f"),
-        modified_date=result["modified_date"]
-        # modified_date=datetime.strptime(
-        #     result["modified_date"], "%Y-%m-%dT%H:%M:%S.%f")
+        modified_date=result["modified_date"],
     )
 
 

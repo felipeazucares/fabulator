@@ -1,7 +1,4 @@
 import os
-
-# import hashlib
-# import dns.resolver
 import motor.motor_asyncio
 from treelib import Tree
 from fastapi.encoders import jsonable_encoder
@@ -18,6 +15,7 @@ from .models import (
     RetrieveProject,
     UpdateProject,
     CreateProject,
+    #    UpdateCurrentProject,
     project_saves_helper,
     project_errors_helper,
     saves_helper,
@@ -639,53 +637,83 @@ class UserStorage:
             raise
         return users_saves_helper(self.updated_user)
 
-# Todo this needs updated iwth actual update code
-# TODO
-async def update_user_project(
-        self, account_id: str, user: UpdateUserDetails
+    async def update_user_project(
+        self, account_id: str, current_project_id: str
     ) -> dict:
-        """save a user's details into the user collection"""
+        """change the current_project setting for a user"""
         self.account_id_to_update = account_id
-        self.user = user
-        if self.user.email is not None and self.user.name is not None:
-            self.console_display = ConsoleDisplay()
-            if DEBUG:
-                self.console_display.show_debug_message(
-                    message_to_show=f"update_user_details({self.account_id_to_update}) called"
-                )
+        self.current_project_id = current_project_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"update_user_project(account:{self.account_id_to_update},project:{self.current_project_id}) called"
+            )
+        if self.current_project_id is not None:
+            # check to see if we can get this project - if not then its doesn't exist or
+            # we're not the owner
             try:
-                self.update_response = await self.user_collection.update_one(
-                    {"account_id": self.account_id_to_update},
+                db_storage = ProjectStorage(collection_name="project_collection")
+                project_details = await db_storage.get_project_details(
+                    account_id=account_id, project_id=current_project_id
+                )
+            except Exception as e:
+                console_display.show_exception_message(
+                    message_to_show=f"Error occured getting project document with id :{current_project_id} make sure it exists and that you are the owner"
+                )
+                raise
+            # if we can see it and we're the owner then update the current project
+            if not (hasattr(project_details, "error")):
+                try:
+                    self.update_response = await self.user_collection.update_one(
+                        {"account_id": self.account_id_to_update},
+                        {
+                            "$set": {
+                                "current_project": self.current_project_id,
+                            }
+                        },
+                    )
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured updating current_project user details id was: {self.account_id_to_update}, project:{self.current_project_id}"
+                    )
+                    print(e)
+                    raise
+                # now that its been updated let's get it so that we can return the updated record
+                try:
+                    self.updated_user = await self.user_collection.find_one(
+                        {"account_id": self.account_id_to_update}
+                    )
+                    if DEBUG:
+                        self.console_display.show_debug_message(
+                            message_to_show=f"updated user details: {self.updated_user}"
+                        )
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}"
+                    )
+                    print(e)
+                    raise
+            else:
+                # we can't find the project
+                if DEBUG:
+                    self.console_display.show_debug_message("Unable to find project")
+                return project_errors_helper(
                     {
-                        "$set": {
-                            "name": {
-                                "firstname": self.user.name.firstname,
-                                "surname": self.user.name.surname,
-                            },
-                            "email": self.user.email,
-                        }
-                    },
+                        "error": "Unable to update project",
+                        "message": "Project does not belong to user",
+                    }
                 )
-            except Exception as e:
-                self.console_display.show_exception_message(
-                    message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}"
-                )
-                print(e)
-                raise
-            try:
-                self.updated_user = await self.user_collection.find_one(
-                    {"account_id": self.account_id_to_update}
-                )
-            except Exception as e:
-                self.console_display.show_exception_message(
-                    message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}"
-                )
-                print(e)
-                raise
         else:
-            self.console_display.show_exception_message("Nothing to change")
-            raise
-        return users_saves_helper(self.updated_user)    
+            if DEBUG:
+                self.console_display.show_debug_message("Nothing to change")
+                return project_errors_helper(
+                    {
+                        "error": "Invalid project id",
+                        "message": "No project id provided",
+                    }
+                )
+
+        return users_saves_helper(self.updated_user)
 
     async def update_user_password(self, account_id, user: UpdateUserPassword) -> dict:
         """save a user's details into the user collection"""
