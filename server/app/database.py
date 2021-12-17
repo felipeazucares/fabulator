@@ -713,7 +713,7 @@ class UserStorage:
                     }
                 )
 
-        return users_saves_helper(self.updated_user)
+        return {"current_project": self.updated_user["current_project"]}
 
     async def update_user_password(self, account_id, user: UpdateUserPassword) -> dict:
         """save a user's details into the user collection"""
