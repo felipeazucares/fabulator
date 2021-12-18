@@ -1,4 +1,3 @@
-# from fastapi.param_functions import Form
 from logging import error
 from app.api import (
     TEST_USERNAME_TO_ADD,
@@ -16,7 +15,6 @@ import httpx
 import app.api as api
 import app.database as database
 import hashlib
-import asyncio
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from jose import jwt
@@ -113,8 +111,10 @@ async def test_add_user(dummy_user_to_add):
         )
         assert result == 1
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/users", json=data)
     assert response.status_code == 200
     assert (
         response.json()["data"]["name"]["firstname"]
@@ -153,8 +153,10 @@ async def test_add_user2(dummy_user_to_add2):
         )
         assert result == 1
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/users", json=data)
     assert response.status_code == 200
     assert (
         response.json()["data"]["name"]["firstname"]
@@ -227,8 +229,10 @@ async def return_scoped_token(request):
         assert result == 1
 
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/users", json=data)
     assert response.status_code == 200
     assert (
         response.json()["data"]["name"]["firstname"]
@@ -257,8 +261,10 @@ async def return_scoped_token(request):
         "password": dummy_user_to_add_scoped["password"],
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/login", data=form_data)
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/login", data=form_data
+        )
     assert response.status_code == 200
     return {
         "token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
@@ -300,8 +306,10 @@ async def return_simple_scoped_token(request):
         assert result == 1
 
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/users", json=data)
     assert response.status_code == 200
     assert (
         response.json()["data"]["name"]["firstname"]
@@ -330,8 +338,10 @@ async def return_simple_scoped_token(request):
         "password": dummy_user_to_add_scoped["password"],
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/login", data=form_data)
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/login", data=form_data
+        )
     assert response.status_code == 200
     return {
         "token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
@@ -367,8 +377,10 @@ async def return_token(test_add_user, dummy_user_to_add):
         "password": dummy_user_to_add["password"],
         "scope": dummy_user_to_add["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/login", data=form_data)
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/login", data=form_data
+        )
     assert response.status_code == 200
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
@@ -383,8 +395,10 @@ async def return_token2(test_add_user2, dummy_user_to_add2):
         "password": dummy_user_to_add2["password"],
         "scope": dummy_user_to_add2["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(f"http://localhost:8000/login", data=form_data)
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/login", data=form_data
+        )
     assert response.status_code == 200
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
@@ -400,7 +414,6 @@ def test_unit_tree_create():
 
 def test_unit_payload_create():
     """Set up a test payload & return it"""
-    test_project_id = "$2b$12$/ia88rVKjgBwvD.r9zk//OVT4tWum6U1j.KFMYs1SUGGARSPHILIP"
     test_description = "This is the node's description"
     test_text = "This is the node's test text content"
     test_previous = "Previous node id"
@@ -425,12 +438,10 @@ def test_unit_payload_create():
 def test_unit_payload_create_null():
     """Set up an empty test payload & return it"""
     test_description = None
-    test_project_id = "project_id"
     test_text = None
     test_previous = None
     test_next = None
     test_tags = None
-    project_id = None
     test_payload = api.NodePayload(
         description=test_description,
         text=test_text,
@@ -453,8 +464,8 @@ async def test_get_root_node(return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get("/trees/root")
+    ) as async_client:
+        response = await async_client.get("/trees/root")
     assert response.status_code == 200
     # return id of root node or None
     return response.json()["data"]["root"]
@@ -492,9 +503,9 @@ async def test_create_root_node(
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
-            f"http://localhost:8000/nodes/Unit test root node",
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/nodes/Unit test root node",
             json=data,
             headers=headers,
         )
@@ -519,8 +530,8 @@ async def test_root_path(return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get("/")
+    ) as async_client:
+        response = await async_client.get("/")
     assert response.status_code == 200
     assert response.json()["message"] == "Success"
 
@@ -539,9 +550,9 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
             "tags": ["tag 1", "tag 2", "tag 3"],
         }
     )
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
-            f"http://localhost:8000/nodes/this should fail", json=data, headers=headers
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
+            "http://localhost:8000/nodes/this should fail", json=data, headers=headers
         )
     assert response.status_code == 422
     # test that the root node is removed as expected
@@ -549,8 +560,8 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete("/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -575,8 +586,8 @@ async def test_nodes_remove_node(return_token, test_create_root_node: list):
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete("/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -623,8 +634,8 @@ async def test_nodes_update_node(test_create_root_node, return_token):
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
             f"http://localhost:8000/nodes/{test_create_root_node['node_id']}",
             json=data,
             headers=headers,
@@ -633,8 +644,10 @@ async def test_nodes_update_node(test_create_root_node, return_token):
     assert response.json()["data"]["object_id"] != None
 
     # now get what we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
             f"/nodes/{test_create_root_node['node_id']}", headers=headers
         )
     assert response.status_code == 200
@@ -681,9 +694,9 @@ async def test_nodes_update_node_for_non_existent_node(
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
-            f"http://localhost:8000/nodes/XXXX", json=data, headers=headers
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
+            "http://localhost:8000/nodes/XXXX", json=data, headers=headers
         )
     assert response.status_code == 404
     # test that an error state is generated as expected
@@ -703,8 +716,8 @@ async def test_nodes_update_node_for_non_existent_node(
 async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_token):
     """update a node with a bad payload"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
             f"http://localhost:8000/nodes/{test_create_root_node['node_id']}",
             headers=headers,
         )
@@ -739,8 +752,8 @@ async def test_nodes_update_node_with_non_existent_parent(
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
             f"http://localhost:8000/nodes/{test_create_root_node['node_id']}",
             json=data,
             headers=headers,
@@ -767,8 +780,10 @@ async def test_nodes_update_node_with_non_existent_parent(
 async def test_nodes_get_a_node(test_create_root_node, return_token):
     """get a single node by id"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
             f"/nodes/{test_create_root_node['node_id']}", headers=headers
         )
     assert response.status_code == 200
@@ -795,8 +810,8 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/nodes/xxx")
+    ) as async_client:
+        response = await async_client.get("/nodes/xxx")
     assert response.status_code == 404
     # test that an error state is generated as expected
     assert response.json()["detail"] == "Node not found in current tree"
@@ -814,8 +829,8 @@ async def test_nodes_get_all_nodes(test_create_root_node, return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/nodes")
+    ) as async_client:
+        response = await async_client.get("/nodes")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()["data"][0]["_identifier"] == test_create_root_node["node_id"]
@@ -841,8 +856,8 @@ async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
     params = {"filterval": "tag 1"}
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", params=params, headers=headers
-    ) as ac:
-        response = await ac.get(f"/nodes")
+    ) as async_client:
+        response = await async_client.get("/nodes")
     print(f"filter:{response.json()}")
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -882,8 +897,10 @@ async def test_nodes_add_child_node(test_create_root_node, return_token):
             "tags": ["tag 1", "tag 2", "tag 3"],
         }
     )
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/nodes/unit test child node", json=data, headers=headers
         )
     assert response.status_code == 200
@@ -928,8 +945,10 @@ async def test_nodes_add_child_node_with_invalid_parent(
             "tags": ["tag 1", "tag 2", "tag 3"],
         }
     )
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/nodes/unit test child node", json=data, headers=headers
         )
     assert response.status_code == 422
@@ -966,8 +985,10 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
     )
 
     # add child node to root
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/nodes/{child_data['name']}", json=child_data, headers=headers
         )
     assert response.status_code == 200
@@ -987,8 +1008,10 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
         }
     )
     # create grandchild node
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/nodes/{grandchild_data['name']}", json=grandchild_data, headers=headers
         )
     assert response.status_code == 200
@@ -1018,8 +1041,10 @@ async def test_subtrees_remove_subtree(
         "grandchild_data"
     ]["grandchild_node_id"]
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.get(f"/trees/{child_node_id}", headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}", headers=headers)
     assert response.status_code == 200
     assert child_node_id in response.json()["data"]["_nodes"]
     assert grandchild_node_id in response.json()["data"]["_nodes"]
@@ -1100,15 +1125,17 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
     original_root_id = test_setup_remove_and_return_subtree["original_root"]
     # prune ndde
     async with httpx.AsyncClient(
-        app=api.app, base_url=f"http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/trees/{child_node_id}")
+        app=api.app, base_url="http://localhost:8000", headers=headers
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}")
     assert response.status_code == 200
 
     data = jsonable_encoder({"sub_tree": response.json()["data"]})
 
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url=f"http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/trees/{test_setup_remove_and_return_subtree['original_root']}",
             json=data,
             headers=headers,
@@ -1119,8 +1146,8 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/nodes")
+    ) as async_client:
+        response = await async_client.get("/nodes")
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert response.json()["data"][0]["_identifier"] == original_root_id
@@ -1173,7 +1200,7 @@ async def test_saves_list_all_saves(test_create_root_node, return_token):
     """generate a list of all the saved tries for given account_id"""
     headers = return_token
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/saves", headers=headers)
+        response = await client.get("http://localhost:8000/saves", headers=headers)
     assert response.status_code == 200
     # test that the root node is removed as expected
     assert int(len(response.json()["data"][0])) > 0
@@ -1192,7 +1219,7 @@ async def test_saves_get_latest_save(test_create_root_node, return_token):
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
     async with httpx.AsyncClient(app=api.app) as client:
-        response = await client.get(f"http://localhost:8000/loads", headers=headers)
+        response = await client.get("http://localhost:8000/loads", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
     assert (
@@ -1340,8 +1367,10 @@ async def test_saves_delete_all_saves(return_token):
 async def test_users_add_duplicate_user(dummy_user_to_add, test_add_user):
     """Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(f"/users", json=data)
     assert response.status_code == 422
     assert response.json()["detail"] == "username already registered"
 
@@ -1352,8 +1381,10 @@ async def test_users_add_duplicate_email(
 ):
     """Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add_duplicate_email)
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post(f"/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(f"/users", json=data)
     assert response.status_code == 422
     assert response.json()["detail"] == "email already registered"
 
@@ -1364,8 +1395,10 @@ async def test_users_update_user(return_token, dummy_user_update):
     headers = return_token
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users", json=data, headers=headers)
     assert response.status_code == 200
     assert (
         response.json()["data"]["name"]["firstname"]
@@ -1384,15 +1417,15 @@ async def test_users_update_user_with_bad_payload(return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.put(f"/users")
+    ) as async_client:
+        response = await async_client.put(f"/users")
     assert response.status_code == 422
 
     # remove the user document we just created
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -1403,8 +1436,8 @@ async def test_users_delete_user(return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -1415,8 +1448,8 @@ async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     headers = return_token
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/users")
+    ) as async_client:
+        response = await async_client.get(f"/users")
     assert (
         response.json()["data"]["name"]["firstname"]
         == dummy_user_to_add["name"]["firstname"]
@@ -1445,8 +1478,8 @@ async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     # remove the user document we just created
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -1458,8 +1491,10 @@ async def test_users_update_password(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/password", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/password", json=data, headers=headers)
 
     assert response.status_code == 200
     assert response.is_error == False
@@ -1471,8 +1506,8 @@ async def test_users_update_password(dummy_user_to_add, return_token):
         "password": TEST_PASSWORD_TO_CHANGE,
         "scope": dummy_user_to_add["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
             f"http://localhost:8000/login", headers=headers, data=form_data
         )
     assert response.status_code == 200
@@ -1485,8 +1520,10 @@ async def test_users_update_project(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/password", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/password", json=data, headers=headers)
 
     assert response.status_code == 200
     assert response.is_error == False
@@ -1498,8 +1535,8 @@ async def test_users_update_project(dummy_user_to_add, return_token):
         "password": TEST_PASSWORD_TO_CHANGE,
         "scope": dummy_user_to_add["user_role"].replace(",", " "),
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
             f"http://localhost:8000/login", headers=headers, data=form_data
         )
     assert response.status_code == 200
@@ -1512,8 +1549,10 @@ async def test_users_update_type(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"user_type": "premium"})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/type", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/type", json=data, headers=headers)
 
     assert response.status_code == 200
     assert response.is_error == False
@@ -1524,8 +1563,10 @@ async def test_users_update_type(dummy_user_to_add, return_token):
 async def test_users_logout(return_token):
     """test changing a user type"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/logout", headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get("/logout", headers=headers)
 
     assert response.status_code == 200
     assert response.is_error == False
@@ -1533,8 +1574,8 @@ async def test_users_logout(return_token):
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/users")
+    ) as async_client:
+        response = await async_client.get(f"/users")
 
     assert response.status_code == 401
     assert response.is_error == True
@@ -1558,8 +1599,10 @@ async def create_dummy_project(return_token, dummy_user_to_add, dummy_project):
     headers = return_token
     data = jsonable_encoder(dummy_project)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post("/projects", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()["data"]["name"] == dummy_project["name"]
     assert response.json()["data"]["description"] == dummy_project["description"]
@@ -1586,8 +1629,10 @@ async def test_projects_create_project(create_dummy_project):
     """test the project we've just created"""
     headers = create_dummy_project["owner_token"]
     # check that the project was added to the user record
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/users", headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get("/users", headers=headers)
     assert response.status_code == 200
     assert create_dummy_project["project_id"] in response.json()["data"]["projects"]
 
@@ -1598,8 +1643,10 @@ async def test_projects_get_project(create_dummy_project, dummy_project):
     # now get the project from the projects_collection
     headers = create_dummy_project["owner_token"]
     params = {"project_id": create_dummy_project["project_id"]}
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/", params=params, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/projects/", params=params, headers=headers)
     assert response.status_code == 200
     assert response.json()["data"]["name"] == dummy_project["name"]
     assert response.json()["data"]["description"] == dummy_project["description"]
@@ -1623,8 +1670,10 @@ async def test_projects_get_nonexistent_project(return_token):
     # create nonsense proejct id
     project_id = "$2b$12$/ia88rVKjgBwvD.r9zk//OVT4tWum6U1j.KFMYs1SUGGARSPHILIP"
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/{project_id}", headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/projects/{project_id}", headers=headers)
     assert response.status_code == 404
     assert response.is_error
 
@@ -1634,8 +1683,12 @@ async def test_projects_get_unowned_project(create_dummy_project, return_token2)
     """Ensure we can't see another users projects"""
     params = create_dummy_project["project_id"]
     headers2 = return_token2
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/{params}", headers=headers2, params=params)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            f"/projects/{params}", headers=headers2, params=params
+        )
     assert response.status_code == 404
     assert response.is_error
 
@@ -1648,8 +1701,10 @@ async def test_projects_get_unowned_project(create_dummy_project, return_token2)
 @pytest.mark.asyncio
 async def test_unauth_root_path():
     """Unauthorized return version number should fail with a 401"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/")
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get("/")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1679,8 +1734,8 @@ async def test_unauth_create_root_node(return_token, test_get_root_node):
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
             f"http://localhost:8000/nodes/Unit test root node", json=data
         )
     assert response.status_code == 401
@@ -1723,8 +1778,8 @@ async def test_unauth_update_node(test_create_root_node, return_token):
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
             f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data
         )
     assert response.status_code == 401
@@ -1744,8 +1799,10 @@ async def test_unauth_update_node(test_create_root_node, return_token):
 async def test_unauth_get_a_node(test_create_root_node, return_token):
     """Unauthorised get a single node by id should fail with a 401"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/nodes/{test_create_root_node['node_id']}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1773,8 +1830,10 @@ async def test_unauth_add_child_node(test_create_root_node, return_token):
             "tags": ["tag 1", "tag 2", "tag 3"],
         }
     )
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(f"/nodes/unit test child node", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url=f"http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(f"/nodes/unit test child node", json=data)
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1799,8 +1858,10 @@ async def test_unauth_remove_subtree(
     ]
 
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.get(f"/trees/{child_node_id}")
+    async with httpx.AsyncClient(
+        app=api.app, base_url=f"http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1825,14 +1886,16 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
     # prune node
     async with httpx.AsyncClient(
         app=api.app, base_url=f"http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/trees/{child_node_id}")
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}")
     assert response.status_code == 200
 
     data = jsonable_encoder({"sub_tree": response.json()["data"]})
 
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(
+        app=api.app, base_url=f"http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
             f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data
         )
     assert response.status_code == 401
@@ -1920,8 +1983,10 @@ async def test_unauth_update_user(return_token, dummy_user_update):
     """Add a new user so that we can update it and delete it"""
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users", json=data)
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1930,8 +1995,10 @@ async def test_unauth_update_user(return_token, dummy_user_update):
 @pytest.mark.asyncio
 async def test_unauth_delete_user(return_token):
     """delete a user"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.delete(f"/users")
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
@@ -1943,16 +2010,18 @@ async def test_unauth_get_user_by_username(
 ):
     """test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/users")
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/users")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {"detail": "Not authenticated"}
     # remove the user document we just created
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
 
@@ -1963,8 +2032,10 @@ async def test_unauth_update_password(dummy_user_to_add, return_token):
 
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/password", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/password", json=data)
 
     assert response.status_code == 401
     assert response.is_error == True
@@ -1977,8 +2048,10 @@ async def test_unauth_update_type(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"user_type": "premium"})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/type", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/type", json=data)
 
     assert response.status_code == 401
     assert response.is_error == True
@@ -1990,8 +2063,10 @@ async def test_unauth_get_project(create_dummy_project, dummy_project):
     # now get the project from the projects_collection
     headers = create_dummy_project["owner_token"]
     params = {"project_id": create_dummy_project["project_id"]}
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/", params=params)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/projects/", params=params)
     assert response.status_code == 401
     assert response.is_error == True
 
@@ -2002,8 +2077,10 @@ async def test_unauth_create_project(return_token, dummy_user_to_add, dummy_proj
     headers = return_token
     data = jsonable_encoder(dummy_project)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post("/projects", json=data)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data)
     assert response.status_code == 401
     assert response.is_error == True
 
@@ -2020,8 +2097,8 @@ async def test_scope_root_path(return_scoped_token):
     scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get("/")
+    ) as async_client:
+        response = await async_client.get("/")
     if scopes == "tree:reader user:reader":
         assert response.status_code == 200
     else:
@@ -2047,8 +2124,8 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.post(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.post(
             f"http://localhost:8000/nodes/Unit test root node",
             json=data,
             headers=headers,
@@ -2058,8 +2135,8 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
         id_to_delete = response.json()["data"]["node"]["_identifier"]
         # now remove node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as ac:
-            response = await ac.delete(
+        async with httpx.AsyncClient(app=api.app) as async_client:
+            response = await async_client.delete(
                 f"http://localhost:8000/nodes/{id_to_delete}", headers=headers
             )
         assert response.status_code == 200
@@ -2121,8 +2198,8 @@ async def test_scope_update_node(
         }
     )
 
-    async with httpx.AsyncClient(app=api.app) as ac:
-        response = await ac.put(
+    async with httpx.AsyncClient(app=api.app) as async_client:
+        response = await async_client.put(
             f"http://localhost:8000/nodes/{test_create_root_node['node_id']}",
             headers=headers,
             json=data,
@@ -2154,8 +2231,8 @@ async def test_scope_get_a_node(
     scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
+    ) as async_client:
+        response = await async_client.get(f"/nodes/{test_create_root_node['node_id']}")
     if scopes == "tree:reader user:reader":
         assert response.status_code == 200
     else:
@@ -2193,8 +2270,8 @@ async def test_scope_add_child_node(
     )
     async with httpx.AsyncClient(
         app=api.app, base_url=f"http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.post(f"/nodes/unit test child node", json=data)
+    ) as async_client:
+        response = await async_client.post(f"/nodes/unit test child node", json=data)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
     else:
@@ -2227,8 +2304,8 @@ async def test_scope_remove_subtree(
     # remove the specified child
     async with httpx.AsyncClient(
         app=api.app, base_url=f"http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/trees/{child_node_id}")
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}")
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
     else:
@@ -2261,14 +2338,14 @@ async def test_scope_add_subtree(
     # prune node
     async with httpx.AsyncClient(
         app=api.app, base_url=f"http://localhost:8000", headers=all_scoped_headers
-    ) as ac:
-        response = await ac.get(f"/trees/{child_node_id}")
+    ) as async_client:
+        response = await async_client.get(f"/trees/{child_node_id}")
     data = jsonable_encoder({"sub_tree": response.json()["data"]})
     # now add the subtree back in
     async with httpx.AsyncClient(
         app=api.app, base_url=f"http://localhost:8000", headers=scoped_headers
-    ) as ac:
-        response = await ac.post(
+    ) as async_client:
+        response = await async_client.post(
             f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data
         )
     if scopes == "tree:writer user:reader":
@@ -2380,8 +2457,8 @@ async def test_scope_update_user(return_token, return_scoped_token, dummy_user_u
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.put("/users", json=data)
+    ) as async_client:
+        response = await async_client.put("/users", json=data)
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
     else:
@@ -2399,8 +2476,8 @@ async def test_scope_delete_user(return_token, return_scoped_token):
     scopes = return_scoped_token["scopes"]
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.delete(f"/users")
+    ) as async_client:
+        response = await async_client.delete(f"/users")
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
     else:
@@ -2419,8 +2496,8 @@ async def test_scope_get_user_by_username(return_simple_scoped_token):
     scopes = return_simple_scoped_token["scopes"]
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.get(f"/users")
+    ) as async_client:
+        response = await async_client.get(f"/users")
 
     if scopes == "user:reader":
         assert response.status_code == 200
@@ -2439,8 +2516,10 @@ async def test_scope_update_password(return_scoped_token):
     scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
     print(f"data:{data}")
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.put("/users/password", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/users/password", json=data, headers=headers)
 
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
@@ -2461,8 +2540,8 @@ async def test_scope_update_type(return_scoped_token):
 
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000", headers=headers
-    ) as ac:
-        response = await ac.put("/users/type", json=data)
+    ) as async_client:
+        response = await async_client.put("/users/type", json=data)
     if scopes == "usertype:writer user:reader":
         assert response.status_code == 200
     else:
@@ -2479,8 +2558,10 @@ async def test_scope_create_project(dummy_project, return_scoped_token):
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.post("/projects", json=data, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data, headers=headers)
 
     if scopes == "project:writer user:reader":
         assert response.status_code == 200
@@ -2497,8 +2578,10 @@ async def test_scope_get_project(create_dummy_project, return_scoped_token):
     scopes = return_scoped_token["scopes"]
     headers = return_scoped_token["token"]
     params = {"project_id": create_dummy_project["project_id"]}
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get(f"/projects/", params=params, headers=headers)
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(f"/projects/", params=params, headers=headers)
     if scopes == "project:reader user:reader":
         # we'll settle for a 404 here because even though we have the correct scopes to proceed
         # the access attempt should fail because the accessing account_id won't be the same as the
