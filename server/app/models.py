@@ -122,6 +122,7 @@ class RetrieveProject(BaseModel):
     owner_id: str
     create_date: datetime
     modified_date: datetime
+    trees: Optional[set]
 
 
 class UpdateProject(BaseModel):

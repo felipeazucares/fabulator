@@ -15,7 +15,6 @@ from .models import (
     RetrieveProject,
     UpdateProject,
     CreateProject,
-    #    UpdateCurrentProject,
     project_saves_helper,
     project_errors_helper,
     saves_helper,
@@ -72,6 +71,39 @@ class TreeStorage:
             print(e)
             raise
         return str(ObjectId(self.save_response.inserted_id))
+
+    async def create_tree(self, account_id: str, root_node_tag: str) -> str:
+        self.account_id = account_id
+        self.root_node_tag = root_node_tag
+        self.console_display = ConsoleDisplay()
+        # create the new tree object
+        try:
+            self.new_tree = Tree()
+            self.new_tree.create_node(self.root_node_tag)
+            self.new_tree.show()
+            print(f"id:{self.new_tree.identifier}")
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured creating new tree details for account_id: {self.account_id}"
+            )
+            print(e)
+            raise
+        # now save it
+        try:
+            self.save_response = self.save_working_tree(
+                account_id=self.account_id, tree=self.new_tree
+            )
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured saving new tree details for account_id: {self.account_id}"
+            )
+            print(e)
+            raise
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"new_tree_identifier:{self.new_tree.identifier}"
+            )
+        return self.new_tree.identifier
 
     async def list_all_saved_trees(self, account_id: str) -> dict:
         """return a dict of all the saves in the tree_collection for supplied account_id"""
@@ -890,6 +922,7 @@ class ProjectStorage:
         self.database = self.client.fabulator
         self.project_collection = self.database.get_collection(collection_name)
         self.user_collection = self.database.get_collection("user_collection")
+        self.tree_collection = self.database.get_collection("tree_collection")
 
     async def create_project(self, project=RetrieveProject) -> dict:
         # check if username already exists
@@ -899,6 +932,30 @@ class ProjectStorage:
             self.console_display.show_debug_message(
                 message_to_show=f"create_project({self.project.name}) called"
             )
+        # create a new tree and store it
+        try:
+            self.tree_functions = TreeStorage("tree_collection")
+            self.tree_id = await self.tree_functions.create_tree(
+                account_id=self.project.owner_id, root_node_tag=self.project.name
+            )
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured creating new tree, owner_id was: {self.project.owner_id}"
+            )
+            print(e)
+            raise
+        # add the new tree to the projects object provided
+        try:
+            self.project.trees = set([self.tree_id])
+
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured adding tree: {self.save_response} to project, owner_id was: {self.project.owner_id}"
+            )
+            print(e)
+            raise
+
+        # create a new project document
         try:
             self.save_response = await self.project_collection.insert_one(
                 jsonable_encoder(self.project)
@@ -909,6 +966,7 @@ class ProjectStorage:
             )
             print(e)
             raise
+        # update the associated user document with the project_id
         try:
             self.update_response = await self.user_collection.update_one(
                 {"account_id": self.project.owner_id},
