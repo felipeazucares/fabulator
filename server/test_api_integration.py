@@ -407,7 +407,6 @@ def test_unit_payload_create():
     test_next = "Next node id"
     test_tags = ["test_tag1", "test_tag2", "test_tag3"]
     test_payload = api.NodePayload(
-        project=test_project_id,
         description=test_description,
         text=test_text,
         previous=test_previous,
@@ -415,7 +414,6 @@ def test_unit_payload_create():
         tags=test_tags,
     )
     assert test_payload != None
-    assert test_payload.project == test_project_id
     assert test_payload.description == test_description
     assert test_payload.text == test_text
     assert test_payload.previous == test_previous
@@ -434,7 +432,6 @@ def test_unit_payload_create_null():
     test_tags = None
     project_id = None
     test_payload = api.NodePayload(
-        project=test_project_id,
         description=test_description,
         text=test_text,
         previous=test_previous,
@@ -442,7 +439,6 @@ def test_unit_payload_create_null():
         tags=test_tags,
     )
     assert test_payload != None
-    assert test_payload.project == test_project_id
     assert test_payload.text == test_text
     assert test_payload.previous == test_previous
     assert test_payload.next == test_next

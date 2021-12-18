@@ -14,7 +14,6 @@ from fastapi_restful.enums import CamelStrEnum
 
 
 class RequestAddSchema(BaseModel):
-    project: str
     parent: Optional[str] = None
     previous: Optional[str] = None
     next: Optional[str] = None
@@ -25,7 +24,6 @@ class RequestAddSchema(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "project": "$2b$12$w6HZqcivF6yDbB8Pqig4jkYxhQ0kWjPiv.CFk.U7tdSuXLUkyIXXW",
                 "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "previous": "308fdfae-ca09-11eb-b437-f01898e87167",
                 "next": "308fdfae-ca09-11eb-b437-f01898e87167",
@@ -37,7 +35,6 @@ class RequestAddSchema(BaseModel):
 
 
 class RequestUpdateSchema(BaseModel):
-    project: str
     name: Optional[str] = None
     parent: Optional[str] = None
     previous: Optional[str] = None
@@ -49,7 +46,6 @@ class RequestUpdateSchema(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "project": "$2b$12$w6HZqcivF6yDbB8Pqig4jkYxhQ0kWjPiv.CFk.U7tdSuXLUkyIXXW",
                 "name": "An updated node name",
                 "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "previous": "308fdfae-ca09-11eb-b437-f01898e87167",
@@ -85,7 +81,6 @@ def ErrorResponseModel(error, code, message):
 
 
 class NodePayload(BaseModel):
-    project: str
     description: Optional[str] = None
     previous: Optional[str] = None
     next: Optional[str] = None
