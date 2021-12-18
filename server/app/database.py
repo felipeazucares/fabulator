@@ -89,7 +89,7 @@ class TreeStorage:
             raise
         # now save it
         try:
-            self.save_response = self.save_working_tree(
+            self.save_response = await self.save_working_tree(
                 account_id=self.account_id, tree=self.new_tree
             )
         except Exception as e:
