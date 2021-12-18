@@ -81,7 +81,6 @@ class TreeStorage:
             self.new_tree = Tree()
             self.new_tree.create_node(self.root_node_tag)
             self.new_tree.show()
-            print(f"id:{self.new_tree.identifier}")
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured creating new tree details for account_id: {self.account_id}"
@@ -947,7 +946,10 @@ class ProjectStorage:
         # add the new tree to the projects object provided
         try:
             self.project.trees = set([self.tree_id])
-
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"self.project.trees:{self.project.trees}"
+                )
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured adding tree: {self.save_response} to project, owner_id was: {self.project.owner_id}"
@@ -978,10 +980,7 @@ class ProjectStorage:
             )
             print(e)
             raise
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"create_project({self.save_response}) called"
-            )
+
         try:
             self.new_project = await self.project_collection.find_one(
                 {"_id": ObjectId(self.save_response.inserted_id)}
