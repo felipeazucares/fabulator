@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 from app.helpers import ConsoleDisplay
 from bson.objectid import ObjectId
 import datetime
+import json
 
 from .models import (
     UserDetails,
@@ -993,6 +994,42 @@ class ProjectStorage:
             raise
         return project_saves_helper(self.new_project)
 
+    async def add_tree(self, account_id: str, tree_id: str, project_id: str) -> dict:
+        self.project_id = project_id
+        self.tree_id = tree_id
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"add_tree({self.tree_id},{self.project_id}) called"
+            )
+        # TODO: check that the tree exists and that not already in the project
+        # TODO: check that the project exists - maybe do the retrieve at the top of the request
+        # update the associated project document with the project_id if it belings to the owner
+        try:
+            self.update_response = await self.project_collection.update_one(
+                {"project_id": self.project_id, "owner_id": self.account_id},
+                {"$push": {"trees": self.tree_id}},
+            )
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured adding tree, to project: {self.project_id}"
+            )
+            print(e)
+            raise
+        # retireve the updated project to return
+        try:
+            self.updated_project = await self.get_project_details(
+                account_id=self.account_id, project_id=self.project_id
+            )
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retreiving updated project: {self.project_id}"
+            )
+            print(e)
+            raise
+        return self.updated_project
+
     async def get_project_details(self, account_id: str, project_id: str):
         """return the a user's details given their username - used for log in"""
         # have to have this in there to avoid event_loop_closed errors during testing
@@ -1002,6 +1039,8 @@ class ProjectStorage:
         self.account_id = account_id
         self.project_id = project_id
         self.console_display = ConsoleDisplay()
+        # TODO: don't need to get the user details first -
+        # TODO: the project has an owener_id in it which shold be the smae as the account_id
         if DEBUG:
             self.console_display.show_debug_message(
                 message_to_show=f"get_project_details({self.account_id,self.project_id}) called"
@@ -1025,7 +1064,7 @@ class ProjectStorage:
                 message_to_show=f"self.user_details.projects: {self.user_details.projects}"
             )
         # check that the user owns this project - if they don't return an error message can we raise an exception
-        if project_id in self.user_details.projects:
+        if self.project_id in self.user_details.projects:
             try:
                 self.project_details = await self.project_collection.find_one(
                     {"project_id": self.project_id}

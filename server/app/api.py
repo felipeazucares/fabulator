@@ -25,6 +25,7 @@ from .models import (
     RetrieveProject,
     UpdateProject,
     SubTree,
+    RootNode,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
@@ -32,7 +33,6 @@ from .models import (
     UpdateUserDetails,
     UpdateUserPassword,
     UpdateUserType,
-    #    UpdateCurrentProject,
     Token,
     TokenData,
     ResponseModel,
@@ -402,6 +402,41 @@ async def prune_subtree(
             status_code=404,
             detail=f"Unable to retrieve documents with account_id: {account_id}",
         )
+
+
+@app.post("/trees")
+async def create_new_tree_in_project(
+    request: RootNode = Body(...),
+    account_id: UserDetails = Security(
+        get_current_active_user_account, scopes=["tree:writer"]
+    ),
+) -> dict:
+    """Create a new tree using the root_node_tag provided to name the root"""
+    DEBUG = bool(os.getenv("DEBUG", "False") == "True")
+    # create a new tree for the given project
+    routes_helper = RoutesHelper()
+    db_storage = TreeStorage(collection_name="tree_collection")
+    try:
+        tree_id = await db_storage.create_tree(
+            account_id=account_id, root_node_tag=request.root_node_tag
+        )
+    except Exception as e:
+        routes_helper.console_display.show_exception_message(
+            message_to_show=f"Error occured creating a new tree for account_id: {account_id} with: {request.root_node_tag}"
+        )
+        raise
+    # now add the tree to the set of projects associated with the project_id
+    try:
+        project_storage = ProjectStorage("project_collection")
+        update_result = await project_storage.add_tree(
+            account_id=account_id, project_id=request.project_id, tree_id=tree_id
+        )
+    except Exception as e:
+        routes_helper.console_display.show_exception_message(
+            message_to_show=f"Error occured adding tree_id: {tree_id} to project_id: {request.project_id}"
+        )
+        raise
+    return ResponseModel(update_result, "success")
 
 
 @app.post("/trees/{id}")

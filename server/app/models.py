@@ -95,6 +95,12 @@ class SubTree(BaseModel):
     sub_tree: dict
 
 
+class RootNode(BaseModel):
+
+    project_id: str
+    root_node_tag: str
+
+
 # -------------------------------------
 #   Classes for Projects
 # -------------------------------------
