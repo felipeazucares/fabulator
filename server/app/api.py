@@ -418,7 +418,9 @@ async def create_new_tree_in_project(
     db_storage = TreeStorage(collection_name="tree_collection")
     try:
         tree_id = await db_storage.create_tree(
-            account_id=account_id, root_node_tag=request.root_node_tag
+            account_id=account_id,
+            root_node_tag=request.root_node_tag,
+            project_id=request.project_id,
         )
     except Exception as e:
         routes_helper.console_display.show_exception_message(
