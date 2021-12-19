@@ -1850,6 +1850,7 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
         == True
     )
 
+    # source_project_id = {response.json()["data"]["project_id"]}
     source_project_id = {"project_id": response.json()["data"]["project_id"]}
 
     # get the current contents of the trees Set in the destination project
@@ -1876,12 +1877,14 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
     source_tree_id = source_trees[0]
 
     print(f"sourcetrees:{source_trees}")
+    print(f"source_tree_id:{source_tree_id }")
+    print(f"source_project_id:{source_project_id}")
 
     # now move the tree from the source project to the destination project
 
     source_details = jsonable_encoder(
         {
-            "source_project_id": source_project_id,
+            "source_project_id": source_project_id["project_id"],
             "source_tree_id": source_tree_id,
         }
     )
@@ -1889,9 +1892,7 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
         app=api.app, base_url="http://localhost:8000"
     ) as async_client:
         response = await async_client.put(
-            "/trees/",
-            json=source_details,
-            headers=headers,
+            "/trees", json=source_details, headers=headers
         )
     assert response.status_code == 200
     # check that we have one new tree in the array

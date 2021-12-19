@@ -96,8 +96,24 @@ class SubTree(BaseModel):
 
 
 class RootNode(BaseModel):
+    """Class for request body data when a new tree is created in an existing project
+
+    Args:
+        BaseModel ([object]): Pydantic base class
+    """
 
     root_node_tag: str
+
+
+class MoveTree(BaseModel):
+    """Class for request body data when a tree is moved from a destination project to the current_project
+
+    Args:
+        BaseModel ([object]): Pydantic base class
+    """
+
+    source_project_id: str
+    source_tree_id: str
 
 
 # -------------------------------------

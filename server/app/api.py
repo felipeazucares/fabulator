@@ -26,6 +26,7 @@ from .models import (
     UpdateProject,
     SubTree,
     RootNode,
+    MoveTree,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
@@ -460,6 +461,67 @@ async def create_new_tree_in_project(
     except Exception as e:
         routes_helper.console_display.show_exception_message(
             message_to_show=f"Error occured adding tree_id: {tree_id} to project_id: {current_project_id}"
+        )
+        raise
+    if DEBUG:
+        routes_helper.console_display.show_debug_message(
+            f"update_result: {update_result}"
+        )
+
+    if hasattr(update_result, "error"):
+        raise HTTPException(
+            status_code=404,
+            detail=update_result.message,
+        )
+    else:
+        return ResponseModel(update_result, "success")
+
+
+@app.put("/trees")
+async def create_new_tree_in_project(
+    request: MoveTree = Body(...),
+    account_id: UserDetails = Security(
+        get_current_active_user_account, scopes=["tree:writer"]
+    ),
+) -> object:
+    """Move a tree from a destination project to a source project
+    args:
+        request: MoveTree class containing the id of the source project and tree. Destination is always current_project
+        account_id: salted hash id for user
+    Returns:
+        object: ResponseModel object containing results of move operation
+    """
+    DEBUG = bool(os.getenv("DEBUG", "False") == "True")
+    routes_helper = RoutesHelper()
+
+    # get the current project for this user
+    user_storage = UserStorage("user_collection")
+    try:
+        user_details = await user_storage.get_user_details_by_account_id(
+            account_id=account_id
+        )
+        current_project_id = user_details.current_project
+        if DEBUG:
+            routes_helper.console_display.show_debug_message(
+                f"current_project_id: {current_project_id}"
+            )
+    except Exception as e:
+        routes_helper.console_display(
+            message_to_show=f"Error occured getting the current project id for {account_id}"
+        )
+        raise
+    # now add the tree to the set of projects associated with the project_id
+    project_storage = ProjectStorage("project_collection")
+    try:
+        update_result = await project_storage.move_tree(
+            account_id=account_id,
+            destination_project_id=current_project_id,
+            source_project_id=request.source_project_id,
+            source_tree_id=request.source_tree_id,
+        )
+    except Exception as e:
+        routes_helper.console_display.show_exception_message(
+            message_to_show=f"Error occured moving the tree - source_tree_id: {request.source_tree_id} source_project_id: {request.source_project_id} destination_project_id: {current_project_id}"
         )
         raise
     if DEBUG:
