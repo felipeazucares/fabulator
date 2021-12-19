@@ -12,6 +12,7 @@ import pytest
 import asyncio
 import os
 import httpx
+import motor.motor_asyncio
 import app.api as api
 import app.database as database
 import hashlib
@@ -34,7 +35,7 @@ base_port = "8000"
 root_url = f"http://localhost:{base_port}"
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
+MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
 # ------------------------
 #   User Tests fixtures
 # ------------------------
@@ -1635,6 +1636,82 @@ async def test_projects_create_project(create_dummy_project):
         response = await async_client.get("/users", headers=headers)
     assert response.status_code == 200
     assert create_dummy_project["project_id"] in response.json()["data"]["projects"]
+
+
+@pytest.mark.asyncio
+async def test_projects_create_new_tree_in_non_existing_project(create_dummy_project):
+    """test adding a new treee to a non existing project current project"""
+    headers = create_dummy_project["owner_token"]
+
+    data = jsonable_encoder(
+        {
+            "root_node_tag": "new test tree",
+        }
+    )
+    params = {"project_id": create_dummy_project["project_id"]}
+
+    # get the current contents of the trees Set in the target project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get("/projects/", params=params, headers=headers)
+    assert response.status_code == 200
+
+    # now add new tree to project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
+            "/trees/",
+            json=data,
+            headers=headers,
+        )
+    assert response.status_code == 404
+    # check that we have one new tree in the array
+
+
+@pytest.mark.asyncio
+async def test_projects_create_new_tree_in_an_existing_project(create_dummy_project):
+    """test adding a new treee to an existing project current project"""
+    headers = create_dummy_project["owner_token"]
+
+    data = jsonable_encoder(
+        {
+            "root_node_tag": "new test tree",
+        }
+    )
+    params = {"project_id": create_dummy_project["project_id"]}
+
+    # add the project we've created to the current_project of the dummy user
+    # so add in a database client so that we can mutate the user test record
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    db = client.fabulator
+    user_collection = db.get_collection("user_collection")
+    update_response = await user_collection.update_one(
+        {"username": create_dummy_project["dummy_user"]["username"]},
+        {"$set": {"current_project": create_dummy_project["project_id"]}},
+    )
+
+    # get the current contents of the trees Set in the target project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get("/projects/", params=params, headers=headers)
+    assert response.status_code == 200
+    existing_trees = response.json()["data"]["trees"]
+
+    # now add new tree to project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post(
+            "/trees/",
+            json=data,
+            headers=headers,
+        )
+    assert response.status_code == 200
+    # check that we have one new tree in the array
+    assert len(existing_trees) + 1 == len(response.json()["data"]["trees"])
 
 
 @pytest.mark.asyncio

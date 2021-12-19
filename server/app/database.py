@@ -249,65 +249,65 @@ class TreeStorage:
             raise
         return self.save_count
 
-    # async def return_latest_save(self, account_id: str) -> dict:
-    #     """return the latest save document from the tree_collection for supplied account_id"""
-    #     self.account_id = account_id
-    #     self.console_display = ConsoleDisplay()
-    #     if DEBUG:
-    #         self.console_display.show_debug_message(
-    #             message_to_show=f"return_latest_save({self.account_id}) called"
-    #         )
-    #     try:
-    #         self.last_save = await self.tree_collection.find_one(
-    #             {"account_id": self.account_id}, sort=[("date_time", -1)]
-    #         )
+    async def return_latest_save(self, account_id: str) -> dict:
+        """return the latest save document from the tree_collection for supplied account_id"""
+        self.account_id = account_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"return_latest_save({self.account_id}) called"
+            )
+        try:
+            self.last_save = await self.tree_collection.find_one(
+                {"account_id": self.account_id}, sort=[("date_time", -1)]
+            )
 
-    #     except Exception as e:
-    #         self.console_display.show_exception_message(
-    #             message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}"
-    #         )
-    #         print(e)
-    #         raise
-    #     if self.last_save is None:
-    #         return None
-    #     else:
-    #         return saves_helper(self.last_save)
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}"
+            )
+            print(e)
+            raise
+        if self.last_save is None:
+            return None
+        else:
+            return saves_helper(self.last_save)
 
-    # async def return_latest_save_for_project(
-    #     self, account_id: str, project_id
-    # ) -> object:
-    #     """Returns the latest save document filtered by user and project ids
+    async def return_latest_save_for_project(
+        self, account_id: str, project_id
+    ) -> object:
+        """Returns the latest save document filtered by user and project ids
 
-    #     Args:
-    #         account_id (str): user account id
-    #         project_id (str): project identifier
+        Args:
+            account_id (str): user account id
+            project_id (str): project identifier
 
-    #     Returns:
-    #         saves_helper: object containing the latest save
-    #     """
-    #     self.account_id = account_id
-    #     self.project_id = project_id
-    #     self.console_display = ConsoleDisplay()
-    #     if DEBUG:
-    #         self.console_display.show_debug_message(
-    #             message_to_show=f"return_latest_save({self.account_id}) called"
-    #         )
-    #     try:
-    #         self.last_save = await self.tree_collection.find_one(
-    #             {"account_id": self.account_id, "project_id": self.project_id},
-    #             sort=[("date_time", -1)],
-    #         )
+        Returns:
+            saves_helper: object containing the latest save
+        """
+        self.account_id = account_id
+        self.project_id = project_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"return_latest_save({self.account_id}) called"
+            )
+        try:
+            self.last_save = await self.tree_collection.find_one(
+                {"account_id": self.account_id, "project_id": self.project_id},
+                sort=[("date_time", -1)],
+            )
 
-    #     except Exception as e:
-    #         self.console_display.show_exception_message(
-    #             message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}"
-    #         )
-    #         print(e)
-    #         raise
-    #     if self.last_save is None:
-    #         return None
-    #     else:
-    #         return saves_helper(self.last_save)
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}"
+            )
+            print(e)
+            raise
+        if self.last_save is None:
+            return None
+        else:
+            return saves_helper(self.last_save)
 
     async def check_if_document_exists(self, save_id: str) -> int:
         """return count of save documents in the tree_collection for supplied save_id"""
@@ -1042,12 +1042,20 @@ class ProjectStorage:
         self.tree_collection = self.database.get_collection("tree_collection")
 
     async def create_project(self, project=RetrieveProject) -> dict:
-        # check if username already exists
+        """create a new project, create a new tree to insert into it and then add it to trees set
+
+        Args:
+            project (RetrieveProject object, optional): project details class]. Defaults to RetrieveProject.
+
+        Returns:
+            RetrieveProjectDetails: dict containing project details is processed by project_saves_helper into RetrieveProjectDetails object
+        """
+
         self.project = project
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"create_project({self.project.name}) called"
+                message_to_show=f"create_project({self.project}) called"
             )
         # create a new tree and store it
         try:
@@ -1055,7 +1063,7 @@ class ProjectStorage:
             self.tree_id = await self.tree_functions.create_tree(
                 account_id=self.project.owner_id,
                 root_node_tag=self.project.name,
-                project_id=self.project_id,
+                project_id=self.project.project_id,
             )
         except Exception as e:
             self.console_display.show_exception_message(
@@ -1138,7 +1146,6 @@ class ProjectStorage:
             self.project_details = await self.get_project_details(
                 account_id=self.account_id, project_id=self.project_id
             )
-            print(f"!!!!:{self.project_details}")
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured finding specified project: {self.project_id}"

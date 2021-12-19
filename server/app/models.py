@@ -106,7 +106,11 @@ class RootNode(BaseModel):
 
 
 class CreateProject(BaseModel):
-    """model for user data input"""
+    """Project class for creating a new project from scratch
+
+    Args:
+        BaseModel (object): Pydantic base class
+    """
 
     name: str
     description: Optional[str] = None

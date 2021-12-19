@@ -64,7 +64,7 @@ if DEBUG:
 #      FABULATOR
 # ------------------------
 app = FastAPI()
-VERSION = "0.8.0"
+VERSION = "0.9.1"
 
 origins = ["http://localhost:8000", "localhost:8000"]
 
@@ -1311,7 +1311,7 @@ async def create_project(
         save_result = await db_storage.create_project(project=project_to_create)
     except Exception as e:
         console_display.show_exception_message(
-            message_to_show="Error occured creating project for :{account_id}"
+            message_to_show=f"Error occured creating project for :{account_id}"
         )
         raise
     return ResponseModel(save_result, "new project added")
