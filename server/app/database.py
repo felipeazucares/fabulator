@@ -1219,55 +1219,36 @@ class ProjectStorage:
         self.account_id = account_id
         self.project_id = project_id
         self.console_display = ConsoleDisplay()
-        # TODO: don't need to get the user details first -
-        # TODO: the project has an owener_id in it which shold be the smae as the account_id
+
         if DEBUG:
             self.console_display.show_debug_message(
                 message_to_show=f"get_project_details({self.account_id,self.project_id}) called"
             )
         try:
-            user_deets = await self.user_collection.find_one(
-                {"account_id": self.account_id}
+            self.project_details = await self.project_collection.find_one(
+                {"project_id": self.project_id, "owner_id": self.account_id}
             )
-            if user_deets is not None:
-                self.user_details = UserDetails(**user_deets)
-            else:
-                self.user_details = None
+            if DEBUG:
+                self.console_display.show_debug_message(
+                    message_to_show=f"self.project_details: {self.project_details}"
+                )
         except Exception as e:
             self.console_display.show_exception_message(
-                message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}"
+                message_to_show=f"Exception occured retrieving user details from the database username was: {self.project_id}"
             )
             print(e)
             raise
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"self.user_details.projects: {self.user_details.projects}"
-            )
-        # check that the user owns this project - if they don't return an error message can we raise an exception
-        if self.project_id in self.user_details.projects:
-            try:
-                self.project_details = await self.project_collection.find_one(
-                    {"project_id": self.project_id}
-                )
-                if DEBUG:
-                    self.console_display.show_debug_message(
-                        message_to_show=f"self.project_details: {self.project_details}"
-                    )
-            except Exception as e:
-                self.console_display.show_exception_message(
-                    message_to_show=f"Exception occured retrieving user details from the database username was: {self.project_id}"
-                )
-                print(e)
-                raise
-            return project_saves_helper(self.project_details)
+        if self.project_details is not None:
+            self.result = project_saves_helper(self.project_details)
         else:
             # return an error
-            return project_errors_helper(
+            self.result = project_errors_helper(
                 {
                     "error": "Unable to retrieve project",
                     "message": "project does not belong to user",
                 }
             )
+        return self.result
 
     async def update_project_details(
         self,
