@@ -277,17 +277,29 @@ class TokenData(BaseModel):
 
 
 class TreeSaveSchema:
-    def __init__(self, account_id: str, tree: Tree):
+    """Wrapper class for storing tree objects in mongo as a dictionary"""
+
+    def __init__(self, account_id: str, tree: Tree, project_id: str):
         self.account_id = account_id
         self.tree = tree
+        self.project_id = project_id
         self.date_time = datetime.utcnow()
 
 
-def saves_helper(save) -> dict:
+def saves_helper(save: dict) -> object:
+    """takes a dictionary returned from a mongo read op and converts it to an object
+
+    Args:
+        save (dict): dictionary containing fields returned from a mongo retrieve operation
+
+    Returns:
+        object: converts save content into an object for return to calling client
+    """
     return {
         "account_id": str(save["account_id"]),
         "tree": dict(save["tree"]),
         "date_time": str(save["date_time"]),
+        "project_id": str(save["project_id"]),
     }
 
 
