@@ -1594,9 +1594,49 @@ def dummy_project():
 
 
 @pytest.fixture
+def dummy_project2():
+    return {
+        "name": "2nd Dummy test project",
+        "description": "2nd Dummy project description",
+    }
+
+
+@pytest.fixture
 @pytest.mark.asyncio
 async def create_dummy_project(return_token, dummy_user_to_add, dummy_project):
     """Add a new project for tests"""
+    headers = return_token
+    data = jsonable_encoder(dummy_project)
+
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["data"]["name"] == dummy_project["name"]
+    assert response.json()["data"]["description"] == dummy_project["description"]
+    assert (
+        pwd_context.verify(dummy_project["name"], response.json()["data"]["project_id"])
+        == True
+    )
+    assert (
+        pwd_context.verify(
+            dummy_user_to_add["username"], response.json()["data"]["owner_id"]
+        )
+        == True
+    )
+    assert response.status_code == 200
+    return {
+        "project_id": response.json()["data"]["project_id"],
+        "owner_token": headers,
+        "dummy_user": dummy_user_to_add,
+    }
+
+
+@pytest.fixture
+@pytest.mark.asyncio
+async def create_dummy_project2(return_token, dummy_user_to_add, dummy_project2):
+    """Add a second project for tests"""
     headers = return_token
     data = jsonable_encoder(dummy_project)
 
@@ -1768,6 +1808,106 @@ async def test_projects_get_unowned_project(create_dummy_project, return_token2)
         )
     assert response.status_code == 404
     assert response.is_error
+
+
+@pytest.mark.asyncio
+async def test_projects_move_tree(create_dummy_project, dummy_project2):
+    """test moving a tree from an existing project to current project"""
+    headers = create_dummy_project["owner_token"]
+    print(f"dummy_project2:{dummy_project2}")
+    data = jsonable_encoder(dummy_project2)
+    destination_project_id = {"project_id": create_dummy_project["project_id"]}
+
+    # add the project we've created to the current_project of the dummy user
+    # so add in a database client so that we can mutate the user test record
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    db = client.fabulator
+    user_collection = db.get_collection("user_collection")
+    update_response = await user_collection.update_one(
+        {"username": create_dummy_project["dummy_user"]["username"]},
+        {"$set": {"current_project": create_dummy_project["project_id"]}},
+    )
+
+    # create a second project for the same user
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["data"]["name"] == dummy_project2["name"]
+    assert response.json()["data"]["description"] == dummy_project2["description"]
+    assert (
+        pwd_context.verify(
+            dummy_project2["name"], response.json()["data"]["project_id"]
+        )
+        == True
+    )
+    assert (
+        pwd_context.verify(
+            create_dummy_project["dummy_user"]["username"],
+            response.json()["data"]["owner_id"],
+        )
+        == True
+    )
+
+    source_project_id = {"project_id": response.json()["data"]["project_id"]}
+
+    # get the current contents of the trees Set in the destination project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/", params=destination_project_id, headers=headers
+        )
+    assert response.status_code == 200
+    destination_trees = response.json()["data"]["trees"]
+
+    print(f"destination trees:{destination_trees}")
+
+    # get the trees from the source project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/", params=source_project_id, headers=headers
+        )
+    assert response.status_code == 200
+    source_trees = response.json()["data"]["trees"]
+    source_tree_id = source_trees[0]
+
+    print(f"sourcetrees:{source_trees}")
+
+    # now move the tree from the source project to the destination project
+
+    source_details = jsonable_encoder(
+        {
+            "source_project_id": source_project_id,
+            "source_tree_id": source_tree_id,
+        }
+    )
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put(
+            "/trees/",
+            json=source_details,
+            headers=headers,
+        )
+    assert response.status_code == 200
+    # check that we have one new tree in the array
+    assert len(response.json()["data"]["trees"]) == len(destination_trees) + 1
+    # check that the source tree has been added to the destination project
+    assert source_tree_id in response.json()["data"]["trees"]
+    # check that its been removed from the soource tree
+    # get the current contents of the trees Set in the source project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/", params=source_project_id, headers=headers
+        )
+    assert response.status_code == 200
+    assert source_tree_id not in response.json()["data"]["trees"]
 
 
 # --------------------------
