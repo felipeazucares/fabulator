@@ -97,7 +97,6 @@ class SubTree(BaseModel):
 
 class RootNode(BaseModel):
 
-    project_id: str
     root_node_tag: str
 
 

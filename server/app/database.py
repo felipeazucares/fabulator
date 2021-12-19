@@ -16,6 +16,7 @@ from .models import (
     RetrieveProject,
     UpdateProject,
     CreateProject,
+    ProjectDetailsError,
     project_saves_helper,
     project_errors_helper,
     saves_helper,
@@ -1112,47 +1113,32 @@ class ProjectStorage:
             raise
         return project_saves_helper(self.new_project)
 
-    async def add_tree(
-        self, account_id: str, project_id: str, root_node_tag: str
-    ) -> str:
-        """adds a new tree to a preexisting project document
+    async def add_tree(self, account_id: str, project_id: str, tree_id: str) -> str:
+        """adds a pre-created tree to a preexisting project document
 
         Args:
             account_id (str): salted hash id for user
             project_id (str): salted has id for project
-            root_node_tag (str): name for new tree's root node
+            tree_id (str): salted has id for the newly crated tree
 
         Returns:
             str: id of the newly created tree
         """
         self.project_id = project_id
         self.account_id = account_id
+        self.tree_id = tree_id
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"add_tree({self.tree_id},{self.project_id}) called"
+                message_to_show=f"add_tree({self.tree_id},{self.project_id},{self.account_id}) called"
             )
-        # TODO: check that the project exists - maybe do the retrieve at the top of the request
-        # first check if the specified tree exists:
-        # try:
-        #     self.tree_id_exists = await self.check_tree_exists(
-        #         account_id=self.account_id,
-        #         project_id=self.project_id,
-        #         tree_id=self.tree_id,
-        #     )
-        # # update the associated project document with the project_id if it belings to the owner
-        # except Exception as e:
-        #     self.console_display.show_exception_message(
-        #         message_to_show=f"Exception occured finding tree. project_id:{self.project_id}, account_id:{self.account_id} and tree_id: {self.tree_id}"
-        #     )
-        #     print(e)
-        #     raise
 
         # first retrieve the updated project to test it exists
         try:
             self.project_details = await self.get_project_details(
                 account_id=self.account_id, project_id=self.project_id
             )
+            print(f"!!!!:{self.project_details}")
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured finding specified project: {self.project_id}"
@@ -1160,37 +1146,60 @@ class ProjectStorage:
             print(e)
             raise
         if not hasattr(self.project_details, "error"):
-            # create a new tree and store it
+            # check for tree existence
             try:
                 self.tree_functions = TreeStorage("tree_collection")
-                self.tree_id = await self.tree_functions.create_tree(
-                    account_id=self.project.owner_id,
-                    root_node_tag=self.project.name,
+                self.tree_exists = await self.tree_functions.check_tree_exists(
+                    account_id=self.account_id,
+                    tree_id=self.tree_id,
                     project_id=self.project_id,
                 )
             except Exception as e:
                 self.console_display.show_exception_message(
-                    message_to_show=f"Exception occured creating new tree, owner_id was: {self.project.owner_id}"
+                    message_to_show=f"Exception occured checking for new tree: tree_id{self.tree_id}"
                 )
                 print(e)
                 raise
+            # now that we know the tree exists lets update the project
+            if self.tree_exists:
+                # now that we have the project create the new tree and add it to the trees set in the project
+                try:
+                    self.update_response = await self.project_collection.update_one(
+                        {"project_id": self.project_id, "owner_id": self.account_id},
+                        {"$push": {"trees": self.tree_id}},
+                    )
+                    # now get the updated user document
 
-            # now that we have the project create the new tree and add it to the trees set in the project
-            try:
-                self.update_response = await self.project_collection.update_one(
-                    {"project_id": self.project_id, "owner_id": self.account_id},
-                    {"$push": {"trees": self.tree_id}},
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured adding tree, to project: {self.project_id}"
+                    )
+                    print(e)
+                    raise
+                try:
+                    self.updated_project = await self.get_project_details(
+                        account_id=self.account_id, project_id=self.project_id
+                    )
+                except Exception as e:
+                    self.console_display.show_exception_message(
+                        message_to_show=f"Exception occured finding specified project: {self.project_id}"
+                    )
+                    print(e)
+                    raise
+                self.result = self.updated_project
+            else:
+                self.result = project_errors_helper(
+                    {
+                        "message": "Error occured adding tree",
+                        "error": f"unable to find tree: {self.tree_id}",
+                    }
                 )
-            except Exception as e:
-                self.console_display.show_exception_message(
-                    message_to_show=f"Exception occured adding tree, to project: {self.project_id}"
-                )
-                print(e)
-                raise
-            self.result = self.tree_id
         else:
             self.result = project_errors_helper(
-                f"unable to find project: {self.project_id}"
+                {
+                    "message": "Error occured adding tree",
+                    "error": f"unable to find project: {self.project_id}",
+                }
             )
         return self.result
 

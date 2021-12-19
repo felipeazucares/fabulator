@@ -427,8 +427,12 @@ async def create_new_tree_in_project(
             account_id=account_id
         )
         current_project_id = user_details.current_project
+        if DEBUG:
+            routes_helper.console_display.show_debug_message(
+                f"current_project_id: {current_project_id}"
+            )
     except Exception as e:
-        routes_helper.console_display.show_exception_message(
+        routes_helper.console_display(
             message_to_show=f"Error occured getting the current project id for {account_id}"
         )
         raise
@@ -438,8 +442,10 @@ async def create_new_tree_in_project(
         tree_id = await db_storage.create_tree(
             account_id=account_id,
             root_node_tag=request.root_node_tag,
-            project_id=request.project_id,
+            project_id=current_project_id,
         )
+        if DEBUG:
+            routes_helper.console_display.show_debug_message(f"tree_id: {tree_id}")
     except Exception as e:
         routes_helper.console_display.show_exception_message(
             message_to_show=f"Error occured creating a new tree for account_id: {account_id} with: {request.root_node_tag}"
@@ -449,14 +455,25 @@ async def create_new_tree_in_project(
     project_storage = ProjectStorage("project_collection")
     try:
         update_result = await project_storage.add_tree(
-            account_id=account_id, project_id=request.project_id, tree_id=tree_id
+            account_id=account_id, project_id=current_project_id, tree_id=tree_id
         )
     except Exception as e:
         routes_helper.console_display.show_exception_message(
-            message_to_show=f"Error occured adding tree_id: {tree_id} to project_id: {request.project_id}"
+            message_to_show=f"Error occured adding tree_id: {tree_id} to project_id: {current_project_id}"
         )
         raise
-    return ResponseModel(update_result, "success")
+    if DEBUG:
+        routes_helper.console_display.show_debug_message(
+            f"update_result: {update_result}"
+        )
+
+    if hasattr(update_result, "error"):
+        raise HTTPException(
+            status_code=404,
+            detail=update_result.message,
+        )
+    else:
+        return ResponseModel(update_result, "success")
 
 
 @app.post("/trees/{id}")
