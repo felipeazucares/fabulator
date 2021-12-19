@@ -410,15 +410,35 @@ async def create_new_tree_in_project(
     account_id: UserDetails = Security(
         get_current_active_user_account, scopes=["tree:writer"]
     ),
-) -> dict:
-    """Create a new tree using the root_node_tag provided to name the root"""
+) -> object:
+    """Create a new tree using the root_node_tag provided to name the root
+    args:
+        request: RootNode class containing the name of the root node in the new tree
+        account_id: salted hash id for user
+    Returns:
+        object: ResponseModel object containing results of creatioj operation
+    """
     DEBUG = bool(os.getenv("DEBUG", "False") == "True")
-    # create a new tree for the given project
     routes_helper = RoutesHelper()
+    # get the current project for this user
+    user_storage = UserStorage("user_collection")
+    try:
+        user_details = await user_storage.get_user_details_by_account_id(
+            account_id=account_id
+        )
+        current_project_id = user_details.current_project
+    except Exception as e:
+        routes_helper.console_display.show_exception_message(
+            message_to_show=f"Error occured getting the current project id for {account_id}"
+        )
+        raise
+    # create a new tree for the given project
     db_storage = TreeStorage(collection_name="tree_collection")
     try:
         tree_id = await db_storage.create_tree(
-            account_id=account_id, root_node_tag=request.root_node_tag
+            account_id=account_id,
+            root_node_tag=request.root_node_tag,
+            project_id=current_project_id,
         )
     except Exception as e:
         routes_helper.console_display.show_exception_message(
@@ -426,8 +446,8 @@ async def create_new_tree_in_project(
         )
         raise
     # now add the tree to the set of projects associated with the project_id
+    project_storage = ProjectStorage("project_collection")
     try:
-        project_storage = ProjectStorage("project_collection")
         update_result = await project_storage.add_tree(
             account_id=account_id, project_id=request.project_id, tree_id=tree_id
         )
