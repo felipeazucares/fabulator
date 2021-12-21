@@ -1850,7 +1850,6 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
         == True
     )
 
-    # source_project_id = {response.json()["data"]["project_id"]}
     source_project_id = {"project_id": response.json()["data"]["project_id"]}
 
     # get the current contents of the trees Set in the destination project
@@ -1909,6 +1908,83 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
         )
     assert response.status_code == 200
     assert source_tree_id not in response.json()["data"]["trees"]
+
+
+@pytest.mark.asyncio
+async def test_projects_move_tree_to_non_existent_project(
+    create_dummy_project, dummy_project2
+):
+    """test moving a tree from a non_existing project to current project"""
+    headers = create_dummy_project["owner_token"]
+    print(f"dummy_project2:{dummy_project2}")
+    data = jsonable_encoder(dummy_project2)
+    destination_project_id = {"project_id": create_dummy_project["project_id"]}
+
+    # add the project we've created to the current_project of the dummy user
+    # so add in a database client so that we can mutate the user test record
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    db = client.fabulator
+    user_collection = db.get_collection("user_collection")
+    update_response = await user_collection.update_one(
+        {"username": create_dummy_project["dummy_user"]["username"]},
+        {"$set": {"current_project": create_dummy_project["project_id"]}},
+    )
+
+    # create a second project for the same user
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/projects", json=data, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["data"]["name"] == dummy_project2["name"]
+    assert response.json()["data"]["description"] == dummy_project2["description"]
+    assert (
+        pwd_context.verify(
+            dummy_project2["name"], response.json()["data"]["project_id"]
+        )
+        == True
+    )
+    assert (
+        pwd_context.verify(
+            create_dummy_project["dummy_user"]["username"],
+            response.json()["data"]["owner_id"],
+        )
+        == True
+    )
+
+    string_to_overwrite = "philip"
+    # remove last few chars from generated project_id and replace with "philip" to create duff project_id
+    source_project_id_missing = (
+        response.json()["data"]["project_id"][: -len(string_to_overwrite)]
+    ) + string_to_overwrite
+
+    # source_project_missing = source_project + string_to_overwrite
+    source_project_id = {"project_id": source_project_id_missing}
+
+    # get the current contents of the trees Set in the destination project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/", params=destination_project_id, headers=headers
+        )
+    assert response.status_code == 200
+    destination_trees = response.json()["data"]["trees"]
+
+    # get the trees from the source project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/", params=source_project_id, headers=headers
+        )
+
+    # this should fail with a 404 as we don't return anything
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == "Unable to retrieve project: project does not belong to user"
+    )
 
 
 # --------------------------
