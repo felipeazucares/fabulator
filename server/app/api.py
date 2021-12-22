@@ -27,6 +27,7 @@ from .models import (
     SubTree,
     RootNode,
     MoveTree,
+    RemoveTree,
     RequestAddSchema,
     RequestUpdateSchema,
     NodePayload,
@@ -536,6 +537,49 @@ async def create_new_tree_in_project(
         )
     else:
         return ResponseModel(update_result, "success")
+
+
+@app.delete("/trees")
+async def remove_tree_from_project(
+    request: RemoveTree = Body(...),
+    account_id: UserDetails = Security(
+        get_current_active_user_account, scopes=["tree:writer"]
+    ),
+) -> object:
+    """Remove a tree from a given project
+    args:
+        request: RemoveTree objct containing a target_project_id and target_tree_id
+        account_id: salted hash id for user
+    Returns:
+        object: ResponseModel object containing results of remove tree operation
+    """
+    DEBUG = bool(os.getenv("DEBUG", "False") == "True")
+    routes_helper = RoutesHelper()
+
+    db_storage = TreeStorage(collection_name="tree_collection")
+    try:
+        remove_result = await db_storage.remove_tree(
+            account_id=account_id,
+            target_project_id=target_project_id,
+            target_tree_id=target_tree_id,
+        )
+        if DEBUG:
+            routes_helper.console_display.show_debug_message(
+                f"remove_tree_from_project({request.target_tree_id}) called"
+            )
+    except Exception as e:
+        routes_helper.console_display.show_exception_message(
+            message_to_show=f"Error occured removing tree_id {request.target_tree_id} from project_id {request.target_project_id} for account_id: {request.account_id}"
+        )
+        raise
+    # return error if the result is a failure
+    if hasattr(update_result, "error"):
+        raise HTTPException(
+            status_code=404,
+            detail=remove_result.message,
+        )
+    else:
+        return ResponseModel(remove_result, "success")
 
 
 @app.post("/trees/{id}")

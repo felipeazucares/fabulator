@@ -1814,7 +1814,6 @@ async def test_projects_get_unowned_project(create_dummy_project, return_token2)
 async def test_projects_move_tree(create_dummy_project, dummy_project2):
     """test moving a tree from an existing project to current project"""
     headers = create_dummy_project["owner_token"]
-    print(f"dummy_project2:{dummy_project2}")
     data = jsonable_encoder(dummy_project2)
     destination_project_id = {"project_id": create_dummy_project["project_id"]}
 
@@ -1862,8 +1861,6 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
     assert response.status_code == 200
     destination_trees = response.json()["data"]["trees"]
 
-    print(f"destination trees:{destination_trees}")
-
     # get the trees from the source project
     async with httpx.AsyncClient(
         app=api.app, base_url="http://localhost:8000"
@@ -1874,10 +1871,6 @@ async def test_projects_move_tree(create_dummy_project, dummy_project2):
     assert response.status_code == 200
     source_trees = response.json()["data"]["trees"]
     source_tree_id = source_trees[0]
-
-    print(f"sourcetrees:{source_trees}")
-    print(f"source_tree_id:{source_tree_id }")
-    print(f"source_project_id:{source_project_id}")
 
     # now move the tree from the source project to the destination project
 
@@ -1985,6 +1978,49 @@ async def test_projects_move_tree_to_non_existent_project(
         response.json()["detail"]
         == "Unable to retrieve project: project does not belong to user"
     )
+
+
+@pytest.mark.asyncio
+async def test_projects_remove_tree_from_project(create_dummy_project):
+    """test removing a tree from a project"""
+    headers = create_dummy_project["owner_token"]
+    # get the current contents of the trees Set in the destination project
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/",
+            params={"project_id": create_dummy_project["project_id"]},
+            headers=headers,
+        )
+    assert response.status_code == 200
+    # get the id of the tree we just created in th new project
+    assert response.json()["data"]["trees"][0] is not None
+    target_project_id = create_dummy_project["project_id"]
+    tree_to_remove = response.json()["data"]["trees"][0]
+
+    data = jsonable_encoder(
+        {"target_project_id": target_project_id, "target_tree_id": tree_to_remove}
+    )
+    print(f"data:{data}")
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.delete("/trees", params=data, headers=headers)
+    assert response.status_code == 200
+
+    # now get the project to check the tree
+
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.get(
+            "/projects/",
+            params={"project_id": create_dummy_project["project_id"]},
+            headers=headers,
+        )
+    assert response.status_code == 200
+    assert len(response.json()["data"]["trees"]) == 0
 
 
 # --------------------------
@@ -2375,6 +2411,47 @@ async def test_unauth_create_project(return_token, dummy_user_to_add, dummy_proj
         app=api.app, base_url="http://localhost:8000"
     ) as async_client:
         response = await async_client.post("/projects", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+
+
+@pytest.mark.asyncio
+async def test_unauth_create_tree_in_project(
+    return_token, dummy_user_to_add, dummy_project
+):
+    """Add a new tree in existing project for tests"""
+    headers = return_token
+    data = jsonable_encoder(
+        {
+            "root_node_tag": "new test tree",
+        }
+    )
+
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.post("/trees", json=data)
+    assert response.status_code == 401
+    assert response.is_error == True
+
+
+@pytest.mark.asyncio
+async def test_unauth_move_tree_to_project(
+    return_token, dummy_user_to_add, dummy_project
+):
+    """Add a new tree in existing project for tests"""
+    headers = return_token
+    source_details = jsonable_encoder(
+        {
+            "source_project_id": "xxxxxxxxxxxxx",
+            "source_tree_id": "xxxxxxxxxxxxx",
+        }
+    )
+
+    async with httpx.AsyncClient(
+        app=api.app, base_url="http://localhost:8000"
+    ) as async_client:
+        response = await async_client.put("/trees", json=source_details)
     assert response.status_code == 401
     assert response.is_error == True
 

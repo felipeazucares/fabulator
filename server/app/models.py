@@ -116,6 +116,17 @@ class MoveTree(BaseModel):
     source_tree_id: str
 
 
+class RemoveTree(BaseModel):
+    """Class for request body data when a tree is moved from a destination project to the current_project
+
+    Args:
+        BaseModel ([object]): Pydantic base class
+    """
+
+    target_project_id: str
+    target_tree_id: str
+
+
 # -------------------------------------
 #   Classes for Projects
 # -------------------------------------
