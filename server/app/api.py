@@ -569,7 +569,7 @@ async def remove_tree_from_project(
             )
     except Exception as e:
         routes_helper.console_display.show_exception_message(
-            message_to_show=f"Error occured removing tree_id {request.target_tree_id} from project_id {request.target_project_id} for account_id: {request.account_id}"
+            message_to_show=f"Error occured removing tree_id {request.target_tree_id} from project_id {request.target_project_id} for account_id: {account_id}"
         )
         raise
     # return error if the result is a failure

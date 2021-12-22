@@ -1384,6 +1384,52 @@ class ProjectStorage:
             )
         return self.result
 
+    async def remove_tree(self, account_id: str, project_id: str, tree_id: str) -> str:
+        """remove designated tree from a preexisting project document
+
+        Args:
+            account_id (str): salted hash id for user
+            project_id (str): salted has id for project
+            tree_id (str): salted has id for the newly crated tree
+
+        Returns:
+            object: RetrieveProject or ProjectErrorHelper
+        """
+        self.project_id = project_id
+        self.account_id = account_id
+        self.tree_id = tree_id
+        self.console_display = ConsoleDisplay()
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"remove_tree({self.tree_id},{self.project_id},{self.account_id}) called"
+            )
+
+            # first retrieve the updated project to test it exists
+
+        try:
+            self.remove_response = await self.project_collection.update_one(
+                {"project_id": self.project_id, "owner_id": self.account_id},
+                {"$pull": {"trees": self.tree_id}},
+            )
+            # now get the updated user document
+
+        except Exception as e:
+            self.console_display.show_exception_message(
+                message_to_show=f"Exception occured adding tree, to project: {self.project_id}"
+            )
+            print(e)
+            raise
+
+        if self.remove_response is None:
+            self.remove_response = project_errors_helper(
+                {
+                    "message": "Error occured removing tree",
+                    "error": f"unable to find tree: {self.tree_id}",
+                }
+            )
+
+        return self.remove_response
+
     async def get_project_details(self, account_id: str, project_id: str):
         """return the a user's details given their username - used for log in"""
         # have to have this in there to avoid event_loop_closed errors during testing
