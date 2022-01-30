@@ -1,4 +1,11 @@
-# from fastapi.security import OAuth2PasswordBearer
+""" Implements oAuth2 for fabulator
+
+Raises:
+    credentials_exception: when credentials are incorrect or expired
+
+Returns:
+    [type]: [description]
+"""
 import os
 from time import tzname
 from jose.exceptions import ExpiredSignatureError

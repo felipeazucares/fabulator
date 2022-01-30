@@ -252,9 +252,7 @@ async def get_current_user(
             raise credentials_exception
         token_scopes = payload.get("scopes", [])
         expires = payload.get("exp")
-        token_data = TokenData(
-            scopes=token_scopes, username=account_id, expires=expires
-        )
+        token_data = TokenData(scopes=token_scopes, username=account_id, expires=expires)
     except (JWTError, ValidationError):
         raise credentials_exception
     user = await oauth.get_user_by_account_id(account_id=token_data.username)
@@ -395,9 +393,7 @@ async def prune_subtree(
                 print(e)
                 raise
         else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree"
-            )
+            raise HTTPException(status_code=404, detail="Node not found in current tree")
         return ResponseModel(response, message)
     else:
         raise HTTPException(
@@ -555,25 +551,27 @@ async def remove_tree_from_project(
     """
     DEBUG = bool(os.getenv("DEBUG", "False") == "True")
     routes_helper = RoutesHelper()
+    if DEBUG:
+        routes_helper.console_display.show_debug_message(
+            f"remove_tree_from_project({request.target_tree_id}) called"
+        )
 
-    db_storage = TreeStorage(collection_name="tree_collection")
+    project_storage = ProjectStorage("project_collection")
     try:
-        remove_result = await db_storage.remove_tree(
+        remove_result = await project_storage.remove_tree(
             account_id=account_id,
-            target_project_id=target_project_id,
-            target_tree_id=target_tree_id,
+            project_id=request.target_project_id,
+            tree_id=request.target_tree_id,
         )
         if DEBUG:
-            routes_helper.console_display.show_debug_message(
-                f"remove_tree_from_project({request.target_tree_id}) called"
-            )
+            routes_helper.console_display.show_debug_message(f" result: {remove_result}")
     except Exception as e:
         routes_helper.console_display.show_exception_message(
             message_to_show=f"Error occured removing tree_id {request.target_tree_id} from project_id {request.target_project_id} for account_id: {account_id}"
         )
         raise
     # return error if the result is a failure
-    if hasattr(update_result, "error"):
+    if hasattr(remove_result, "error"):
         raise HTTPException(
             status_code=404,
             detail=remove_result.message,
@@ -631,9 +629,7 @@ async def graft_subtree(
                 )
                 raise
         else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree"
-            )
+            raise HTTPException(status_code=404, detail="Node not found in current tree")
         return ResponseModel("Graft complete", message)
     else:
         raise HTTPException(
@@ -704,18 +700,14 @@ async def get_a_node(
     routes_helper = RoutesHelper()
     if await routes_helper.account_id_exists(account_id=account_id):
         if DEBUG:
-            console_display.show_debug_message(
-                message_to_show=f"get_a_node({id}) called"
-            )
+            console_display.show_debug_message(message_to_show=f"get_a_node({id}) called")
             console_display.show_debug_message(
                 message_to_show=f"node: {tree.get_node(id)}"
             )
         if tree.contains(id):
             node = tree.get_node(id)
         else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree"
-            )
+            raise HTTPException(status_code=404, detail="Node not found in current tree")
         return ResponseModel(node, "Success")
     else:
         raise HTTPException(
@@ -738,9 +730,7 @@ async def create_node(
     # map the incoming fields from the https request to the fields required by
     # the treelib API
     if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"create_node({name}) called"
-        )
+        console_display.show_debug_message(message_to_show=f"create_node({name}) called")
     global tree
     try:
         request = jsonable_encoder(request)
@@ -812,9 +802,7 @@ async def create_node(
             raise HTTPException(status_code=422, detail="Tree already has a root node")
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
-        save_result = await db_storage.save_working_tree(
-            tree=tree, account_id=account_id
-        )
+        save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working tree to the database"
@@ -896,9 +884,7 @@ async def update_node(
                 if request.parent:
                     if tree.contains(request.parent):
                         try:
-                            tree.update_node(
-                                id, data=node_payload, parent=request.parent
-                            )
+                            tree.update_node(id, data=node_payload, parent=request.parent)
                         except Exception as e:
                             console_display.show_exception_message(
                                 message_to_show="Error occured updating node in the working tree"
@@ -932,9 +918,7 @@ async def update_node(
                 )
             return ResponseModel({"object_id": save_result}, "Success")
         else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree"
-            )
+            raise HTTPException(status_code=404, detail="Node not found in current tree")
     else:
         raise HTTPException(
             status_code=404,
@@ -980,9 +964,7 @@ async def delete_node(
                     print(e)
                     raise
         else:
-            raise HTTPException(
-                status_code=404, detail="Node not found in current tree"
-            )
+            raise HTTPException(status_code=404, detail="Node not found in current tree")
         return ResponseModel(response, message)
     else:
         raise HTTPException(
@@ -1045,9 +1027,7 @@ async def get_a_save(
     """Return the specfied saved tree in the db collection"""
     DEBUG = bool(os.getenv("DEBUG", "False") == "True")
     if DEBUG:
-        console_display.show_debug_message(
-            message_to_show=f"get_a_save({save_id} called"
-        )
+        console_display.show_debug_message(message_to_show=f"get_a_save({save_id} called")
     global tree
     db_storage = TreeStorage(collection_name="tree_collection")
     routes_helper = RoutesHelper()
