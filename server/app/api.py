@@ -66,7 +66,7 @@ if DEBUG:
 #      FABULATOR
 # ------------------------
 app = FastAPI()
-VERSION = "0.9.1"
+VERSION = "0.9.5"
 
 origins = ["http://localhost:8000", "localhost:8000"]
 
@@ -313,7 +313,7 @@ async def get(
     )
 ) -> dict:
     """Return the API version"""
-    DEBUG = bool(os.getenv("DEBUG", "False") == "True")
+    # DEBUG = bool(os.getenv("DEBUG", "False") == "True")
     if current_user:
         if DEBUG:
             console_display.show_debug_message(
@@ -338,14 +338,21 @@ async def get_tree_root(
 ) -> dict:
     """return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv("DEBUG", "False") == "True")
-    global tree
     if DEBUG:
-        console_display.show_debug_message(message_to_show=f"get_tree_root() called")
-        console_display.show_debug_message(message_to_show=f"tree type:{type(tree)}")
-        # console_display.show_debug_message(
-        #     message_to_show=f"tree content:{tree}")
+        console_display.show_debug_message(
+            message_to_show=f"get_tree_root(${account_id}) called"
+        )
     try:
-        root_node = tree.root
+        db_storage = TreeStorage(collection_name="tree_collection")
+        current_tree = await db_storage.get_current_tree(account_id=account_id)
+    except Exception() as e:
+        console_display.show_exception_message(
+            message_to_show=f"Error occured calling get_current_tree for ${account_id}"
+        )
+        print(e)
+        raise
+    try:
+        root_node = current_tree.root
     except Exception as e:
         console_display.show_exception_message(
             message_to_show="Error occured calling tree.root on current tree"
