@@ -564,17 +564,17 @@ async def remove_tree_from_project(
             tree_id=request.target_tree_id,
         )
         if DEBUG:
-            routes_helper.console_display.show_debug_message(f" result: {remove_result}")
+            routes_helper.console_display.show_debug_message(f"result: {remove_result}")
     except Exception as e:
         routes_helper.console_display.show_exception_message(
             message_to_show=f"Error occured removing tree_id {request.target_tree_id} from project_id {request.target_project_id} for account_id: {account_id}"
         )
         raise
     # return error if the result is a failure
-    if hasattr(remove_result, "error"):
+    if remove_result == -1:
         raise HTTPException(
             status_code=404,
-            detail=remove_result.message,
+            detail="item not found or remove failed",
         )
     else:
         return ResponseModel(remove_result, "success")

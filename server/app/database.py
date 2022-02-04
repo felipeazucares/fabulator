@@ -1371,7 +1371,7 @@ class ProjectStorage:
         return self.result
 
     async def remove_tree(self, account_id: str, project_id: str, tree_id: str) -> str:
-        """remove designated tree from a preexisting project document
+        """remove designated tree from a pre-existing project document
 
         Args:
             account_id (str): salted hash id for user
@@ -1384,38 +1384,23 @@ class ProjectStorage:
         self.project_id = project_id
         self.account_id = account_id
         self.tree_id = tree_id
+        self.return_value = -1
         self.console_display = ConsoleDisplay()
+
         if DEBUG:
             self.console_display.show_debug_message(
                 message_to_show=f"remove_tree({self.tree_id},{self.project_id},{self.account_id}) called"
             )
 
-        # TODO: test if the target tree exists in the tree array if not we set an error code -1? to return
-
-        try:
-            self.remove_response = await self.project_collection.update_one(
-                {"project_id": self.project_id, "owner_id": self.account_id},
-                {"$pull": {"trees": self.tree_id}},
+        if DEBUG:
+            self.console_display.show_debug_message(
+                message_to_show=f"Getting project details for project_id: {self.project_id}"
             )
-
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured removing tree: {self.tree_id}, to project: {self.project_id}"
-            )
-            print(e)
-            raise
 
         try:
             self.project_details = await self.project_collection.find_one(
                 {"project_id": self.project_id, "owner_id": self.account_id},
             )
-
-            self.num_of_trees = len(self.project_details["trees"])
-
-            if DEBUG:
-                self.console_display.show_debug_message(
-                    message_to_show=f"results for project:{self.project_details}"
-                )
 
         except Exception as e:
             self.console_display.show_exception_message(
@@ -1424,13 +1409,40 @@ class ProjectStorage:
             print(e)
             raise
 
-        if self.remove_response is None:
-            self.remove_response = project_errors_helper(
-                {
-                    "message": "Error occured removing tree",
-                    "error": f"unable to find tree: {self.tree_id}",
-                }
-            )
+        # check if the tree to remove exists in the project tree collection
+
+        if self.tree_id in self.project_details["trees"]:
+            # tree_id exists so get the current number of items in the trees collection and remove the requested tree_id
+            self.num_of_trees = len(self.project_details["trees"])
+            try:
+                self.remove_response = await self.project_collection.update_one(
+                    {"project_id": self.project_id, "owner_id": self.account_id},
+                    {"$pull": {"trees": self.tree_id}},
+                )
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured removing tree: {self.tree_id}, to project: {self.project_id}"
+                )
+                print(e)
+                raise
+            # now get the details again so we can compare the number of trees in the trees collection and ensure its decreased
+            try:
+                self.project_details = await self.project_collection.find_one(
+                    {"project_id": self.project_id, "owner_id": self.account_id},
+                )
+            except Exception as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Exception occured getting updated items for project: {self.project_id}"
+                )
+                print(e)
+                raise
+            # there should be a difference of 1 in the count of trees in the project once tree_id has been removed
+            if len(self.project_details["trees"]) - self.num_of_trees == 1:
+                self.num_of_trees = -1
+
+        else:
+            # if the tree does not exist in the trees collection set the return value to error
+            self.num_of_trees = -1
 
         return self.num_of_trees
 
