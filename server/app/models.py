@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, validator, ValidationError
+from pydantic import BaseModel, EmailStr, ConfigDict
 from treelib import Tree
 from bson.objectid import ObjectId
-from enum import auto
-from fastapi_restful.enums import CamelStrEnum
+from enum import Enum
 
 
 # -------------------------------------
@@ -20,8 +19,8 @@ class RequestAddSchema(BaseModel):
     text: Optional[str] = None
     tags: Optional[list] = None
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "previous": "308fdfae-ca09-11eb-b437-f01898e87167",
@@ -31,6 +30,7 @@ class RequestAddSchema(BaseModel):
                 "tags": ['main plot', 'john', 'evil twin']
             }
         }
+    )
 
 
 class RequestUpdateSchema(BaseModel):
@@ -42,8 +42,8 @@ class RequestUpdateSchema(BaseModel):
     text: Optional[str] = None
     tags: Optional[list] = None
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "An updated node name",
                 "parent": "d22e5e28-ca11-11eb-b437-f01898e87167",
@@ -54,6 +54,7 @@ class RequestUpdateSchema(BaseModel):
                 "tags": ['main plot', 'john', 'evil twin', 'Mirror Universe']
             }
         }
+    )
 
 
 class ResponseModel2(BaseModel):
@@ -87,8 +88,7 @@ class NodePayload(BaseModel):
 
 
 class SubTree(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     sub_tree: dict
 
@@ -101,16 +101,11 @@ class Name(BaseModel):
     firstname: str
     surname: str
 
-# create enum to hold user types
 
-
-# class UserRole(BaseModel):
-#     scopes: str
-
-
-class UserType(CamelStrEnum):
-    free = auto()
-    premium = auto()
+# UserType enum - replaces fastapi-restful CamelStrEnum
+class UserType(str, Enum):
+    free = "free"
+    premium = "premium"
 
 
 class UserDetails(BaseModel):
@@ -123,8 +118,8 @@ class UserDetails(BaseModel):
     user_role: str
     user_type: UserType
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
@@ -136,6 +131,7 @@ class UserDetails(BaseModel):
                 "user_type": "free"
             }
         }
+    )
 
 
 class RetrievedUserDetails(BaseModel):
@@ -148,8 +144,8 @@ class RetrievedUserDetails(BaseModel):
     user_role: str
     user_type: UserType
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
@@ -160,6 +156,7 @@ class RetrievedUserDetails(BaseModel):
                 "user_type": "free"
             }
         }
+    )
 
 
 class UserAccount(BaseModel):
@@ -167,30 +164,32 @@ class UserAccount(BaseModel):
 
 
 class UpdateUserDetails(BaseModel):
-    name: Optional[Name]  # use nested model definition
-    email: Optional[EmailStr]
+    name: Optional[Name] = None  # use nested model definition
+    email: Optional[EmailStr] = None
 
 
 class UpdateUserPassword(BaseModel):
     new_password: str
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "new_password": "a_new_password",
             }
         }
+    )
 
 
 class UpdateUserType(BaseModel):
     user_type: UserType
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "user_type": "free",
             }
         }
+    )
 
 
 # -------------------------------------

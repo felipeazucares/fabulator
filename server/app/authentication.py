@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from .models import TokenData
 from typing import Optional
 import app.database as database
-import aioredis
+import redis.asyncio as redis
 
 REDISHOST = os.getenv(key="REDISHOST")
 timezone(tzname[0]).localize(datetime.now())
@@ -26,7 +26,7 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        self.conn = aioredis.from_url(
+        self.conn = redis.from_url(
             REDISHOST, encoding="utf-8", decode_responses=True
         )
 

@@ -1,16 +1,14 @@
 
 import os
-from pydantic.error_wrappers import ValidationError
+from pydantic import ValidationError
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from app.authentication import Authentication
 from treelib import Tree
 from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
-from typing import List, Optional
+from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-from fastapi.security import OAuth2PasswordRequestForm
 from time import tzname
 from pytz import timezone
 from datetime import timedelta, datetime
