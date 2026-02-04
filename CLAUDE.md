@@ -206,6 +206,23 @@ class SomeSchema(BaseModel):
 - Test both success and failure (401/403) scenarios
 - No `@pytest.mark.asyncio` needed (auto mode enabled)
 
+## Git Workflow
+
+**IMPORTANT: Always use feature branches. Never commit directly to `main`.**
+
+Workflow for all changes:
+1. Create a feature branch: `git checkout -b feature/description` or `fix/issue-name`
+2. Make changes and commit to the feature branch
+3. Push the feature branch: `git push -u origin feature/description`
+4. Create a pull request for review
+5. Merge to `main` after approval
+
+Branch naming conventions:
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `refactor/` - Code refactoring
+- `docs/` - Documentation updates
+
 ## Commit Style
 
 ```
