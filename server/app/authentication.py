@@ -2,7 +2,7 @@
 # from fastapi.security import OAuth2PasswordBearer
 import os
 from time import tzname
-from pytz import timezone
+from zoneinfo import ZoneInfo
 from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
@@ -12,7 +12,7 @@ import app.database as database
 import redis.asyncio as redis
 
 REDISHOST = os.getenv(key="REDISHOST")
-timezone(tzname[0]).localize(datetime.now())
+datetime.now(ZoneInfo(tzname[0]))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -57,9 +57,9 @@ class Authentication():
         """ create an access token with an expiry date"""
         to_encode = data.copy()
         if expires_delta:
-            expire = datetime.now(timezone("gmt")) + expires_delta
+            expire = datetime.now(ZoneInfo("GMT")) + expires_delta
         else:
-            expire = datetime.now(timezone("gmt")) + \
+            expire = datetime.now(ZoneInfo("GMT")) + \
                 timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire})
         encoded_jwt = jwt.encode(
@@ -77,7 +77,7 @@ class Authentication():
                                username=account_id, expires=expires)
 
         result = await self.conn.setex(
-            token, int((token_data.expires - datetime.now(timezone('gmt'))).total_seconds()), 1)
+            token, int((token_data.expires - datetime.now(ZoneInfo("GMT"))).total_seconds()), 1)
         return result
 
     async def is_token_blacklisted(self, token):

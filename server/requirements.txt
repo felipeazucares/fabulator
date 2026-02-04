@@ -19,7 +19,6 @@ redis>=5.2.0
 
 # Utilities
 python-dotenv>=1.0.0
-pytz>=2024.2
 treelib>=1.7.0
 email-validator>=2.2.0
 

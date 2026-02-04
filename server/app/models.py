@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 from treelib import Tree
 from bson.objectid import ObjectId
@@ -202,7 +202,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
-    scopes: List[str] = []
+    scopes: list[str] = []
     expires: datetime
 
 
@@ -215,7 +215,7 @@ class TreeSaveSchema():
     def __init__(self, account_id: str, tree: Tree):
         self.account_id = account_id
         self.tree = tree
-        self.date_time = datetime.utcnow()
+        self.date_time = datetime.now(timezone.utc)
 
 
 def saves_helper(save) -> dict:

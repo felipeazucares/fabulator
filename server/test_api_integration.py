@@ -8,7 +8,6 @@ import httpx
 import app.api as api
 import app.database as database
 import hashlib
-import asyncio
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from jose import jwt
@@ -32,7 +31,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ------------------------
 
 @pytest.fixture
-@pytest.mark.asyncio
 def get_dummy_user_account_id():
     # set up unit test user
     username = TEST_USERNAME_TO_ADD
@@ -55,7 +53,6 @@ def dummy_user_to_add():
 
 
 @pytest.fixture
-@pytest.mark.asyncio
 async def test_add_user(dummy_user_to_add):
     """ Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
@@ -91,7 +88,6 @@ async def test_add_user(dummy_user_to_add):
     return(response.json()["data"]["id"])
 
 
-@pytest.mark.asyncio
 @pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer"])
 async def return_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
@@ -154,7 +150,6 @@ async def return_scoped_token(request):
             "scopes": form_data["scope"]}
 
 
-@pytest.mark.asyncio
 @pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
 async def return_simple_scoped_token(request):
     """ Add a new user so that we can authorise against it"""
@@ -232,7 +227,6 @@ async def dummy_user_update():
 # --------------------------
 
 
-@pytest.mark.asyncio
 @pytest.fixture
 async def return_token(test_add_user, dummy_user_to_add):
     """ test user login """
@@ -248,7 +242,6 @@ async def return_token(test_add_user, dummy_user_to_add):
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
 
 
-@pytest.mark.asyncio
 @pytest.fixture
 def test_unit_tree_create():
     """ initialise a tree and return it"""
@@ -291,7 +284,6 @@ def test_unit_payload_create_null():
     return test_payload
 
 
-@pytest.mark.asyncio
 @pytest.fixture
 async def test_get_root_node(return_token):
     """ get the root node if it exists"""
@@ -311,7 +303,6 @@ async def test_get_root_node(return_token):
 # ------------------------
 
 
-@pytest.mark.asyncio
 @pytest.fixture
 async def test_create_root_node(return_token, get_dummy_user_account_id, test_get_root_node):
     """ Create a root node and return it """
@@ -709,7 +700,6 @@ async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, r
 
 
 @pytest.fixture
-@pytest.mark.asyncio
 async def test_setup_remove_and_return_subtree(test_create_root_node, return_token):
     """ Add a child node"""
     headers = return_token
