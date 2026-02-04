@@ -1,7 +1,11 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, EmailStr, validator
+from typing import List, Optional
+from pydantic import BaseModel, EmailStr, validator, ValidationError
 from treelib import Tree
+from bson.objectid import ObjectId
+from enum import auto
+from fastapi_restful.enums import CamelStrEnum
+
 
 # -------------------------------------
 #   Classes for http requests
@@ -88,29 +92,48 @@ class SubTree(BaseModel):
 
     sub_tree: dict
 
-    # -------------------------------------
-    #   Classes for user account
-    # -------------------------------------
+# -------------------------------------
+#   Classes for user account
+# -------------------------------------
 
 
 class Name(BaseModel):
     firstname: str
     surname: str
 
+# create enum to hold user types
+
+
+# class UserRole(BaseModel):
+#     scopes: str
+
+
+class UserType(CamelStrEnum):
+    free = auto()
+    premium = auto()
+
 
 class UserDetails(BaseModel):
     name: Name  # use nested model definition
     username: str
+    password: str  # hashed password
     account_id: Optional[str] = None
     email: EmailStr
+    disabled: Optional[bool] = False
+    user_role: str
+    user_type: UserType
 
     class Config:
         schema_extra = {
             "example": {
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
+                "password": "us3Th3F0rceLuk3",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com"
+                "email": "ben@kenobi.com",
+                "disabled": False,
+                "user_role": "user:reader,user:writer,tree:reader,tree:writer",
+                "user_type": "free"
             }
         }
 
@@ -119,8 +142,11 @@ class RetrievedUserDetails(BaseModel):
     id: str
     name: Name  # use nested model definition
     username: str
-    account_id: Optional[str] = None
+    account_id: str
     email: EmailStr
+    disabled: Optional[bool] = False
+    user_role: str
+    user_type: UserType
 
     class Config:
         schema_extra = {
@@ -128,27 +154,58 @@ class RetrievedUserDetails(BaseModel):
                 "name": {"firstname": "Alexei", "surname": "Guinness"},
                 "username": "a_dummy_user",
                 "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com"
+                "email": "ben@kenobi.com",
+                "disabled": False,
+                "user_role": "user:reader,user:writer,tree:reader,tree:writer",
+                "user_type": "free"
             }
         }
+
+
+class UserAccount(BaseModel):
+    account_id: str
 
 
 class UpdateUserDetails(BaseModel):
-    id: str
     name: Optional[Name]  # use nested model definition
-    username: Optional[str]
-    account_id: Optional[str] = None
     email: Optional[EmailStr]
+
+
+class UpdateUserPassword(BaseModel):
+    new_password: str
 
     class Config:
         schema_extra = {
             "example": {
-                "name": {"firstname": "Alexei", "surname": "Guinness"},
-                "username": "a_dummy_user",
-                "account_id": "308fdfae-ca09-11eb-b437-f01898e87167",
-                "email": "ben@kenobi.com"
+                "new_password": "a_new_password",
             }
         }
+
+
+class UpdateUserType(BaseModel):
+    user_type: UserType
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "user_type": "free",
+            }
+        }
+
+
+# -------------------------------------
+#   Classes for authentication
+# -------------------------------------
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = None
+    scopes: List[str] = []
+    expires: datetime
+
 
 # -------------------------------------
 #   Classes for mongo db storage
@@ -171,11 +228,15 @@ def saves_helper(save) -> dict:
 
 
 def users_saves_helper(result) -> dict:
+    """ converts dict returned to object"""
     return RetrievedUserDetails(
-        id=str(result["_id"]),
+        id=str(ObjectId(result["_id"])),
         name=Name(firstname=str(result["name"]["firstname"]),
                   surname=result["name"]["surname"]),
         username=str(result["username"]),
         account_id=str(result["account_id"]),
-        email=EmailStr(result["email"])
+        email=EmailStr(result["email"]),
+        disabled=str(result["disabled"]),
+        user_role=str(result["user_role"]),
+        user_type=str(result["user_type"])
     )
