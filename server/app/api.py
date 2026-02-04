@@ -69,6 +69,7 @@ origins = [
     "localhost:8000"
 ]
 
+# add CORS middleware - just for development purposes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -98,7 +99,7 @@ class RoutesHelper():
     """ helper class containg API route utility functions"""
 
     def __init__(self):
-        # probably create an instance of db_storeage
+        # create an instance of db_storage
         self.db_storage = TreeStorage(collection_name="tree_collection")
         self.user_storage = UserStorage(collection_name="user_collection")
         self.console_display = helpers.ConsoleDisplay()
