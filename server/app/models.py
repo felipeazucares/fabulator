@@ -234,7 +234,7 @@ def users_saves_helper(result) -> dict:
                   surname=result["name"]["surname"]),
         username=str(result["username"]),
         account_id=str(result["account_id"]),
-        email=EmailStr(result["email"]),
+        email=result["email"],
         disabled=str(result["disabled"]),
         user_role=str(result["user_role"]),
         user_type=str(result["user_type"])

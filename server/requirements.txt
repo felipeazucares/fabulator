@@ -12,6 +12,7 @@ pymongo>=4.10.0
 # Authentication
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt==3.2.2  # Pinned for passlib compatibility (passlib 1.7.4 doesn't support bcrypt 4.0+)
 python-multipart>=0.0.12
 
 # Redis for token blacklist

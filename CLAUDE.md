@@ -74,7 +74,12 @@ cd server
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+
+# Option 1: Run via main.py
+python main.py
+
+# Option 2: Run uvicorn directly
+uvicorn app.api:app --reload
 ```
 
 ## Running Tests
