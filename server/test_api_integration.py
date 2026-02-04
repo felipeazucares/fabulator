@@ -125,10 +125,13 @@ async def test_root_path():
 
 @pytest.mark.asyncio
 @pytest.fixture
-async def test_get_root_node():
+async def test_get_root_node(get_dummy_user_account_id):
     """ get the root node if it exists"""
     async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
-        response = await ac.get("/trees/root")
+        response = await ac.get(f"/trees/root/{get_dummy_user_account_id}")
+    # Return None if no saves exist for this account (new account)
+    if response.status_code == 404:
+        return None
     assert response.status_code == 200
     # return id of root node or None
     return response.json()["data"]["root"]
