@@ -81,7 +81,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 - [ ] **1.1** Fix duplicate `delete_user_details()` method - Remove line 598 version
 - [ ] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers
 - [ ] **1.3** Add rate limiting - Protect login endpoint from brute force (use SlowAPI or similar)
-- [x] **1.4** Fix remaining pytz usage in `api.py` - Migrate to zoneinfo ✅ **Completed 2026-02-05**
+- [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
 
 ### Phase 2: Code Quality & Reliability
 **Estimated Effort:** 2-3 days
