@@ -9,8 +9,7 @@ from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from time import tzname
-from pytz import timezone
+from zoneinfo import ZoneInfo
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -50,7 +49,6 @@ TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
 TEST_USERNAME_TO_ADD2 = os.getenv(key="TESTUSERTOADD2")
 TEST_PASSWORD_TO_ADD2 = os.getenv(key="TESTPWDTOADD2")
 TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
-timezone(tzname[0]).localize(datetime.now())
 console_display = helpers.ConsoleDisplay()
 
 if DEBUG:
@@ -233,7 +231,7 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
     # check token expiration
     if expires is None:
         raise credentials_exception
-    if datetime.now(timezone("gmt")) > token_data.expires:
+    if datetime.now(ZoneInfo("GMT")) > token_data.expires:
         raise credentials_exception
     # check if the token is blacklisted
     if await oauth.is_token_blacklisted(token):
