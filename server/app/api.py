@@ -297,7 +297,7 @@ async def logout(token: str = Depends(get_current_user_token)):
         return {'result': True}
 
 
-@ app.get("/users/me/", response_model=UserDetails)
+@ app.get("/users/me", response_model=UserDetails)
 async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
     return current_user
 
@@ -378,7 +378,7 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
     else:
         raise HTTPException(
             status_code=404, detail="Node not found in current tree")
-    return ResponseModel(response, message)
+    return ResponseModel(jsonable_encoder(response), message)
 
 
 @ app.post("/trees/{id}")
@@ -444,8 +444,11 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
     if filterval:
         data = []
         for node in tree.all_nodes():
-            if node.data and filterval in node.data.tags:
-                data.append(node)
+            if node.data:
+                # Handle both dict (from DB) and object (NodePayload) cases
+                tags = node.data.get("tags") if isinstance(node.data, dict) else getattr(node.data, "tags", None)
+                if tags and filterval in tags:
+                    data.append(jsonable_encoder(node))
         if DEBUG:
             console_display.show_debug_message(
                 message_to_show=f"Nodes filtered on {filterval}")
@@ -457,7 +460,7 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
                 message_to_show="Error occured calling tree.show on tree")
             raise HTTPException(
                 status_code=500, detail="Error occured calling tree.show on tree")
-        data = tree.all_nodes()
+        data = [jsonable_encoder(node) for node in tree.all_nodes()]
     return ResponseModel(data=data, message="Success")
 
 
