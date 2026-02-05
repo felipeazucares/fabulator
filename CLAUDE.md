@@ -181,6 +181,79 @@ class SomeSchema(BaseModel):
 - Tree recursion has no depth limit
 - Redis connections not explicitly closed
 
+## Missing API Functionality (Roadmap)
+
+The following features are missing from the current API. Prioritized by importance for a narrative structure tool.
+
+**Note:** Node reparenting IS supported via `PUT /nodes/{id}` with `parent` in request body.
+
+### Tier 1 - Core CRUD Gaps (High Priority)
+
+These are fundamental operations missing from basic CRUD:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `DELETE /saves/{save_id}` | Delete a **specific** save (currently only delete-all) |
+| `GET /saves/{save_id}` | Get save **metadata** without loading full tree |
+| `POST /nodes/{id}/duplicate` | **Copy** a node with optional children |
+| `PUT /nodes/{id}/reorder` | Change **position among siblings** |
+
+### Tier 2 - Tree Navigation (High Priority)
+
+Essential for frontend tree visualization and navigation:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /nodes/{id}/children` | Get **direct children** of a node |
+| `GET /nodes/{id}/parent` | Get **parent** node |
+| `GET /nodes/{id}/siblings` | Get **sibling** nodes |
+| `GET /nodes/{id}/ancestors` | Get **path from root** to node |
+| `GET /trees/leaves` | Get all **leaf nodes** (story branch endpoints) |
+| `GET /trees/stats` | Tree **depth, node count**, branch statistics |
+
+### Tier 3 - Search & Query (Medium Priority)
+
+For finding content in large narrative structures:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /nodes/search?query=<text>` | **Full-text search** in description/text |
+| `GET /nodes/by-tag?tags=<list>` | Query nodes by **multiple tags** |
+
+### Tier 4 - Enhanced Features (Medium Priority)
+
+| Feature | Endpoints |
+|---------|-----------|
+| **Cross-Node Relationships** | `POST/GET/DELETE /nodes/{id}/relationships` - foreshadowing, callbacks |
+| **Node Comments** | `POST/GET /nodes/{id}/comments` - editorial notes |
+| **Export** | `GET /export/{format}` - PDF, Markdown, DOCX, JSON |
+| **Bulk Operations** | `POST /nodes/bulk-create`, `PUT /nodes/bulk-update` |
+
+### Tier 5 - Advanced Features (Lower Priority)
+
+| Feature | Endpoints |
+|---------|-----------|
+| **Character Tracking** | CRUD `/characters`, `GET /characters/{id}/appearances` |
+| **Timeline Support** | `POST /nodes/{id}/timeline-entry`, `GET /timeline` |
+| **Story Templates** | `POST /templates`, `POST /trees/from-template/{id}` |
+| **Revision History** | `GET /nodes/{id}/history`, `POST /nodes/{id}/restore` |
+| **Analytics** | `GET /analytics/pacing`, word counts, tag frequency |
+| **Tree Sharing** | `POST /trees/{id}/share`, permissions management |
+
+### Implementation Notes
+
+**Quick Wins (use existing treelib methods):**
+- Navigation endpoints (children, parent, siblings) - treelib already has these methods
+- Tree stats - treelib provides depth, size methods
+- Node duplication - treelib has subtree methods
+
+**New MongoDB Collections Needed:**
+- `characters`, `comments`, `relationships`, `revisions`, `templates`
+
+**Database Indexes Needed:**
+- Text search index on node description/text fields
+- Index on tags for tag-based queries
+
 ## Coding Guidelines
 
 ### Do
