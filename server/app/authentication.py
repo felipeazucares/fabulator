@@ -26,7 +26,13 @@ class Authentication():
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
         self.user_storage = database.UserStorage(
             collection_name="user_collection")
-        self.conn = redis.from_url(
+        self._redis_conn = None
+
+    def _get_redis_connection(self):
+        """Get or create Redis connection for the current event loop."""
+        # Create a fresh connection each time to avoid event loop issues
+        # This ensures the connection is always attached to the current event loop
+        return redis.from_url(
             REDISHOST, encoding="utf-8", decode_responses=True
         )
 
@@ -76,13 +82,15 @@ class Authentication():
         token_data = TokenData(scopes=token_scopes,
                                username=account_id, expires=expires)
 
-        result = await self.conn.setex(
+        conn = self._get_redis_connection()
+        result = await conn.setex(
             token, int((token_data.expires - datetime.now(ZoneInfo("GMT"))).total_seconds()), 1)
+        await conn.aclose()
         return result
 
     async def is_token_blacklisted(self, token):
         """ return true if supplied token is in the blacklist"""
-        if(await self.conn.get(token)):
-            return True
-        else:
-            return False
+        conn = self._get_redis_connection()
+        result = await conn.get(token)
+        await conn.aclose()
+        return bool(result)

@@ -174,7 +174,8 @@ class RoutesHelper():
                 message_to_show=f"get_tree_for_account({account_id}) called")
 
         # Check if account has any saves
-        if await self.account_id_exists(account_id=account_id):
+        save_count = await self.db_storage.number_of_saves_for_account(account_id=account_id)
+        if save_count > 0:
             try:
                 tree = await self.db_storage.load_latest_into_working_tree(account_id=account_id)
                 if self.DEBUG:
@@ -336,15 +337,11 @@ async def get_tree_root(account_id: str = Security(get_current_active_user_accou
         console_display.show_debug_message(
             message_to_show=f"get_tree_root({account_id}) called")
     tree = await routes_helper.get_tree_for_account(account_id=account_id)
-    try:
-        root_node = tree.root
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show="Error occured calling tree.root on current tree")
-        print(e)
-        raise
-    data = root_node
-    return ResponseModel(data={"root": data}, message="Success")
+    root_node = tree.root
+    if root_node is None:
+        raise HTTPException(
+            status_code=404, detail="No saved trees found for this account")
+    return ResponseModel(data={"root": root_node}, message="Success")
 
 
 @ app.get("/trees/{id}")
@@ -482,7 +479,7 @@ async def get_a_node(id: str, account_id: str = Security(get_current_active_user
     else:
         raise HTTPException(
             status_code=404, detail="Node not found in current tree")
-    return ResponseModel(node, "Success")
+    return ResponseModel(jsonable_encoder(node), "Success")
 
 
 @ app.post("/nodes/{name}")
@@ -564,7 +561,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"mongo save: {save_result}")
-    return ResponseModel({"node": new_node, "object_id": save_result}, "Success")
+    return ResponseModel({"node": jsonable_encoder(new_node), "object_id": save_result}, "Success")
 
 
 @ app.put("/nodes/{id}")
