@@ -5,6 +5,7 @@ import pytest
 import asyncio
 import os
 import httpx
+from httpx import ASGITransport
 import app.api as api
 import app.database as database
 import hashlib
@@ -63,7 +64,7 @@ async def test_add_user(dummy_user_to_add):
         result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
         assert result == 1
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
     assert response.json()[
@@ -116,7 +117,7 @@ async def return_scoped_token(request):
         assert result == 1
 
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
     assert response.json()[
@@ -143,7 +144,7 @@ async def return_scoped_token(request):
         "password": dummy_user_to_add_scoped["password"],
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
     assert response.status_code == 200
     return {"token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
@@ -175,7 +176,7 @@ async def return_simple_scoped_token(request):
         assert result == 1
 
     # now post a new dummy user
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.post(f"/users", json=data)
     assert response.status_code == 200
     assert response.json()[
@@ -202,7 +203,7 @@ async def return_simple_scoped_token(request):
         "password": dummy_user_to_add_scoped["password"],
         "scope": dummy_user_to_add_scoped["user_role"].replace(",", " ")
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
     assert response.status_code == 200
     return {"token": {"Authorization": "Bearer " + str(response.json()["access_token"])},
@@ -236,7 +237,7 @@ async def return_token(test_add_user, dummy_user_to_add):
         "password": dummy_user_to_add["password"],
         "scope": dummy_user_to_add["user_role"].replace(",", " ")
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/get_token", data=form_data)
     assert response.status_code == 200
     return {"Authorization": "Bearer " + str(response.json()["access_token"])}
@@ -288,7 +289,7 @@ def test_unit_payload_create_null():
 async def test_get_root_node(return_token):
     """ get the root node if it exists"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/trees/root")
     # Return None if no saves exist for this account (new account)
     if response.status_code == 404:
@@ -309,7 +310,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
     headers = return_token
     # first test if there's already a root node - if there is remove it
     if test_get_root_node != None:
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_get_root_node}", headers=headers)
         assert response.status_code == 200
         # test that the root node is removed as expected
@@ -323,7 +324,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/Unit test root node", json=data, headers=headers)
 
     assert response.status_code == 200
@@ -344,7 +345,7 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
 async def test_root_path(return_token):
     """ return version number"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
     assert response.status_code == 200
     assert response.json()["data"]["version"] == "0.1.0"
@@ -363,13 +364,13 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
         "text": "Unit test text for adding another root node",
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/this should fail", json=data, headers=headers)
     assert response.status_code == 422
     # test that the root node is removed as expected
     assert response.json()["detail"] == "Tree already has a root node"
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()[
@@ -384,13 +385,13 @@ async def test_nodes_add_another_root_node(test_create_root_node, return_token):
 async def test_nodes_remove_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
     # test that the root node is removed as expected
     assert int(response.json()["data"]) > 0
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()[
@@ -401,13 +402,13 @@ async def test_nodes_remove_node(return_token, test_create_root_node: list):
 async def test_nodes_remove_non_existent_node(return_token, test_create_root_node: list):
     """ generate a root node and remove it """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/XXXX", headers=headers)
     assert response.status_code == 404
     # test that the root node is removed as expected
     assert response.json()["detail"] == "Node not found in current tree"
     # now remove the node we just added
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -429,13 +430,13 @@ async def test_nodes_update_node(test_create_root_node, return_token):
         "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
     })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()["data"]["object_id"] != None
 
     # now get what we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
     # test that the root node is updated as expected
@@ -455,7 +456,7 @@ async def test_nodes_update_node(test_create_root_node, return_token):
         'updated tag 1', 'updated tag 2', 'updated tag 3']
 
     # now remove the node we just added
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -473,7 +474,7 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
         "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
     })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/XXXX", json=data, headers=headers)
     assert response.status_code == 404
     # test that an error state is generated as expected
@@ -481,7 +482,7 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
         "detail"] == "Node not found in current tree"
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
     assert response.status_code == 200
@@ -491,13 +492,13 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
 async def test_nodes_update_node_with_bad_payload(test_create_root_node, return_token):
     """ update a node with a bad payload"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 422
     # test that an error state is generated as expected
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
     assert response.status_code == 200
@@ -517,14 +518,14 @@ async def test_nodes_update_node_with_non_existent_parent(test_create_root_node,
         "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
     })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data, headers=headers)
     assert response.status_code == 422
     assert response.json()[
         'detail'] == "Parent XXXX is missing from tree"
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
     assert response.status_code == 200
@@ -538,7 +539,7 @@ async def test_nodes_update_node_with_non_existent_parent(test_create_root_node,
 async def test_nodes_get_a_node(test_create_root_node, return_token):
     """ get a single node by id"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -559,7 +560,7 @@ async def test_nodes_get_a_node(test_create_root_node, return_token):
         'tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -567,7 +568,7 @@ async def test_nodes_get_a_node(test_create_root_node, return_token):
 async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token):
     """ get a non-existent node by id"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes/xxx")
     assert response.status_code == 404
     # test that an error state is generated as expected
@@ -575,7 +576,7 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
         "detail"] == "Node not found in current tree"
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['account_id']}/{test_create_root_node['node_id']}")
 
 
@@ -583,7 +584,7 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
 async def test_nodes_get_all_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes")
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -600,7 +601,7 @@ async def test_nodes_get_all_nodes(test_create_root_node, return_token):
         'tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -609,7 +610,7 @@ async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
     """ get all nodes and test the root"""
     headers = return_token
     params = {"filterval": "tag 1"}
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", params=params, headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", params=params, headers=headers) as ac:
         response = await ac.get(f"/nodes")
     print(f"filter:{response.json()}")
     assert response.status_code == 200
@@ -630,7 +631,7 @@ async def test_nodes_get_filtered_nodes(test_create_root_node, return_token):
         'tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 # ------------------------
@@ -650,7 +651,7 @@ async def test_nodes_add_child_node(test_create_root_node, return_token):
         "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()[
@@ -668,7 +669,7 @@ async def test_nodes_add_child_node(test_create_root_node, return_token):
         "data"]["node"]["data"]["tags"] == ['tag 1', 'tag 2', 'tag 3']
 
     # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -684,14 +685,14 @@ async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, r
         "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data, headers=headers)
     assert response.status_code == 422
     assert response.json()[
         "detail"] == "Parent XXXX is missing from tree"
 
     # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 # ------------------------
@@ -714,7 +715,7 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
     })
 
     # add child node to root
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/{child_data['name']}", json=child_data, headers=headers)
     assert response.status_code == 200
     # add the child_node_id to the dict that we will return to calling functions for testing
@@ -732,7 +733,7 @@ async def test_setup_remove_and_return_subtree(test_create_root_node, return_tok
         "tags": ['tag 4', 'tag 5', 'tag 6']
     })
     # create grandchild node
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/{grandchild_data['name']}", json=grandchild_data, headers=headers)
     assert response.status_code == 200
     # add the grandchild_node_id to the dict that we will return to calling functions for testing
@@ -754,7 +755,7 @@ async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree, ret
     grandchild_node_id = test_setup_remove_and_return_subtree[
         "test data"]["grandchild_data"]["grandchild_node_id"]
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.get(f"/trees/{child_node_id}", headers=headers)
     assert response.status_code == 200
     assert child_node_id in response.json()["data"]["_nodes"]
@@ -785,7 +786,7 @@ async def test_subtrees_remove_subtree(test_setup_remove_and_return_subtree, ret
         grandchild_node_id]["data"]["tags"] == test_setup_remove_and_return_subtree["test data"]["grandchild_data"]["tags"]
 
     # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
     assert response.status_code == 200
 
@@ -801,20 +802,20 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
         "test data"]["grandchild_data"]["grandchild_node_id"]
     original_root_id = test_setup_remove_and_return_subtree["original_root"]
     # prune ndde
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     assert response.status_code == 200
 
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
 
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()["message"] == "Success"
     assert response.json()["data"] == "Graft complete"
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes")
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -861,7 +862,7 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
         "data"][2]["data"]["tags"] == grandchild_data["tags"]
 
     # remove the remaining root node in the tree
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
     assert response.status_code == 200
 
@@ -874,13 +875,13 @@ async def test_subtrees_add_subtree(test_setup_remove_and_return_subtree, return
 async def test_saves_list_all_saves(test_create_root_node, return_token):
     """ generate a list of all the saved tries for given account_id"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/saves", headers=headers)
     assert response.status_code == 200
     # test that the root node is removed as expected
     assert int(len(response.json()['data'][0])) > 0
     # remove node we created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -890,7 +891,7 @@ async def test_saves_get_latest_save(test_create_root_node, return_token):
     headers = return_token
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -911,7 +912,7 @@ async def test_saves_get_latest_save(test_create_root_node, return_token):
         'tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -919,7 +920,7 @@ async def test_saves_get_latest_save(test_create_root_node, return_token):
 async def test_saves_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}", headers=headers)
     assert response.status_code == 200
     # test that the root node is configured as expected
@@ -940,7 +941,7 @@ async def test_saves_get_save(test_create_root_node, return_token):
         'tag 1', 'tag 2', 'tag 3']
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -950,20 +951,20 @@ async def test_saves_get_a_save_for_a_valid_account_with_non_existent_document(t
     """ try and load a save for a valid account_id but non-existent document id """
     headers = return_token
     # note this is a random 24 char hex string - should not exist in the target db - 16c361eff3b15de33f6a66b8
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads/16c361eff3b15de33f6a66b8", headers=headers)
     assert response.status_code == 404
     assert response.json()[
         'detail'] == "Unable to retrieve save document with id: 16c361eff3b15de33f6a66b8"
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
 @pytest.mark.asyncio
 async def test_saves_delete_all_saves(return_token):
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete("http://localhost:8000/saves", headers=headers)
     assert response.status_code == 200
 
@@ -978,7 +979,7 @@ async def test_users_update_user(return_token, dummy_user_update):
     headers = return_token
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users", json=data, headers=headers)
     assert response.status_code == 200
     assert response.json()[
@@ -993,12 +994,12 @@ async def test_users_update_user(return_token, dummy_user_update):
 async def test_users_update_user_with_bad_payload(return_token):
     """ Add a new user so that we can update it and delete it"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.put(f"/users")
     assert response.status_code == 422
 
     # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
@@ -1008,7 +1009,7 @@ async def test_users_update_user_with_bad_payload(return_token):
 async def test_users_delete_user(return_token):
     """ delete a user """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()[
@@ -1019,7 +1020,7 @@ async def test_users_delete_user(return_token):
 async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
     assert response.json()[
         "name"]["firstname"] == dummy_user_to_add["name"]["firstname"]
@@ -1035,7 +1036,7 @@ async def test_users_get_user_by_username(dummy_user_to_add, return_token):
     assert response.json()["user_role"] == dummy_user_to_add["user_role"]
     assert response.json()["user_type"] == dummy_user_to_add["user_type"]
     # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
@@ -1048,7 +1049,7 @@ async def test_users_update_password(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/password", json=data, headers=headers)
 
     assert response.status_code == 200
@@ -1061,7 +1062,7 @@ async def test_users_update_password(dummy_user_to_add, return_token):
         "password": TEST_PASSWORD_TO_CHANGE,
         "scope": dummy_user_to_add["user_role"].replace(",", " ")
     }
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/get_token", headers=headers, data=form_data)
     assert response.status_code == 200
 
@@ -1073,7 +1074,7 @@ async def test_users_update_type(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"user_type": "premium"})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/type", json=data, headers=headers)
 
     assert response.status_code == 200
@@ -1085,14 +1086,14 @@ async def test_users_update_type(dummy_user_to_add, return_token):
 async def test_users_logout(return_token):
     """ test changing a user type """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get("/logout", headers=headers)
 
     assert response.status_code == 200
     assert response.is_error == False
     assert response.json()["result"] == True
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
 
     assert response.status_code == 401
@@ -1107,7 +1108,7 @@ async def test_users_logout(return_token):
 @ pytest.mark.asyncio
 async def test_unauth_root_path():
     """ Unauthorized return version number should fail with a 401"""
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get("/")
     assert response.status_code == 401
     assert response.is_error == True
@@ -1121,7 +1122,7 @@ async def test_unauth_create_root_node(return_token,
     headers = return_token
     # first test if there's already a root node - if there is remove it
     if test_get_root_node != None:
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_get_root_node}", headers=headers)
         assert response.status_code == 200
         # test that the root node is removed as expected
@@ -1135,7 +1136,7 @@ async def test_unauth_create_root_node(return_token,
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/Unit test root node", json=data)
     assert response.status_code == 401
     assert response.is_error == True
@@ -1146,13 +1147,13 @@ async def test_unauth_create_root_node(return_token,
 async def test_unauth_remove_node(return_token, test_create_root_node: list):
     """ unauthorized generate a root node and remove it should fail with a 401"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
     # remove the node we've created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -1170,14 +1171,14 @@ async def test_unauth_update_node(test_create_root_node, return_token):
         "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
     })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data)
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # now remove the node we just added
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -1186,14 +1187,14 @@ async def test_unauth_update_node(test_create_root_node, return_token):
 async def test_unauth_get_a_node(test_create_root_node, return_token):
     """ Unauthorised get a single node by id should fail with a 401 """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
@@ -1210,14 +1211,14 @@ async def test_unauth_add_child_node(test_create_root_node, return_token):
         "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data)
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -1229,14 +1230,14 @@ async def test_unauth_remove_subtree(test_setup_remove_and_return_subtree, retur
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the root & child node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
     assert response.status_code == 200
 
@@ -1248,21 +1249,21 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
     # prune node
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     assert response.status_code == 200
 
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
 
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data)
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the remaining root node in the tree
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=headers)
     assert response.status_code == 200
 
@@ -1271,13 +1272,13 @@ async def test_unauth_add_subtree(test_setup_remove_and_return_subtree, return_t
 async def test_unauth_list_all_saves(test_create_root_node, return_token):
     """ Unauthorizd generate a list of all the saves - should fail with a 401 """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/saves")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
     # remove node we created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -1287,14 +1288,14 @@ async def test_unauth_get_latest_save(test_create_root_node, return_token):
     headers = return_token
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
 
 
@@ -1302,21 +1303,21 @@ async def test_unauth_get_latest_save(test_create_root_node, return_token):
 async def test_unauth_get_save(test_create_root_node, return_token):
     """ load the named save into the tree for a given user """
     headers = return_token
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
 async def test_unauth_delete_all_saves(return_token):
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete("http://localhost:8000/saves")
     assert response.status_code == 401
     assert response.is_error == True
@@ -1328,7 +1329,7 @@ async def test_unauth_update_user(return_token, dummy_user_update):
     """ Add a new user so that we can update it and delete it"""
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users", json=data)
     assert response.status_code == 401
     assert response.is_error == True
@@ -1338,7 +1339,7 @@ async def test_unauth_update_user(return_token, dummy_user_update):
 @ pytest.mark.asyncio
 async def test_unauth_delete_user(return_token):
     """ delete a user """
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 401
     assert response.is_error == True
@@ -1349,13 +1350,13 @@ async def test_unauth_delete_user(return_token):
 async def test_unauth_get_user_by_username(test_add_user, dummy_user_to_add, return_token):
     """ test retrieving a user document from the collection by username - no route for this"""
     headers = return_token
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get(f"/users/me")
     assert response.status_code == 401
     assert response.is_error == True
     assert response.json() == {'detail': 'Not authenticated'}
     # remove the user document we just created
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     assert response.status_code == 200
     assert response.json()["data"] == 1
@@ -1367,7 +1368,7 @@ async def test_unauth_update_password(dummy_user_to_add, return_token):
 
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/password", json=data)
 
     assert response.status_code == 401
@@ -1381,7 +1382,7 @@ async def test_unauth_update_type(dummy_user_to_add, return_token):
     headers = return_token
     data = jsonable_encoder({"user_type": "premium"})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/type", json=data)
 
     assert response.status_code == 401
@@ -1397,7 +1398,7 @@ async def test_scope_root_path(return_scoped_token):
     """ Unauthorized return version number should fail with a 403 for everything other than user:reader"""
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get("/")
     if scopes == "tree:reader user:reader":
         assert response.status_code == 200
@@ -1421,14 +1422,14 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
                             "tags": ['tag 1', 'tag 2', 'tag 3']
                             })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.post(f"http://localhost:8000/nodes/Unit test root node", json=data, headers=headers)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
         id_to_delete = response.json()["data"]["node"]["_identifier"]
         # now remove node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as ac:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
             response = await ac.delete(f"http://localhost:8000/nodes/{id_to_delete}", headers=headers)
         assert response.status_code == 200
         # test that the root node is removed as expected
@@ -1445,7 +1446,7 @@ async def test_scope_remove_node(return_token, test_create_root_node, return_sco
     """ unscoped generate a root node and remove it should fail with a 403"""
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1456,7 +1457,7 @@ async def test_scope_remove_node(return_token, test_create_root_node, return_sco
             'detail': 'Insufficient permissions to complete action'}
         # now remove the node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
         assert response.status_code == 200
 
@@ -1475,7 +1476,7 @@ async def test_scope_update_node(test_create_root_node, return_token, return_sco
         "tags": ['updated tag 1', 'updated tag 2', 'updated tag 3']
     })
 
-    async with httpx.AsyncClient(app=api.app) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers, json=data)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1486,7 +1487,7 @@ async def test_scope_update_node(test_create_root_node, return_token, return_sco
             'detail': 'Insufficient permissions to complete action'}
         # now remove the node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
         assert response.status_code == 200
 
@@ -1496,7 +1497,7 @@ async def test_scope_get_a_node(test_create_root_node, return_token, return_scop
     """ Unscoped get a single node by id should fail with a 403 """
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
     if scopes == "tree:reader user:reader":
         assert response.status_code == 200
@@ -1507,7 +1508,7 @@ async def test_scope_get_a_node(test_create_root_node, return_token, return_scop
             'detail': 'Insufficient permissions to complete action'}
         # now remove the node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
         assert response.status_code == 200
 
@@ -1525,7 +1526,7 @@ async def test_scope_add_child_node(test_create_root_node, return_token, return_
         "text": "unit test text for child node",
         "tags": ['tag 1', 'tag 2', 'tag 3']
     })
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1536,7 +1537,7 @@ async def test_scope_add_child_node(test_create_root_node, return_token, return_
             'detail': 'Insufficient permissions to complete action'}
         # now remove the node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
         assert response.status_code == 200
 
@@ -1549,7 +1550,7 @@ async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
     # remove the specified child
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1560,7 +1561,7 @@ async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return
             'detail': 'Insufficient permissions to complete action'}
         # now remove the node
         headers = return_token
-        async with httpx.AsyncClient(app=api.app) as client:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
             response = await client.delete(f"http://localhost:8000/nodes/{child_node_id}", headers=headers)
         assert response.status_code == 200
 
@@ -1574,12 +1575,12 @@ async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_to
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
     # prune node
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=all_scoped_headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=all_scoped_headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
     # now add the subtree back in
-    async with httpx.AsyncClient(app=api.app, base_url=f"http://localhost:8000", headers=scoped_headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=scoped_headers) as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1589,7 +1590,7 @@ async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_to
         assert response.json() == {
             'detail': 'Insufficient permissions to complete action'}
     # now remove the node regardless of success or failure of the above
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=all_scoped_headers)
     assert response.status_code == 200
 
@@ -1599,7 +1600,7 @@ async def test_scope_list_all_saves(return_scoped_token):
     """ Unscoped generate a list of all the saves - should fail with a 403 """
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/saves", headers=headers)
     if scopes == "tree:reader user:reader":
         assert response.status_code == 200
@@ -1617,7 +1618,7 @@ async def test_scope_get_latest_save(return_scoped_token):
     scopes = return_scoped_token["scopes"]
     # the test_create_root_node fixture creates a new root node which gets saved
     # now we've loaded that into the tree, we can get the node from the tree
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads", headers=headers)
     if scopes == "tree:reader user:reader":
         # should currently fail with 500 because we haven't saved anything for this user - but does need to be fixed
@@ -1634,7 +1635,7 @@ async def test_scope_get_save(test_create_root_node, return_token, return_scoped
     """ Unscoped load the named save into the tree for a given user """
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}", headers=headers)
     if scopes == "tree:reader user:reader":
 
@@ -1646,7 +1647,7 @@ async def test_scope_get_save(test_create_root_node, return_token, return_scoped
             'detail': 'Insufficient permissions to complete action'}
 
     # remove the root node we just created
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         headers = return_token
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
     assert response.status_code == 200
@@ -1657,7 +1658,7 @@ async def test_scope_delete_all_saves(return_scoped_token):
     """ Unscoped delete all saves should fail with a 403 """
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app) as client:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete("http://localhost:8000/saves", headers=headers)
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
@@ -1675,7 +1676,7 @@ async def test_scope_update_user(return_token, return_scoped_token, dummy_user_u
     scopes = return_scoped_token["scopes"]
     data = jsonable_encoder(dummy_user_update)
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.put("/users", json=data)
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
@@ -1691,7 +1692,7 @@ async def test_scope_delete_user(return_token, return_scoped_token):
     """ unscoped delete a user should fail with a 403"""
     headers = return_scoped_token["token"]
     scopes = return_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.delete(f"/users")
     if scopes == "user:writer user:reader":
         assert response.status_code == 200
@@ -1708,7 +1709,7 @@ async def test_scope_get_user_by_username(return_simple_scoped_token):
 
     headers = return_simple_scoped_token["token"]
     scopes = return_simple_scoped_token["scopes"]
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/users/me")
 
     if scopes == "user:reader":
@@ -1728,7 +1729,7 @@ async def test_scope_update_password(return_scoped_token):
     scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({"new_password": TEST_PASSWORD_TO_CHANGE})
     print(f"data:{data}")
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000") as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.put("/users/password", json=data, headers=headers)
 
     if scopes == "user:writer user:reader":
@@ -1748,7 +1749,7 @@ async def test_scope_update_type(dummy_user_to_add, return_scoped_token):
     scopes = return_scoped_token["scopes"]
     data = jsonable_encoder({"user_type": "premium"})
 
-    async with httpx.AsyncClient(app=api.app, base_url="http://localhost:8000", headers=headers) as ac:
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.put("/users/type", json=data)
     if scopes == "usertype:writer user:reader":
         assert response.status_code == 200

@@ -1,6 +1,7 @@
 # Codebase Assessment: Fabulator
 
 **Generated:** 2026-02-04
+**Last Updated:** 2026-02-05
 **Status:** Active
 
 ## Overview
@@ -55,9 +56,9 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| M1 | Deprecated `pytz` still used in api.py | api.py | 13, 235 | [ ] Open |
+| M1 | Deprecated `pytz` replaced with zoneinfo | api.py | 12, 234 | [x] Fixed 2026-02-05 |
 | M2 | Tree recursion has no depth limit | database.py | 237-335 | [ ] Open |
-| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | [ ] Open |
+| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | [!] Blocking tests |
 | M4 | Null checks missing before `saves_helper()` | database.py | 131 | [ ] Open |
 | M5 | Exception messages could leak internal details | api.py | Multiple | [ ] Open |
 
@@ -80,7 +81,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 - [ ] **1.1** Fix duplicate `delete_user_details()` method - Remove line 598 version
 - [ ] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers
 - [ ] **1.3** Add rate limiting - Protect login endpoint from brute force (use SlowAPI or similar)
-- [ ] **1.4** Fix remaining pytz usage in `api.py` - Migrate to zoneinfo
+- [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
 
 ### Phase 2: Code Quality & Reliability
 **Estimated Effort:** 2-3 days
@@ -94,11 +95,12 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 ### Phase 3: Testing & Documentation
 **Estimated Effort:** 3-5 days
 
-- [ ] **3.1** Add unit tests - Currently only integration tests exist
-- [ ] **3.2** Create README.md - Document setup, architecture, API endpoints
-- [ ] **3.3** Add structured logging - Replace console output with Python logging module
-- [ ] **3.4** Document tree depth limits and constraints
-- [ ] **3.5** Add security-focused tests (attack scenarios, edge cases)
+- [~] **3.1** Fix and run test suite - **In Progress:** httpx API updated, 2 blocking issues remain (see TODO_DEPENDENCY_UPDATES.md)
+- [ ] **3.2** Add unit tests - Currently only integration tests exist
+- [ ] **3.3** Create README.md - Document setup, architecture, API endpoints
+- [ ] **3.4** Add structured logging - Replace console output with Python logging module
+- [ ] **3.5** Document tree depth limits and constraints
+- [ ] **3.6** Add security-focused tests (attack scenarios, edge cases)
 
 ### Phase 4: Performance & Polish
 **Estimated Effort:** 2-3 days
@@ -178,13 +180,22 @@ self.console_display = ConsoleDisplay()
 
 ---
 
-## Testing Gaps
+## Testing Status & Gaps
+
+### Current Test Suite Status (2026-02-05)
+- **Environment:** Fresh venv, MongoDB Atlas and Redis Cloud verified accessible
+- **Collection:** 148 tests collected successfully (pytest-asyncio auto mode)
+- **Passing:** Basic tests pass (unit tests, test_root_path)
+- **Blocked:** Integration tests blocked by 2 issues:
+  - Database None handling: Code crashes when new users have no saved trees
+  - Redis event loop: Connection cleanup causes "Event loop is closed" error
+- **Details:** See TODO_DEPENDENCY_UPDATES.md for full analysis and fix plans
 
 ### What Exists
 - 1,759 lines of integration tests
 - Covers: user CRUD, authentication, tree operations, saves
 - Tests 401/403 unauthorized scenarios
-- Uses pytest-asyncio with auto mode
+- Recently updated for httpx 0.28.1 API compatibility
 
 ### What's Missing
 - Unit tests (all tests are integration)
@@ -201,4 +212,8 @@ self.console_display = ConsoleDisplay()
 | Date | Changes |
 |------|---------|
 | 2026-02-04 | Initial assessment created |
-| 2026-02-04 | Dependencies modernized: pytz->zoneinfo (authentication.py), datetime.utcnow()->datetime.now(timezone.utc), List->list |
+| 2026-02-04 | Dependencies modernized: List->list type hints in models.py |
+| 2026-02-05 | **Environment:** Fresh venv with Python 3.9.6, all dependencies updated to 2024/2025 versions (FastAPI 0.128.1, Pydantic 2.12.5, Motor 3.7.1, pytest 8.4.2, httpx 0.28.1, redis 7.0.1) |
+| 2026-02-05 | **Fixed M1:** Replaced pytz with zoneinfo in api.py (lines 12, 234). Removed unused tzname import and orphaned timezone line. |
+| 2026-02-05 | **Test suite:** Updated test_api_integration.py for httpx 0.28.1 API (AsyncClient now requires ASGITransport). 148 tests collected successfully. |
+| 2026-02-05 | **Test blockers identified:** (1) Database None handling for new users without saves, (2) Redis event loop lifecycle issue. See TODO_DEPENDENCY_UPDATES.md for details. |

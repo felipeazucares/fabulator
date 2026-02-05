@@ -1,3 +1,9 @@
 {
-    "python.pythonPath": "py3/bin/python"
+    "python.pythonPath": "py3/bin/python",
+    "mdb.presetConnections": [
+        {
+            "name": "Preset Connection",
+            "connectionString": "mongodb://localhost:27017"
+        }
+    ]
 }

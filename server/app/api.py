@@ -9,8 +9,7 @@ from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
 from typing import Optional
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from time import tzname
-from pytz import timezone
+from zoneinfo import ZoneInfo
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -50,7 +49,6 @@ TEST_PASSWORD_TO_ADD = os.getenv(key="TESTPWDTOADD")
 TEST_USERNAME_TO_ADD2 = os.getenv(key="TESTUSERTOADD2")
 TEST_PASSWORD_TO_ADD2 = os.getenv(key="TESTPWDTOADD2")
 TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
-timezone(tzname[0]).localize(datetime.now())
 console_display = helpers.ConsoleDisplay()
 
 if DEBUG:
@@ -176,7 +174,8 @@ class RoutesHelper():
                 message_to_show=f"get_tree_for_account({account_id}) called")
 
         # Check if account has any saves
-        if await self.account_id_exists(account_id=account_id):
+        save_count = await self.db_storage.number_of_saves_for_account(account_id=account_id)
+        if save_count > 0:
             try:
                 tree = await self.db_storage.load_latest_into_working_tree(account_id=account_id)
                 if self.DEBUG:
@@ -233,7 +232,7 @@ async def get_current_user(security_scopes: SecurityScopes, token: str = Depends
     # check token expiration
     if expires is None:
         raise credentials_exception
-    if datetime.now(timezone("gmt")) > token_data.expires:
+    if datetime.now(ZoneInfo("GMT")) > token_data.expires:
         raise credentials_exception
     # check if the token is blacklisted
     if await oauth.is_token_blacklisted(token):
@@ -298,7 +297,7 @@ async def logout(token: str = Depends(get_current_user_token)):
         return {'result': True}
 
 
-@ app.get("/users/me/", response_model=UserDetails)
+@ app.get("/users/me", response_model=UserDetails)
 async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
     return current_user
 
@@ -338,15 +337,11 @@ async def get_tree_root(account_id: str = Security(get_current_active_user_accou
         console_display.show_debug_message(
             message_to_show=f"get_tree_root({account_id}) called")
     tree = await routes_helper.get_tree_for_account(account_id=account_id)
-    try:
-        root_node = tree.root
-    except Exception as e:
-        console_display.show_exception_message(
-            message_to_show="Error occured calling tree.root on current tree")
-        print(e)
-        raise
-    data = root_node
-    return ResponseModel(data={"root": data}, message="Success")
+    root_node = tree.root
+    if root_node is None:
+        raise HTTPException(
+            status_code=404, detail="No saved trees found for this account")
+    return ResponseModel(data={"root": root_node}, message="Success")
 
 
 @ app.get("/trees/{id}")
@@ -383,7 +378,7 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
     else:
         raise HTTPException(
             status_code=404, detail="Node not found in current tree")
-    return ResponseModel(response, message)
+    return ResponseModel(jsonable_encoder(response), message)
 
 
 @ app.post("/trees/{id}")
@@ -449,8 +444,11 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
     if filterval:
         data = []
         for node in tree.all_nodes():
-            if node.data and filterval in node.data.tags:
-                data.append(node)
+            if node.data:
+                # Handle both dict (from DB) and object (NodePayload) cases
+                tags = node.data.get("tags") if isinstance(node.data, dict) else getattr(node.data, "tags", None)
+                if tags and filterval in tags:
+                    data.append(jsonable_encoder(node))
         if DEBUG:
             console_display.show_debug_message(
                 message_to_show=f"Nodes filtered on {filterval}")
@@ -462,7 +460,7 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
                 message_to_show="Error occured calling tree.show on tree")
             raise HTTPException(
                 status_code=500, detail="Error occured calling tree.show on tree")
-        data = tree.all_nodes()
+        data = [jsonable_encoder(node) for node in tree.all_nodes()]
     return ResponseModel(data=data, message="Success")
 
 
@@ -484,7 +482,7 @@ async def get_a_node(id: str, account_id: str = Security(get_current_active_user
     else:
         raise HTTPException(
             status_code=404, detail="Node not found in current tree")
-    return ResponseModel(node, "Success")
+    return ResponseModel(jsonable_encoder(node), "Success")
 
 
 @ app.post("/nodes/{name}")
@@ -566,7 +564,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"mongo save: {save_result}")
-    return ResponseModel({"node": new_node, "object_id": save_result}, "Success")
+    return ResponseModel({"node": jsonable_encoder(new_node), "object_id": save_result}, "Success")
 
 
 @ app.put("/nodes/{id}")
