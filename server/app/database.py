@@ -600,22 +600,6 @@ class UserStorage:
             raise
         return self.delete_response.deleted_count
 
-    async def delete_user_details(self, id: str) -> dict:
-        """ delete a user's details from the user collection """
-        self.id_to_delete = id
-        self.console_display = ConsoleDisplay()
-        if DEBUG:
-            self.console_display.show_debug_message(
-                message_to_show=f"delete_user_details({self.id_to_delete}) called")
-        try:
-            self.delete_response = await self.user_collection.delete_one({"_id": ObjectId(self.id_to_delete)})
-        except Exception as e:
-            self.console_display.show_exception_message(
-                message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
-            print(e)
-            raise
-        return self.delete_response.deleted_count
-
     async def check_if_user_exists(self, user_id: str) -> int:
         """ return count of save documents in the user_collection for supplied user_id """
         self.user_id = user_id
