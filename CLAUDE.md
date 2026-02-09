@@ -292,7 +292,9 @@ For finding content in large narrative structures:
 **Scope Tests (`test_scope_*`):**
 - Verify user with limited scopes cannot perform restricted operations on their OWN data
 - Expected response: 403 (insufficient permissions)
-- Use `return_scoped_token` fixture (parameterized with different scope combinations)
+- Use `return_scoped_token` fixture (parameterized with 6 scope values)
+- Tests `pytest.skip()` when the token has the required scope — only insufficient-permission cases run
+- 10 tests, each with ~5 passing parametrizations and ~1 skipped (the sufficient-scope case)
 
 ## Git Workflow
 
