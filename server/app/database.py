@@ -130,15 +130,20 @@ class TreeStorage:
             raise
         return saves_helper(self.last_save)
 
-    async def check_if_document_exists(self, save_id: str) -> int:
-        """ return count of save documents in the tree_collection for supplied save_id """
+    async def check_if_document_exists(self, save_id: str, account_id: str = None) -> int:
+        """ return count of save documents in the tree_collection for supplied save_id.
+            If account_id is provided, also verify the document belongs to that account. """
         self.save_id = save_id
         self.console_display = ConsoleDisplay()
         if DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"check_if_document_exists({self.save_id}) called")
+                message_to_show=f"check_if_document_exists({self.save_id}, account_id={account_id}) called")
         try:
-            self.save_count = await self.tree_collection.count_documents({"_id": ObjectId(self.save_id)})
+            # Build query - always include save_id, optionally include account_id for ownership check
+            query = {"_id": ObjectId(self.save_id)}
+            if account_id is not None:
+                query["account_id"] = account_id
+            self.save_count = await self.tree_collection.count_documents(query)
         except Exception as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving document count save_id was: {self.save_id}")

@@ -121,13 +121,14 @@ class RoutesHelper():
             raise HTTPException(
                 status_code=500, detail=f"Error occured retrieving details for {account_id} : {e}")
 
-    async def save_document_exists(self, document_id):
+    async def save_document_exists(self, document_id, account_id=None):
+        """ Check if save document exists. If account_id provided, also verify ownership. """
         self.document_id = document_id
         if self.DEBUG:
             self.console_display.show_debug_message(
-                message_to_show=f"save_document_exists({self.document_id}) called")
+                message_to_show=f"save_document_exists({self.document_id}, account_id={account_id}) called")
         try:
-            saves_count = await self.db_storage.check_if_document_exists(save_id=self.document_id)
+            saves_count = await self.db_storage.check_if_document_exists(save_id=self.document_id, account_id=account_id)
             if self.DEBUG:
                 console_display.show_debug_message(
                     message_to_show=f"check_if_document_exists returned: {saves_count}")
@@ -720,7 +721,7 @@ async def get_a_save(save_id: str, account_id: str = Security(get_current_active
     if not await routes_helper.account_id_exists(account_id=account_id):
         raise HTTPException(
             status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
-    if not await routes_helper.save_document_exists(document_id=save_id):
+    if not await routes_helper.save_document_exists(document_id=save_id, account_id=account_id):
         raise HTTPException(
             status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
     try:

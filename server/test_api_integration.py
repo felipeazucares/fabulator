@@ -211,6 +211,53 @@ async def return_simple_scoped_token(request):
 
 
 @pytest.fixture
+async def return_isolation_token():
+    """
+    Create a dedicated user for isolation testing with full permissions.
+    This fixture is NOT parameterized - it always provides full scopes
+    so isolation tests can verify that data isolation returns 404
+    (rather than 403 from scope checks).
+    """
+    full_scopes = "user:reader user:writer tree:reader tree:writer usertype:writer"
+    username = "isolation_test_user"
+    password = "isolation_test_password"
+
+    dummy_user = jsonable_encoder({
+        "name": {"firstname": "Isolation", "surname": "Tester"},
+        "username": username,
+        "password": password,
+        "account_id": None,
+        "email": "isolation@test.com",
+        "disabled": False,
+        "user_role": full_scopes,
+        "user_type": "free"
+    })
+
+    # Check if user exists and delete if so
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(username)
+    if user is not None:
+        await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+
+    # Create user with full permissions
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/users", json=dummy_user)
+    assert response.status_code == 200
+
+    # Get token with full scopes
+    form_data = {
+        "username": username,
+        "password": password,
+        "scope": full_scopes
+    }
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
+        response = await ac.post("http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+
+    return {"Authorization": "Bearer " + str(response.json()["access_token"])}
+
+
+@pytest.fixture
 async def dummy_user_update():
     # read user collection to get the account_id of the user we added earlier so we can simulate
     # data provided by UI
@@ -334,6 +381,92 @@ async def test_create_root_node(return_token, get_dummy_user_account_id, test_ge
         "account_id": get_dummy_user_account_id,
         "save_id": response.json()["data"]["object_id"]
     })
+
+
+@pytest.fixture
+def get_scoped_user_account_id():
+    """Get account_id hash for the scoped test user (scope_setup_user)"""
+    username = "scope_setup_user"
+    username_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+    return username_hash
+
+
+@pytest.fixture
+async def return_scoped_user_full_token():
+    """Get a full-permission token for scope test setup (separate user from parameterized tests)"""
+    full_scopes = "user:reader user:writer tree:reader tree:writer usertype:writer"
+    # Use a DIFFERENT username than return_scoped_token to avoid conflicts
+    username = "scope_setup_user"
+    password = "scope_setup_password"
+
+    dummy_user = jsonable_encoder({
+        "name": {"firstname": "Setup", "surname": "User"},
+        "username": username,
+        "password": password,
+        "account_id": None,
+        "email": "setup@fictional.com",
+        "disabled": False,
+        "user_role": full_scopes,
+        "user_type": "free"
+    })
+
+    # Check if user exists and delete if so
+    db_storage = database.UserStorage(collection_name="user_collection")
+    user = await db_storage.get_user_details_by_username(dummy_user['username'])
+    if user is not None:
+        await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
+
+    # Create user with full permissions
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/users", json=dummy_user)
+    assert response.status_code == 200
+
+    # Get token
+    form_data = {
+        "username": dummy_user["username"],
+        "password": dummy_user["password"],
+        "scope": full_scopes
+    }
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
+        response = await ac.post("http://localhost:8000/get_token", data=form_data)
+    assert response.status_code == 200
+
+    return {"Authorization": "Bearer " + str(response.json()["access_token"])}
+
+
+@pytest.fixture
+async def test_create_root_node_scoped(return_scoped_user_full_token, get_scoped_user_account_id):
+    """Create a root node for the scoped user (TEST_USERNAME_TO_ADD2)"""
+    headers = return_scoped_user_full_token
+
+    # Check for existing root and delete if present
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get("/trees/root")
+    if response.status_code == 200:
+        root_id = response.json()["data"]["root"]
+        if root_id:
+            async with httpx.AsyncClient(transport=ASGITransport(app=api.app), headers=headers) as client:
+                await client.delete(f"http://localhost:8000/nodes/{root_id}")
+
+    # Create root node
+    data = jsonable_encoder({
+        "description": "Scoped user test description",
+        "previous": "previous node",
+        "next": "next node",
+        "text": "Scoped user test text for root node",
+        "tags": ['tag 1', 'tag 2', 'tag 3']
+    })
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
+        response = await ac.post("http://localhost:8000/nodes/Scoped user root node", json=data, headers=headers)
+
+    assert response.status_code == 200
+    return {
+        "node_id": response.json()["data"]["node"]["_identifier"],
+        "account_id": get_scoped_user_account_id,
+        "save_id": response.json()["data"]["object_id"],
+        "full_token": return_scoped_user_full_token
+    }
 
 
 # ------------------------
@@ -1427,8 +1560,8 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
     if scopes == "tree:writer user:reader":
         assert response.status_code == 200
         id_to_delete = response.json()["data"]["node"]["_identifier"]
-        # now remove node
-        headers = return_token
+        # now remove node (use same user's token)
+        headers = return_scoped_token["token"]
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
             response = await ac.delete(f"http://localhost:8000/nodes/{id_to_delete}", headers=headers)
         assert response.status_code == 200
@@ -1442,31 +1575,24 @@ async def test_scope_create_root_node(return_token, return_scoped_token):
 
 
 @ pytest.mark.asyncio
-async def test_scope_remove_node(return_token, test_create_root_node, return_scoped_token):
-    """ unscoped generate a root node and remove it should fail with a 403"""
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_remove_node(test_create_root_node_scoped, return_isolation_token):
+    """ Data isolation test: User B cannot delete User A's node (expects 404) """
+    headers = return_isolation_token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-    if scopes == "tree:writer user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-        # now remove the node
-        headers = return_token
-        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-        assert response.status_code == 200
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers)
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
+    # Clean up: remove the node using the owner's full token
+    headers = test_create_root_node_scoped["full_token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers)
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
-async def test_scope_update_node(test_create_root_node, return_token, return_scoped_token):
-    """ Unscoped generate a root node and update it should fail with a 403"""
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_update_node(test_create_root_node_scoped, return_isolation_token):
+    """ Data isolation test: User B cannot update User A's node (expects 404) """
+    headers = return_isolation_token
     data = jsonable_encoder({
         "name": "Unit test root node updated name",
         "description": "Unit test updated description",
@@ -1477,49 +1603,37 @@ async def test_scope_update_node(test_create_root_node, return_token, return_sco
     })
 
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
-        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers, json=data)
-    if scopes == "tree:writer user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-        # now remove the node
-        headers = return_token
-        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-        assert response.status_code == 200
+        response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers, json=data)
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
+    # Clean up: remove the node using the owner's full token
+    headers = test_create_root_node_scoped["full_token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers)
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
-async def test_scope_get_a_node(test_create_root_node, return_token, return_scoped_token):
-    """ Unscoped get a single node by id should fail with a 403 """
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_get_a_node(test_create_root_node_scoped, return_isolation_token):
+    """ Data isolation test: User B cannot get User A's node (expects 404) """
+    headers = return_isolation_token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
-        response = await ac.get(f"/nodes/{test_create_root_node['node_id']}")
-    if scopes == "tree:reader user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-        # now remove the node
-        headers = return_token
-        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-        assert response.status_code == 200
+        response = await ac.get(f"/nodes/{test_create_root_node_scoped['node_id']}")
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
+    # Clean up: remove the node using the owner's full token
+    headers = test_create_root_node_scoped["full_token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers)
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
-async def test_scope_add_child_node(test_create_root_node, return_token, return_scoped_token):
-    """ Unscoped add a child node should fail with a 403 """
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_add_child_node(test_create_root_node_scoped, return_isolation_token):
+    """ Data isolation test: User B cannot add child to User A's node (expects 404) """
+    headers = return_isolation_token
     data = jsonable_encoder({
-        "parent": test_create_root_node["node_id"],
+        "parent": test_create_root_node_scoped["node_id"],
         "description": "unit test child description",
         "previous": "previous child node",
         "next": "next child node",
@@ -1528,70 +1642,54 @@ async def test_scope_add_child_node(test_create_root_node, return_token, return_
     })
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data)
-    if scopes == "tree:writer user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-        # now remove the node
-        headers = return_token
-        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
-        assert response.status_code == 200
+    # User B cannot add child to User A's node - parent is missing from User B's tree
+    # API returns 422 "Parent {id} is missing from tree"
+    assert response.status_code == 422
+    # Clean up: remove the node using the owner's full token
+    headers = test_create_root_node_scoped["full_token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node_scoped['node_id']}", headers=headers)
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
-async def test_scope_remove_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
-    """ Unscoped remove_subtree should fail with a 403 """
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_remove_subtree(test_setup_remove_and_return_subtree, return_token, return_isolation_token):
+    """ Data isolation test: User B cannot access User A's subtree (expects 404) """
+    headers = return_isolation_token
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
-    # remove the specified child
+    # Try to access the subtree with different user's token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
-    if scopes == "tree:writer user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-        # now remove the node
-        headers = return_token
-        async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-            response = await client.delete(f"http://localhost:8000/nodes/{child_node_id}", headers=headers)
-        assert response.status_code == 200
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
+    # Clean up: remove the node using the owner's token
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
+        response = await client.delete(f"http://localhost:8000/nodes/{child_node_id}", headers=headers)
+    assert response.status_code == 200
 
 
 @ pytest.mark.asyncio
-async def test_scope_add_subtree(test_setup_remove_and_return_subtree, return_token, return_scoped_token):
-    """ Unscoped add subtree should fail with a 403 """
-    scoped_headers = return_scoped_token["token"]
-    all_scoped_headers = return_token
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_add_subtree(test_setup_remove_and_return_subtree, return_token, return_isolation_token):
+    """ Data isolation test: User B cannot graft subtree to User A's tree (expects 404) """
+    isolation_headers = return_isolation_token
+    owner_headers = return_token
     child_node_id = test_setup_remove_and_return_subtree["test data"]["child_data"]["child_node_id"]
 
-    # prune node
-    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=all_scoped_headers) as ac:
+    # Get subtree using owner's token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=owner_headers) as ac:
         response = await ac.get(f"/trees/{child_node_id}")
     data = jsonable_encoder(
         {"sub_tree": response.json()["data"]})
-    # now add the subtree back in
-    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=scoped_headers) as ac:
+    # Try to graft subtree using different user's token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000", headers=isolation_headers) as ac:
         response = await ac.post(f"/trees/{test_setup_remove_and_return_subtree['original_root']}", json=data)
-    if scopes == "tree:writer user:reader":
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-    # now remove the node regardless of success or failure of the above
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
+    # Clean up: remove the node using the owner's token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
-        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=all_scoped_headers)
+        response = await client.delete(f"http://localhost:8000/nodes/{test_setup_remove_and_return_subtree['original_root']}", headers=owner_headers)
     assert response.status_code == 200
 
 
@@ -1631,22 +1729,15 @@ async def test_scope_get_latest_save(return_scoped_token):
 
 
 @ pytest.mark.asyncio
-async def test_scope_get_save(test_create_root_node, return_token, return_scoped_token):
-    """ Unscoped load the named save into the tree for a given user """
-    headers = return_scoped_token["token"]
-    scopes = return_scoped_token["scopes"]
+async def test_isolation_get_save(test_create_root_node, return_token, return_isolation_token):
+    """ Data isolation test: User B cannot load User A's save (expects 404) """
+    headers = return_isolation_token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.get(f"http://localhost:8000/loads/{test_create_root_node['save_id']}", headers=headers)
-    if scopes == "tree:reader user:reader":
+    # User B cannot see User A's data - should get 404 regardless of scopes
+    assert response.status_code == 404
 
-        assert response.status_code == 200
-    else:
-        assert response.is_error == True
-        assert response.status_code == 403
-        assert response.json() == {
-            'detail': 'Insufficient permissions to complete action'}
-
-    # remove the root node we just created
+    # Clean up: remove the root node using the owner's token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         headers = return_token
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
