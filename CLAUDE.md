@@ -168,7 +168,6 @@ class SomeSchema(BaseModel):
 ## Known Issues (See CODEBASE_ASSESSMENT.md)
 
 ### Critical
-- `database.py:554,598` - Duplicate `delete_user_details()` method
 - `api.py:67-78` - CORS allows all methods/headers with credentials
 
 ### High Priority
