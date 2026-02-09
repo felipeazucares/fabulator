@@ -179,7 +179,10 @@ class SomeSchema(BaseModel):
 ### Medium Priority
 - `api.py` still uses deprecated `pytz` (line 13, 235)
 - Tree recursion has no depth limit
-- Redis connections not explicitly closed
+
+### Recently Fixed
+- **Save isolation bug** (2026-02-09): `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
+- **Redis connections**: Now properly closed with `await conn.aclose()` after each operation
 
 ## Missing API Functionality (Roadmap)
 
@@ -278,6 +281,18 @@ For finding content in large narrative structures:
 - Clean up created data after tests
 - Test both success and failure (401/403) scenarios
 - No `@pytest.mark.asyncio` needed (auto mode enabled)
+
+### Test Types
+
+**Isolation Tests (`test_isolation_*`):**
+- Verify User B cannot access User A's data
+- Expected response: 404 (data not found)
+- Use `return_isolation_token` fixture (full permissions, separate user)
+
+**Scope Tests (`test_scope_*`):**
+- Verify user with limited scopes cannot perform restricted operations on their OWN data
+- Expected response: 403 (insufficient permissions)
+- Use `return_scoped_token` fixture (parameterized with different scope combinations)
 
 ## Git Workflow
 
