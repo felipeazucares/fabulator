@@ -46,7 +46,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| H1 | 63x overly broad `except Exception` catches | database.py | Throughout | [ ] Open |
+| H1 | 63x overly broad `except Exception` catches | database.py | Throughout | [x] Fixed 2026-02-09 — replaced with specific pymongo/bson exceptions |
 | H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [ ] Open |
 | H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [ ] Open |
 | H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | [ ] Open |
@@ -87,7 +87,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 **Estimated Effort:** 2-3 days
 
 - [ ] **2.1** Consolidate DB connections - Use singleton client or dependency injection
-- [ ] **2.2** Replace broad exception catching - Use specific exceptions (63 instances)
+- [x] **2.2** Replace broad exception catching ✅ **Completed 2026-02-09** — `ConnectionFailure`, `OperationFailure`, `DuplicateKeyError`, `InvalidId`, `KeyError` as appropriate
 - [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
 - [ ] **2.4** Fix ConsoleDisplay instantiation - Make it an instance variable, not per-method
 - [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
@@ -160,11 +160,15 @@ self.tree = tree
 self.console_display = ConsoleDisplay()
 ```
 
-#### Overly Broad Exception Handling
+#### Overly Broad Exception Handling ✅ Fixed 2026-02-09
 **File:** `server/app/database.py`
-- 63 instances of `except Exception as e`
-- Should catch specific exceptions (ValueError, TypeError, pymongo errors)
-- Current pattern loses error context
+- ~~63 instances of `except Exception as e`~~ All replaced with specific exceptions:
+  - `(ConnectionFailure, OperationFailure)` for DB operations (17 blocks)
+  - `(InvalidId, ConnectionFailure, OperationFailure)` for ObjectId + DB (8 blocks)
+  - `(DuplicateKeyError, ConnectionFailure, OperationFailure)` for user insert (1 block)
+  - `KeyError` for dict access in tree reconstruction (4 blocks)
+  - `(KeyError, ValueError)` for treelib operations (2 blocks)
+  - `(TypeError, IndexError)` for _successors edge case (1 block)
 
 ### Performance Concerns
 
@@ -228,3 +232,4 @@ self.console_display = ConsoleDisplay()
 | 2026-02-09 | **Test suite green:** 103 passed, 10 skipped, 0 failed. Isolation tests renamed, scope tests refactored to 403-only (PR #3) |
 | 2026-02-09 | **Security fix:** `/loads/{save_id}` now verifies account ownership |
 | 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
+| 2026-02-09 | **Fixed H1/2.2:** Replaced all `except Exception` in database.py with specific pymongo/bson exceptions (branch `fix/specific-exception-handling`) |
