@@ -7,6 +7,12 @@ from treelib import Tree
 from fastapi.encoders import jsonable_encoder
 from app.helpers import ConsoleDisplay
 from bson.objectid import ObjectId
+from pymongo.errors import (
+    ConnectionFailure,
+    OperationFailure,
+    DuplicateKeyError,
+)
+from bson.errors import InvalidId
 
 from .models import (
     UserDetails,
@@ -49,14 +55,14 @@ class TreeStorage:
             account_id=self.account_id, tree=self.tree)
         try:
             self.save_response = await self.tree_collection.insert_one(jsonable_encoder(self.tree_to_save))
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show="Exception occured writing to the database")
             print(e)
             raise
         try:
             self.new_save = await self.tree_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retriving details for save operation to the database _id: {self.save_response.inserted_id}")
             print(e)
@@ -74,7 +80,7 @@ class TreeStorage:
         try:
             async for save in self.tree_collection.find({"account_id": self.account_id}):
                 self.saves.append(saves_helper(save))
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured reading all database saves to the database account_id {self.account_id}")
             print(e)
@@ -91,7 +97,7 @@ class TreeStorage:
         try:
             self.delete_result = await self.tree_collection.delete_many({"account_id": self.account_id})
             # delete_result object contains a deleted_count & acknowledged properties
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured deleting a save from the database account_id was: {self.account_id}")
             print(e)
@@ -107,7 +113,7 @@ class TreeStorage:
                 message_to_show=f"number_of_saves_for_account({self.account_id}) called")
         try:
             self.save_count = await self.tree_collection.count_documents({"account_id": self.account_id})
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving document count account_id was: {self.account_id}")
             print(e)
@@ -123,7 +129,7 @@ class TreeStorage:
                 message_to_show=f"return_latest_save({self.account_id}) called")
         try:
             self.last_save = await self.tree_collection.find_one({"account_id": self.account_id}, sort=[("date_time", -1)])
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
             print(e)
@@ -144,7 +150,7 @@ class TreeStorage:
             if account_id is not None:
                 query["account_id"] = account_id
             self.save_count = await self.tree_collection.count_documents(query)
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving document count save_id was: {self.save_id}")
             print(e)
@@ -160,7 +166,7 @@ class TreeStorage:
                 message_to_show=f"return_save({self.save_id}) called")
         try:
             self.save = await self.tree_collection.find_one({"_id": ObjectId(self.save_id)})
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving save from the database save_id was: {self.save_id}")
             print(e)
@@ -176,7 +182,7 @@ class TreeStorage:
                 message_to_show=f"load_save_into_working_tree({self.save_id}) called")
         try:
             self.save = await self.return_save(save_id=self.save_id)
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.save_id}")
             print(e)
@@ -184,7 +190,7 @@ class TreeStorage:
         # get the tree dict from the saved document
         try:
             self.save_tree = self.save["tree"]
-        except Exception as e:
+        except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.save}")
             print(e)
@@ -201,7 +207,7 @@ class TreeStorage:
                 message_to_show=f"load_latest_into_working_tree({self.account_id}) called")
         try:
             self.last_save = await self.return_latest_save(account_id=self.account_id)
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving latest save from the database account_id was: {self.account_id}")
             print(e)
@@ -209,7 +215,7 @@ class TreeStorage:
         # get the tree dict from the saved document
         try:
             self.last_save_tree = self.last_save["tree"]
-        except Exception as e:
+        except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving tree structure from last save, last_save: {self.last_save}")
             print(e)
@@ -223,14 +229,14 @@ class TreeStorage:
         # Looks like there is no root in the subtree
         try:
             self.root_node = self.tree_dict["root"]
-        except Exception as e:
+        except KeyError as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving root object from dict, self.tree_dict: {self.tree_dict} {e}")
             raise
         # create the root node
         try:
             self.new_tree = Tree(identifier=self.tree_dict["_identifier"])
-        except Exception as e:
+        except (KeyError, ValueError) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured creating new tree with _identifier:{self.tree_dict['_identifier']} {e}")
             raise
@@ -300,7 +306,7 @@ class TreeStorage:
             if DEBUG:
                 self.console_display.show_debug_message(
                     message_to_show=f"{self.name}'s children: None")
-        except Exception as e:
+        except (TypeError, IndexError) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred retrieving the _successors field")
             self.console_display.show_exception_message(
@@ -315,7 +321,7 @@ class TreeStorage:
         try:
             self.new_tree.create_node(tag=self.name, identifier=self.id,
                                       parent=self.loaded_tree["_nodes"][node_id]["_predecessor"][tree_id], data=self.payload)
-        except Exception as e:
+        except (KeyError, ValueError) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occurred adding a node to the working tree.")
             self.console_display.show_exception_message(
@@ -361,7 +367,7 @@ class UserStorage:
                 account_exists = True
             else:
                 account_exists = False
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
             print(e)
@@ -381,7 +387,7 @@ class UserStorage:
                 self.user_details = UserDetails(**user_deets)
             else:
                 self.user_details = None
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.id}")
             print(e)
@@ -402,7 +408,7 @@ class UserStorage:
                 self.user_details = UserDetails(**user_deets)
             else:
                 self.user_details = None
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database account_id was: {self.account_id}")
             print(e)
@@ -427,7 +433,7 @@ class UserStorage:
 
             else:
                 self.user_details = None
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user details from the database username was: {self.username}")
             print(e)
@@ -457,14 +463,14 @@ class UserStorage:
                 message_to_show=f"save_user_details({self.user.account_id}) called")
         try:
             self.save_response = await self.user_collection.insert_one(jsonable_encoder(self.user))
-        except Exception as e:
+        except (DuplicateKeyError, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured saving user details from the database account_id was: {self.user.account_id}")
             print(e)
             raise
         try:
             self.new_user = await self.user_collection.find_one({"_id": ObjectId(self.save_response.inserted_id)})
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retreiving new user from the database _id was: {self.save_response.inserted_id}")
             print(e)
@@ -483,14 +489,14 @@ class UserStorage:
                     message_to_show=f"update_user_details({self.account_id_to_update}) called")
             try:
                 self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"name": {"firstname": self.user.name.firstname, "surname": self.user.name.surname}, "email": self.user.email}})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured updating user details id was: {self.account_id_to_update}")
                 print(e)
                 raise
             try:
                 self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
                 print(e)
@@ -511,14 +517,14 @@ class UserStorage:
                     message_to_show=f"update_upassword({self.account_id_to_update}) called")
             try:
                 self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"password": self.user.new_password}})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured updating user password id was: {self.account_id_to_update}")
                 print(e)
                 raise
             try:
                 self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
                 print(e)
@@ -539,14 +545,14 @@ class UserStorage:
                     message_to_show=f"update_type({self.account_id_to_update}) called")
             try:
                 self.update_response = await self.user_collection.update_one({"account_id": self.account_id_to_update}, {'$set': {"user_type": self.user.user_type}})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured updating user type id was: {self.account_id_to_update}")
                 print(e)
                 raise
             try:
                 self.updated_user = await self.user_collection.find_one({"account_id": self.account_id_to_update})
-            except Exception as e:
+            except (ConnectionFailure, OperationFailure) as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Exception occured retreiving updated user from the database _id was: {self.account_id_to_update}")
                 print(e)
@@ -565,7 +571,7 @@ class UserStorage:
                 message_to_show=f"delete_user_details({self.id_to_delete}) called")
         try:
             self.delete_response = await self.user_collection.delete_one({"_id": ObjectId(self.id_to_delete)})
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured delete user details from the database _id was: {self.id_to_delete}")
             print(e)
@@ -582,7 +588,7 @@ class UserStorage:
                 message_to_show=f"delete_user_details({self.account_id_to_delete}) called")
         try:
             self.delete_response = await self.user_collection.delete_many({"account_id": self.account_id_to_delete})
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured delete user details from the database account_id was: {self.account_id_to_delete}")
             print(e)
@@ -593,7 +599,7 @@ class UserStorage:
                 message_to_show=f"Removing documents for {self.account_id_to_delete}")
         try:
             await self.tree_collection.delete_many({"account_id": self.account_id_to_delete})
-        except Exception as e:
+        except (ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured removing all documents for user account_id was: {self.account_id_to_delete}")
             print(e)
@@ -609,7 +615,7 @@ class UserStorage:
                 message_to_show=f"check_if_user_exists({self.user_id}) called")
         try:
             self.user_count = await self.user_collection.count_documents({"_id": ObjectId(self.user_id)})
-        except Exception as e:
+        except (InvalidId, ConnectionFailure, OperationFailure) as e:
             self.console_display.show_exception_message(
                 message_to_show=f"Exception occured retrieving user document count user_id was: {self.user_id}")
             print(e)
