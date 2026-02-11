@@ -1,7 +1,7 @@
 # Codebase Assessment: Fabulator
 
 **Generated:** 2026-02-04
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-09
 **Status:** Active
 
 ## Overview
@@ -39,7 +39,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| C1 | Duplicate `delete_user_details()` method definition | database.py | 554, 598 | [ ] Open |
+| C1 | Duplicate `delete_user_details()` method definition | database.py | 554, 598 | [x] Fixed 2026-02-09 (PR #4) |
 | C2 | CORS allows all methods/headers with credentials | api.py | 67-78 | [ ] Open |
 
 ### High
@@ -58,8 +58,8 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 |---|-------|------|---------|--------|
 | M1 | Deprecated `pytz` replaced with zoneinfo | api.py | 12, 234 | [x] Fixed 2026-02-05 |
 | M2 | Tree recursion has no depth limit | database.py | 237-335 | [ ] Open |
-| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | [!] Blocking tests |
-| M4 | Null checks missing before `saves_helper()` | database.py | 131 | [ ] Open |
+| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | [x] Fixed 2026-02-09 — lazy connection via `_get_redis_connection()`, closed with `aclose()` |
+| M4 | Null checks missing before `saves_helper()` | database.py | 131 | [x] Fixed 2026-02-09 — `get_tree_for_account()` checks save count before loading |
 | M5 | Exception messages could leak internal details | api.py | Multiple | [ ] Open |
 
 ### Low
@@ -78,7 +78,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 ### Phase 1: Critical Security & Bugs
 **Estimated Effort:** 1-2 days
 
-- [ ] **1.1** Fix duplicate `delete_user_details()` method - Remove line 598 version
+- [x] **1.1** Fix duplicate `delete_user_details()` method ✅ **Completed 2026-02-09 (PR #4)**
 - [ ] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers
 - [ ] **1.3** Add rate limiting - Protect login endpoint from brute force (use SlowAPI or similar)
 - [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
@@ -90,12 +90,12 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 - [ ] **2.2** Replace broad exception catching - Use specific exceptions (63 instances)
 - [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
 - [ ] **2.4** Fix ConsoleDisplay instantiation - Make it an instance variable, not per-method
-- [ ] **2.5** Add null checks before `saves_helper()` calls
+- [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
 
 ### Phase 3: Testing & Documentation
 **Estimated Effort:** 3-5 days
 
-- [~] **3.1** Fix and run test suite - **In Progress:** httpx API updated, 2 blocking issues remain (see TODO_DEPENDENCY_UPDATES.md)
+- [x] **3.1** Fix and run test suite ✅ **Completed 2026-02-09** — 103 passed, 10 skipped, 0 failed. Both blockers resolved (Database None handling, Redis event loop).
 - [ ] **3.2** Add unit tests - Currently only integration tests exist
 - [ ] **3.3** Create README.md - Document setup, architecture, API endpoints
 - [ ] **3.4** Add structured logging - Replace console output with Python logging module
@@ -106,7 +106,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 **Estimated Effort:** 2-3 days
 
 - [ ] **4.1** Verify Motor connection pooling is working correctly
-- [ ] **4.2** Implement Redis connection cleanup
+- [x] **4.2** Implement Redis connection cleanup ✅ **Completed 2026-02-09** — lazy connection + `aclose()` after each operation
 - [ ] **4.3** Add performance/load tests
 - [ ] **4.4** Generate comprehensive API documentation
 - [ ] **4.5** Remove code duplication in database.py (query patterns, update patterns)
@@ -182,20 +182,24 @@ self.console_display = ConsoleDisplay()
 
 ## Testing Status & Gaps
 
-### Current Test Suite Status (2026-02-05)
+### Current Test Suite Status (2026-02-09)
 - **Environment:** Fresh venv, MongoDB Atlas and Redis Cloud verified accessible
-- **Collection:** 148 tests collected successfully (pytest-asyncio auto mode)
-- **Passing:** Basic tests pass (unit tests, test_root_path)
-- **Blocked:** Integration tests blocked by 2 issues:
-  - Database None handling: Code crashes when new users have no saved trees
-  - Redis event loop: Connection cleanup causes "Event loop is closed" error
-- **Details:** See TODO_DEPENDENCY_UPDATES.md for full analysis and fix plans
+- **Collection:** 113 tests collected (pytest-asyncio auto mode)
+- **Results:** 103 passed, 10 skipped, 0 failed
+- **Blockers resolved:**
+  - Database None handling: `get_tree_for_account()` checks save count before loading
+  - Redis event loop: Lazy connection via `_get_redis_connection()`, closed with `aclose()`
+
+### Test Architecture (2026-02-09)
+- **Isolation tests** (`test_isolation_*`): 7 tests verify User B cannot access User A's data (expect 404)
+- **Scope tests** (`test_scope_*`): 10 tests verify insufficient scopes get 403; `pytest.skip()` when token has sufficient scope
+- **Security fix:** `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
 
 ### What Exists
-- 1,759 lines of integration tests
+- 1,700+ lines of integration tests
 - Covers: user CRUD, authentication, tree operations, saves
-- Tests 401/403 unauthorized scenarios
-- Recently updated for httpx 0.28.1 API compatibility
+- Tests 401/403 unauthorized scenarios and cross-user data isolation
+- Updated for httpx 0.28.1 API compatibility
 
 ### What's Missing
 - Unit tests (all tests are integration)
@@ -217,3 +221,10 @@ self.console_display = ConsoleDisplay()
 | 2026-02-05 | **Fixed M1:** Replaced pytz with zoneinfo in api.py (lines 12, 234). Removed unused tzname import and orphaned timezone line. |
 | 2026-02-05 | **Test suite:** Updated test_api_integration.py for httpx 0.28.1 API (AsyncClient now requires ASGITransport). 148 tests collected successfully. |
 | 2026-02-05 | **Test blockers identified:** (1) Database None handling for new users without saves, (2) Redis event loop lifecycle issue. See TODO_DEPENDENCY_UPDATES.md for details. |
+| 2026-02-09 | **Fixed C1:** Removed duplicate `delete_user_details()` method (PR #4) |
+| 2026-02-09 | **Fixed M3:** Redis connections now use lazy init + `aclose()` cleanup |
+| 2026-02-09 | **Fixed M4:** `get_tree_for_account()` checks save count before loading, returns empty `Tree()` for new users |
+| 2026-02-09 | **Fixed 4.2:** Redis connection cleanup implemented |
+| 2026-02-09 | **Test suite green:** 103 passed, 10 skipped, 0 failed. Isolation tests renamed, scope tests refactored to 403-only (PR #3) |
+| 2026-02-09 | **Security fix:** `/loads/{save_id}` now verifies account ownership |
+| 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
