@@ -1,112 +1,75 @@
 # Dependency Update Tasks
 
-Last Updated: 2026-02-05
+Last Updated: 2026-02-09
 
 ## Status Summary
 
 ✅ **Environment:** Fresh venv with Python 3.9.6, all dependencies updated to 2024/2025 versions
 ✅ **Critical Fixes:** pytz→zoneinfo (api.py), httpx API update (test file)
-⚠️ **Test Suite:** 148 tests collected, 2 passing, integration tests blocked by issues below
+✅ **Issue 1 (Database None Handling):** Fixed — `get_tree_for_account()` now checks `number_of_saves_for_account() > 0` before loading; returns empty `Tree()` for new users
+✅ **Issue 2 (Redis Event Loop):** Fixed — lazy connection via `_get_redis_connection()`, connections properly closed with `await conn.aclose()`
+✅ **Test Suite:** 113 tests collected, 103 passed, 10 skipped, 0 failed
+✅ **Scope Tests:** Refactored — only test insufficient permissions (403), skip when token has sufficient scope
+✅ **Isolation Tests:** 7 tests renamed from `test_scope_*` to `test_isolation_*`, verify cross-user data isolation (404)
+✅ **Security Fix:** `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
 
 ---
 
-## Outstanding Tasks
+## Resolved Issues
 
-### Fix Test Suite Integration Issues
-**Priority:** High
-**Status:** Blocked by 2 issues
-
----
-
-#### Issue 1: Database None Handling
+### Issue 1: Database None Handling (Fixed 2026-02-09)
 **Error:** `'NoneType' object is not subscriptable`
 
-**Root Cause Analysis:**
-- Tests create new users, then immediately try to fetch root node/tree data
-- New users have no saved trees in MongoDB
-- Database retrieval methods return None when no data exists
-- Code tries to subscript/index into None value → crash
+**Root Cause:** New users had no saved trees. `load_latest_into_working_tree()` returned None, and code tried to subscript it.
 
-**Error Trace:**
-```
-test_api_integration.py:297: AssertionError (500 response instead of 200)
-Logged: "Exception occured retrieving latest save from the database"
-Logged: "Error loading tree for account <account_id>: 'NoneType' object is not subscriptable"
-```
-
-**Affected Tests:**
-- `test_nodes_add_another_root_node`
-- `test_nodes_update_node`
-
-**Hypothesis for Fix:**
-The issue is likely in database.py or api.py when loading trees. Need to:
-1. Find where `get_latest_save()` or similar method is called
-2. Add None checking before trying to access properties/indices
-3. Either return default empty tree for new users OR handle 404 gracefully in tests
-
-**Investigation Starting Points:**
-- `app/database.py`: Search for methods that retrieve saves/trees
-- `app/api.py`: `/trees/root` endpoint implementation (returns 500)
-- `test_api_integration.py:297`: The `test_get_root_node` fixture
+**Fix:** `get_tree_for_account()` in `api.py:167` now checks `number_of_saves_for_account() > 0` before loading. Returns empty `Tree()` for accounts with no saves.
 
 ---
 
-#### Issue 2: Redis Event Loop Lifecycle
-
+### Issue 2: Redis Event Loop Lifecycle (Fixed 2026-02-09)
 **Error:** `RuntimeError: Event loop is closed`
 
-**Root Cause Analysis:**
-- Occurs during token blacklist check: `oauth.is_token_blacklisted(token)`
-- Redis async connection trying to execute after event loop closed
-- pytest-asyncio fixture cleanup timing issue
+**Root Cause:** Redis connection created eagerly in `Authentication.__init__`, became stale across async contexts.
 
-**Error Trace:**
-```
-app/api.py:237: if await oauth.is_token_blacklisted(token):
-app/authentication.py:85: if(await self.conn.get(token)):
-...eventually...
-asyncio/base_events.py:510: RuntimeError: Event loop is closed
-```
-
-**Affected Tests:**
-- `test_nodes_remove_node` (possibly others)
-
-**Hypothesis for Fix:**
-The Authentication class creates Redis connections but may not close them properly. Options:
-1. Ensure Redis connections are properly closed in async context managers
-2. Use fixtures to manage Redis connection lifecycle
-3. Check if `authentication.py` needs async context manager support
-4. May need to adjust pytest-asyncio fixture scopes
-
-**Investigation Starting Points:**
-- `app/authentication.py:85`: How Redis connection is created/managed
-- `app/authentication.py`: Check if `__aenter__`/`__aexit__` needed
-- Test fixtures: May need session-scoped Redis connection
+**Fix:** Lazy connection via `_get_redis_connection()` in `authentication.py`. Each operation gets a fresh connection and closes it with `await conn.aclose()`.
 
 ---
 
-## Next Session Action Plan
+## Completed Work (2026-02-09)
 
-1. **Start with Issue 1 (Database None):**
-   - Read `app/database.py` methods for retrieving saves/trees
-   - Read `/trees/root` endpoint in `app/api.py`
-   - Add None checks and handle missing data case
-   - Re-run affected tests to verify fix
+### Isolation Test Refactor
+- Renamed 7 tests from `test_scope_*` to `test_isolation_*` (they tested cross-user data access, not scope permissions)
+- Created `return_isolation_token` fixture (full permissions, separate user)
+- Fixed security bug: `/loads/{save_id}` now checks account ownership
+- PR #3 merged
 
-2. **Then tackle Issue 2 (Redis Event Loop):**
-   - Read `app/authentication.py` Redis connection management
-   - Check if proper async cleanup is implemented
-   - Consider adding context manager support if missing
-   - Re-run affected tests
+### Scope Test Refactor
+- All 10 scope tests now only test insufficient permissions (403)
+- Added `pytest.skip()` when token has the required scope
+- Removed fragile happy-path `if` branches
+- PR #3 merged
 
-3. **Full Test Run:**
-   - Once both issues fixed, run: `pytest -v`
-   - Monitor for additional failures
-   - Address any remaining issues
+### Documentation
+- Added `quickread.md` — concise guide to tree data model and CRUD operations (PR #5 merged)
+- Updated `CLAUDE.md` with current project state (PR #4 merged)
 
-4. **Documentation:**
-   - Update this file with final results
-   - Mark task as complete
+---
+
+## Remaining Work
+
+### Optional: Unit Test Suite for api.py
+**Priority:** Low (deferred — may refactor api.py first)
+**Scope:** ~74 tests across 21 route handlers, mocking DB and auth layers
+**Estimated cost:** ~$1.45 (full suite) or ~$0.50 (nodes-only)
+
+### Optional: Happy-Path Scope Tests
+**Priority:** Low
+**Scope:** Dedicated tests confirming users WITH correct scopes CAN perform operations
+**Notes:** Now that scope tests only test 403, these would complement them
+
+### Architectural Consideration: Tree Storage Model
+**Priority:** Awareness (not blocking)
+**Issue:** Every read/write reconstructs the full tree from MongoDB and every write appends a new complete snapshot. Works fine at current scale but will hit performance/concurrency issues with larger trees or multiple concurrent users. See `quickread.md` for details.
 
 ---
 
