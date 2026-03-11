@@ -1,0 +1,30 @@
+{
+  "name": "FastAPI Dev Container",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "api",
+  "workspaceFolder": "/app",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "charliermarsh.ruff",
+        "mongodb.mongodb-vscode",
+        "humao.rest-client"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "ms-python.black-formatter"
+      }
+    }
+  },
+
+  "forwardPorts": [8000, 27017, 6379],
+
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
+
+  "remoteUser": "root"
+}
