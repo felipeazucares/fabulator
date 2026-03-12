@@ -3,6 +3,7 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "api",
   "workspaceFolder": "/app",
+  "initializeCommand": ".devcontainer/init-firewall.sh",
 
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:latest": {}
