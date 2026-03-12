@@ -1,8 +1,12 @@
 {
-  "name": "FastAPI Dev Container",
+  "name": "Fabulator Dev Container",
   "dockerComposeFile": "../docker-compose.yml",
   "service": "api",
   "workspaceFolder": "/app",
+
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:latest": {}
+  },
 
   "customizations": {
     "vscode": {
@@ -16,15 +20,12 @@
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "ms-python.black-formatter"
+        "editor.formatOnSave": true
       }
     }
   },
 
-  "forwardPorts": [8000, 27017, 6379],
-
+  "forwardPorts": [8000],
   "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
-
   "remoteUser": "root"
 }
