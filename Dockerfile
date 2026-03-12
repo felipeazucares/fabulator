@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/server
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,4 +20,4 @@ COPY . .
 EXPOSE 8000
 
 # Run with hot reload for development
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.api:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
