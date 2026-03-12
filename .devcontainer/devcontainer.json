@@ -3,7 +3,6 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "api",
   "workspaceFolder": "/app",
-  //"initializeCommand": ".devcontainer/init-firewall.sh",
 
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:latest": {}
@@ -27,5 +26,6 @@
   },
 
   "forwardPorts": [8000],
- "postCreateCommand": "apt-get install -y iptables && .devcontainer/init-firewall.sh && pip install --no-cache-dir -r requirements.txt"  "remoteUser": "root"
+  "postCreateCommand": "pip install --no-cache-dir -r requirements.txt",
+  "remoteUser": "root"
 }
