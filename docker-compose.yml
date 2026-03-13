@@ -1,100 +1,55 @@
 # =============================================================================
 # Fabulator — Docker Compose
 # =============================================================================
-# Services:
-#   fabulator-api  — FastAPI application (always running)
-#   claude-code    — Claude Code dev assistant (dev profile only)
+# Two containers, two Dockerfiles:
+#   fabulator-api  → server/Dockerfile      (FastAPI, Atlas + Redis Cloud)
+#   claude-code    → .devcontainer/Dockerfile (Claude Code, dev profile only)
 #
 # Usage:
-#   Development (both services):
-#     docker compose --profile dev up
-#
-#   API only (no Claude Code):
-#     docker compose up fabulator-api
-#
-#   Claude Code interactive session:
-#     docker compose --profile dev run --rm claude-code
+#   API only:             docker compose up
+#   With Claude Code:     docker compose --profile dev up
+#   One-shot Claude Code: docker compose --profile dev run --rm claude-code
 # =============================================================================
-
 services:
 
-  # ---------------------------------------------------------------------------
-  # Fabulator FastAPI Application
-  # ---------------------------------------------------------------------------
   fabulator-api:
     build:
-      context: ./fabulator
-      dockerfile: Dockerfile
+      context: .                        # root — so COPY requirements.txt works
+      dockerfile: server/Dockerfile
     container_name: fabulator-api
-    platform: linux/arm64          # Native on M5. No emulation, no drama.
+    platform: linux/arm64
     ports:
       - "8000:8000"
     volumes:
-      # Source mount — live reload picks up your edits immediately
-      - ./fabulator:/app:cached
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ./server:/app:cached            # live reload without rebuild
     env_file:
       - .env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Claude Code Dev Container
-  # Profile: dev — only starts when explicitly requested
-  # ---------------------------------------------------------------------------
   claude-code:
     build:
-      context: .devcontainer
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: .devcontainer/Dockerfile
     container_name: fabulator-claude
     platform: linux/arm64
     profiles:
-      - dev                        # Won't start with plain 'docker compose up'
+      - dev
     volumes:
-      # Project source — Claude reads and writes your actual code
       - .:/workspace:cached
-
-      # THE CRITICAL ONE. Mount ~/.claude from host into container.
-      # Without this, auth is lost on every rebuild. This was almost
-      # certainly yesterday's problem.
-      - ${HOME}/.claude:/home/claude/.claude
-
-      # Git config so commits show up as you, not 'claude in a box'
+      - ${HOME}/.claude:/home/claude/.claude   # auth persistence across rebuilds
       - ${HOME}/.gitconfig:/home/claude/.gitconfig:ro
-
-      # SSH keys (read-only) for git push/pull
-      # If you use GitHub tokens instead, remove this
       - ${HOME}/.ssh:/home/claude/.ssh:ro
-
+    env_file:
+      - .env
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # Tells Claude Code where the API is running inside the compose network
       - FABULATOR_API_URL=http://fabulator-api:8000
-
     depends_on:
       fabulator-api:
-        condition: service_healthy  # Wait for API to be genuinely ready
-
-    # Keep container running for VS Code to attach to
-    # Override for interactive sessions: docker compose run --rm claude-code
+        condition: service_healthy
     stdin_open: true
     tty: true
-    restart: "no"                  # Dev tool — don't auto-restart
+    restart: "no"
 
-# =============================================================================
-# Networks & Volumes
-# =============================================================================
 networks:
   default:
     name: fabulator-network
-
-volumes:
-  # Named volume for any persistent data fabulator-api needs
-  # (expand this when you add postgres etc)
-  fabulator-data:
