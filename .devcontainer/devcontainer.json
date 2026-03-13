@@ -1,0 +1,27 @@
+{
+  "name": "Fabulator Claude Code",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "claude-code",
+  "workspaceFolder": "/workspace",
+
+  // VS Code extensions installed inside the container
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "editor.formatOnSave": true,
+        "editor.rulers": [88]
+      }
+    }
+  },
+
+  // Don't shut down the full compose stack when VS Code disconnects
+  "shutdownAction": "stopContainer"
+}
