@@ -183,6 +183,12 @@ install_all() {
   rm /tmp/docker-compose
   info "docker-compose installed → ${INSTALL_DIR}/docker-compose"
 
+  # Symlink compose as a Docker CLI plugin so both invocation styles work:
+  #   docker-compose (standalone)  ← already installed above
+  #   docker compose (CLI plugin)  ← requires this symlink
+  ln -sf "${INSTALL_DIR}/docker-compose" "${PLUGIN_DIR}/docker-compose"
+  info "docker-compose plugin symlinked → ${PLUGIN_DIR}/docker-compose ✓"
+
   # --- Docker Buildx ----------------------------------------------------------
   info "Installing docker-buildx ${BUILDX_VERSION}..."
   curl -fsSL \
@@ -267,6 +273,11 @@ uninstall_all() {
   fi
 
   # Remove buildx plugin
+  if [[ -f "${PLUGIN_DIR}/docker-compose" ]]; then
+    rm -f "${PLUGIN_DIR}/docker-compose"
+    info "Removed compose plugin symlink"
+  fi
+
   if [[ -f "${PLUGIN_DIR}/docker-buildx" ]]; then
     rm -f "${PLUGIN_DIR}/docker-buildx"
     info "Removed buildx plugin"
