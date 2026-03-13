@@ -102,6 +102,10 @@ class RoutesHelper():
         self.user_storage = UserStorage(collection_name="user_collection")
         self.console_display = helpers.ConsoleDisplay()
         self.DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+        
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}      
 
     async def account_id_exists(self, account_id):
         self.account_id = account_id
@@ -194,6 +198,7 @@ class RoutesHelper():
                 self.console_display.show_debug_message(
                     message_to_show=f"No saves found for account {account_id}, creating new tree")
             return Tree()
+          
 
 # ------------------------
 #       API Routes
