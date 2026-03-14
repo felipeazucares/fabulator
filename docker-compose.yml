@@ -2,8 +2,13 @@
 # Fabulator — Docker Compose
 # =============================================================================
 # Two containers, two Dockerfiles:
-#   fabulator-api  → server/Dockerfile      (FastAPI, Atlas + Redis Cloud)
+#   fabulator-api  → server/Dockerfile       (FastAPI, Atlas + Redis Cloud)
 #   claude-code    → .devcontainer/Dockerfile (Claude Code, dev profile only)
+#
+# Auth:
+#   fabulator-api  uses ANTHROPIC_API_KEY from .env
+#   claude-code    uses CLAUDE_CODE_OAUTH_TOKEN from .env
+#                  DO NOT pass ANTHROPIC_API_KEY to claude-code — auth conflict.
 #
 # Usage:
 #   API only:             docker compose up
@@ -37,12 +42,11 @@ services:
       - dev
     volumes:
       - .:/workspace:cached
-      - ${HOME}/.claude:/home/claude/.claude   # auth persistence across rebuilds
       - ${HOME}/.gitconfig:/home/claude/.gitconfig:ro
       - ${HOME}/.ssh:/home/claude/.ssh:ro
-    env_file:
-      - .env
     environment:
+      # OAuth token auth — DO NOT also set ANTHROPIC_API_KEY here
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
       - FABULATOR_API_URL=http://fabulator-api:8000
     depends_on:
       fabulator-api:

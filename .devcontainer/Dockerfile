@@ -2,11 +2,12 @@
 # Claude Code Development Container
 # Base: node:20-slim (Debian) — NOT Alpine. Alpine's musl libc breaks
 # Claude Code CLI with a cryptic linker error on first run. Don't be a hero.
+#
+# Auth: CLAUDE_CODE_OAUTH_TOKEN env var (set in docker-compose, sourced from .env)
+# DO NOT set ANTHROPIC_API_KEY in this container — causes auth conflict.
 # =============================================================================
 FROM node:20-slim
 
-# System deps — git for obvious reasons, curl for healthchecks,
-# python3 so Claude can actually work on the FastAPI code
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
@@ -16,19 +17,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user — Claude Code runs as 'claude', not root
-# UID 1001 avoids conflicts with common host UIDs
 RUN useradd -m -u 1001 -s /bin/bash claude
 
-# Install Claude Code CLI globally, pinned to avoid surprise breaking changes
-# Check https://github.com/anthropics/claude-code/releases for latest
+# Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
 
-# Workspace is mounted via compose volume
+# Bake in minimal ~/.claude.json to bypass onboarding loop.
+# oauthAccount tells Claude Code this session is already set up.
+# The actual auth token comes from CLAUDE_CODE_OAUTH_TOKEN env var at runtime.
+RUN mkdir -p /home/claude/.claude && \
+    echo '{ \
+      "hasCompletedOnboarding": true, \
+      "lastOnboardingVersion": "2.1.75", \
+      "oauthAccount": { \
+        "accountUuid": "64b79603-26c7-4966-acb5-500a11df0357", \
+        "emailAddress": "passpam@icloud.com", \
+        "organizationUuid": "3c855726-f143-465a-936d-4e01100161f6", \
+        "organizationName": "passpam@icloud.com'\''s Organization" \
+      } \
+    }' > /home/claude/.claude.json && \
+    ln -sf /home/claude/.claude.json /home/claude/.claude/.claude.json && \
+    chown -R claude:claude /home/claude/.claude /home/claude/.claude.json
+
 WORKDIR /workspace
 
-# Drop to non-root before entrypoint
 USER claude
 
-# --dangerously-skip-permissions is safe here because we're in an isolated
-# container with a firewall. Don't use this on your host machine.
 ENTRYPOINT ["claude", "--dangerously-skip-permissions"]
