@@ -3,7 +3,7 @@
 # =============================================================================
 # Two containers, two Dockerfiles:
 #   fabulator-api  → server/Dockerfile       (FastAPI, Atlas + Redis Cloud)
-#   claude-code    → .devcontainer/Dockerfile (Claude Code, dev profile only)
+#   claude-code    → .devcontainer/Dockerfile (Claude Code)
 #
 # Auth:
 #   fabulator-api  uses ANTHROPIC_API_KEY from .env
@@ -11,9 +11,9 @@
 #                  DO NOT pass ANTHROPIC_API_KEY to claude-code — auth conflict.
 #
 # Usage:
-#   API only:             docker compose up
-#   With Claude Code:     docker compose --profile dev up
-#   One-shot Claude Code: docker compose --profile dev run --rm claude-code
+#   Both services:        docker compose up
+#   API only:             docker compose up fabulator-api
+#   One-shot Claude Code: docker compose run --rm claude-code
 # =============================================================================
 services:
 
@@ -38,8 +38,6 @@ services:
     image: fabulator-claude-code
     container_name: fabulator-claude
     platform: linux/arm64
-    profiles:
-      - dev
     volumes:
       - .:/workspace:cached
       - ${HOME}/.gitconfig:/home/claude/.gitconfig:ro
