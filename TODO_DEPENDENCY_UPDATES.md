@@ -1,6 +1,6 @@
 # Dependency Update Tasks
 
-Last Updated: 2026-02-09
+Last Updated: 2026-03-15
 
 ## Status Summary
 
@@ -12,6 +12,7 @@ Last Updated: 2026-02-09
 ✅ **Scope Tests:** Refactored — only test insufficient permissions (403), skip when token has sufficient scope
 ✅ **Isolation Tests:** 7 tests renamed from `test_scope_*` to `test_isolation_*`, verify cross-user data isolation (404)
 ✅ **Security Fix:** `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
+✅ **CORS Fix (2026-03-15):** Origins now read from `CORS_ORIGINS` env var; methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type
 
 ---
 

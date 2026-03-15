@@ -168,10 +168,10 @@ class SomeSchema(BaseModel):
 ## Known Issues (See CODEBASE_ASSESSMENT.md)
 
 ### Critical
-- `api.py:67-78` - CORS allows all methods/headers with credentials
+- ~~`api.py:67-78` - CORS allows all methods/headers with credentials~~ **Fixed 2026-03-15** — `CORS_ORIGINS` env var required; methods/headers explicitly restricted
 
 ### High Priority
-- Broad `except Exception` catching (63 instances in database.py)
+- Broad `except Exception` catching — `database.py` clean (0), `api.py` has 29 remaining
 - No rate limiting on login endpoint
 - `ConsoleDisplay()` instantiated per-method (should be instance var)
 

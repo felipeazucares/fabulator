@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from zoneinfo import ZoneInfo
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
+import pymongo.errors
+import treelib.exceptions
 from passlib.context import CryptContext
 from fastapi.security import (
     OAuth2PasswordBearer,
@@ -117,7 +119,7 @@ class RoutesHelper():
                 self.console_display.show_debug_message(
                     message_to_show=f"account_exists: {does_account_exist}")
             return does_account_exist
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured retrieving count of saves for {self.account_id}")
             print(e)
@@ -139,7 +141,7 @@ class RoutesHelper():
                 return True
             else:
                 return False
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured retrieving count of saves for {self.document_id}")
             print(e)
@@ -160,7 +162,7 @@ class RoutesHelper():
                 return True
             else:
                 return False
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured retrieving user document for {self.user_id}")
             print(e)
@@ -186,7 +188,7 @@ class RoutesHelper():
                     self.console_display.show_debug_message(
                         message_to_show=f"Loaded tree from database for account: {account_id}")
                 return tree
-            except Exception as e:
+            except pymongo.errors.PyMongoError as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Error loading tree for account {account_id}: {e}")
                 raise HTTPException(
@@ -366,7 +368,7 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
         try:
             response = tree.remove_subtree(id)
             message = "Success"
-        except Exception as e:
+        except treelib.exceptions.NodeIDAbsentError as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show="Error occured removing a subtree from the working tree. id: {id}")
             print(e)
@@ -375,7 +377,7 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
             db_storage = TreeStorage(
                 collection_name="tree_collection")
             await db_storage.save_working_tree(tree=tree, account_id=account_id)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show="Error occured saving the working tree to the database after delete.")
             print(e)
@@ -405,7 +407,7 @@ async def graft_subtree(id: str, request: SubTree = Body(...), account_id: str =
         try:
             sub_tree = db_storage.build_tree_from_dict(
                 tree_dict=request.sub_tree)
-        except Exception as e:
+        except (KeyError, ValueError) as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show=f"Error occured building the subtree from the request dict object. {e}")
             raise HTTPException(
@@ -416,13 +418,13 @@ async def graft_subtree(id: str, request: SubTree = Body(...), account_id: str =
                     'dump.txt', line_type=u'ascii-ex', idhidden=False)
             tree.paste(nid=id, new_tree=sub_tree, deep=False)
             message = "Success"
-        except Exception as e:
+        except (treelib.exceptions.NodeIDAbsentError, treelib.exceptions.DuplicatedNodeIdError) as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show=f"Error occured grafting the subtree into the working tree. id: {id} {e}")
             raise
         try:
             await db_storage.save_working_tree(tree=tree, account_id=account_id)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show="Error occured saving the working tree to the database after paste action.{e}")
             raise
@@ -460,7 +462,7 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
     else:
         try:
             tree.show(line_type="ascii-em")
-        except Exception as e:
+        except treelib.exceptions.NodeIDAbsentError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured calling tree.show on tree")
             raise HTTPException(
@@ -503,7 +505,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
     tree = await routes_helper.get_tree_for_account(account_id=account_id)
     try:
         request = jsonable_encoder(request)
-    except Exception as e:
+    except ValueError as e:
         console_display.show_exception_message(
             message_to_show="Error occured encoding request with jsonable_encoder")
         print(e)
@@ -529,7 +531,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
             try:
                 new_node = tree.create_node(
                     name, parent=request["parent"], data=node_payload)
-            except Exception as e:
+            except (treelib.exceptions.NodeIDAbsentError, treelib.exceptions.DuplicatedNodeIdError) as e:
                 console_display.show_exception_message(
                     message_to_show="Error occured adding child node to working tree")
                 console_display.show_exception_message(
@@ -546,7 +548,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
             try:
                 new_node = tree.create_node(
                     name, data=node_payload)
-            except Exception as e:
+            except (treelib.exceptions.DuplicatedNodeIdError, treelib.exceptions.MultipleRootError) as e:
                 console_display.show_exception_message(
                     message_to_show="Error occured adding root node to working tree")
                 console_display.show_exception_message(
@@ -560,7 +562,7 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
         save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
-    except Exception as e:
+    except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving the working tree to the database")
         print(e)
@@ -596,7 +598,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
                     try:
                         tree.update_node(
                             id, _tag=request.name, data=node_payload, parent=request.parent)
-                    except Exception as e:
+                    except (treelib.exceptions.NodeIDAbsentError, treelib.exceptions.LoopError) as e:
                         console_display.show_exception_message(
                             message_to_show="Error occured updating node in the working tree")
                         console_display.show_exception_message(
@@ -610,7 +612,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
                 try:
                     tree.update_node(
                         id, _tag=request.name, data=node_payload)
-                except Exception as e:
+                except treelib.exceptions.NodeIDAbsentError as e:
                     console_display.show_exception_message(
                         message_to_show="Error occured updating node in the working tree")
                     console_display.show_exception_message(
@@ -624,7 +626,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
                     try:
                         tree.update_node(
                             id, data=node_payload, parent=request.parent)
-                    except Exception as e:
+                    except (treelib.exceptions.NodeIDAbsentError, treelib.exceptions.LoopError) as e:
                         console_display.show_exception_message(
                             message_to_show="Error occured updating node in the working tree")
                         console_display.show_exception_message(
@@ -638,7 +640,7 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
         try:
             db_storage = TreeStorage(collection_name="tree_collection")
             save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured saving the working_tree to the database")
             print(e)
@@ -672,7 +674,7 @@ async def delete_node(id: str, account_id: str = Security(get_current_active_use
         try:
             response = tree.remove_node(id)
             message = "Success"
-        except Exception as e:
+        except treelib.exceptions.NodeIDAbsentError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured removing a node from the working tree. id: {id}")
             print(e)
@@ -681,7 +683,7 @@ async def delete_node(id: str, account_id: str = Security(get_current_active_use
             try:
                 db_storage = TreeStorage(collection_name="tree_collection")
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
-            except Exception as e:
+            except pymongo.errors.PyMongoError as e:
                 console_display.show_exception_message(
                     message_to_show="Error occured saving the working tree to the database after delete.")
                 print(e)
@@ -730,7 +732,7 @@ async def get_a_save(save_id: str, account_id: str = Security(get_current_active
             status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
     try:
         tree = await db_storage.load_save_into_working_tree(save_id=save_id)
-    except Exception as e:
+    except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
         print(e)
@@ -751,7 +753,7 @@ async def get_all_saves(account_id: str = Security(get_current_active_user_accou
         db_storage = TreeStorage(collection_name="tree_collection")
         all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
         # all_saves = await list_all_saved_trees(account_id=account_id)
-    except Exception as e:
+    except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
         raise HTTPException(
@@ -773,7 +775,7 @@ async def delete_saves(account_id: str = Security(get_current_active_user_accoun
     try:
         db_storage = TreeStorage(collection_name="tree_collection")
         delete_result = await db_storage.delete_all_saves(account_id=account_id)
-    except Exception as e:
+    except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured deleting  all saves for account_id:{account_id}")
         print(e)
@@ -799,7 +801,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
     try:
         db_storage = UserStorage(collection_name="user_collection")
         save_result = await db_storage.save_user_details(user=request)
-    except Exception as e:
+    except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving user details:{account_id}")
         raise
@@ -820,7 +822,7 @@ async def get_user(account_id: str = Security(get_current_active_user_account, s
         try:
             db_storage = UserStorage(collection_name="user_collection")
             get_result = await db_storage.get_user_details_by_account_id(account_id=account_id)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured getting user details:{account_id}")
             raise
@@ -844,7 +846,7 @@ async def update_user(account_id: str = Security(get_current_active_user_account
         try:
             db_storage = UserStorage(collection_name="user_collection")
             update_result = await db_storage.update_user_details(account_id=account_id, user=request)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user details:{account_id}")
             raise
@@ -869,7 +871,7 @@ async def update_password(account_id: str = Security(get_current_active_user_acc
         try:
             db_storage = UserStorage(collection_name="user_collection")
             update_result = await db_storage.update_user_password(account_id=account_id, user=request)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user password:{account_id}")
             raise
@@ -893,7 +895,7 @@ async def update_type(account_id: str = Security(get_current_active_user_account
         try:
             db_storage = UserStorage(collection_name="user_collection")
             update_result = await db_storage.update_user_type(account_id=account_id, user=request)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user password:{account_id}")
             raise
@@ -917,7 +919,7 @@ async def delete_user(account_id: str = Security(get_current_active_user_account
         try:
             db_storage = UserStorage(collection_name="user_collection")
             delete_result = await db_storage.delete_user_details_by_account_id(account_id=account_id)
-        except Exception as e:
+        except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured deleteing user details:{account_id}")
             raise
