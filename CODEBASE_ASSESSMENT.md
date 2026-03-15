@@ -40,13 +40,14 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
 | C1 | Duplicate `delete_user_details()` method definition | database.py | 554, 598 | [x] Fixed 2026-02-09 (PR #4) |
-| C2 | CORS allows all methods/headers with credentials | api.py | 67-78 | [ ] Open |
+| C2 | CORS allows all methods/headers with credentials | api.py | 67-78 | [x] Fixed 2026-03-15 (PR #6) |
 
 ### High
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| H1 | 63x overly broad `except Exception` catches | database.py | Throughout | [ ] Open |
+| H1a | Overly broad `except Exception` catches | database.py | Throughout | [x] Fixed — 0 remaining |
+| H1b | Overly broad `except Exception` catches | api.py | Throughout | [ ] Open — 29 remaining |
 | H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [ ] Open |
 | H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [ ] Open |
 | H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | [ ] Open |
@@ -79,7 +80,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 **Estimated Effort:** 1-2 days
 
 - [x] **1.1** Fix duplicate `delete_user_details()` method ✅ **Completed 2026-02-09 (PR #4)**
-- [ ] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers
+- [x] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers ✅ **Completed 2026-03-15** — `CORS_ORIGINS` env var required; methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type
 - [ ] **1.3** Add rate limiting - Protect login endpoint from brute force (use SlowAPI or similar)
 - [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
 
@@ -87,7 +88,8 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 **Estimated Effort:** 2-3 days
 
 - [ ] **2.1** Consolidate DB connections - Use singleton client or dependency injection
-- [ ] **2.2** Replace broad exception catching - Use specific exceptions (63 instances)
+- [x] **2.2a** Replace broad exception catching in `database.py` ✅ **Completed** — 0 remaining
+- [ ] **2.2b** Replace broad exception catching in `api.py` — 29 instances remaining
 - [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
 - [ ] **2.4** Fix ConsoleDisplay instantiation - Make it an instance variable, not per-method
 - [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
@@ -117,26 +119,22 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 ### Security Issues
 
-#### CORS Configuration (Critical)
-**File:** `server/app/api.py:67-78`
+#### CORS Configuration (Critical) — ✅ Fixed 2026-03-15
+**File:** `server/app/api.py:65-76`
 ```python
-origins = [
-    "http://localhost:8000",
-    "localhost:8000"
-]
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "")
+if not _cors_origins_raw.strip():
+    raise RuntimeError("CORS_ORIGINS environment variable is not set.")
+origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,  # DANGEROUS with open CORS
-    allow_methods=["*"],     # Should explicitly list methods
-    allow_headers=["*"]      # Should explicitly list headers
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 ```
-
-**Recommendation:**
-- Use environment variable for allowed origins
-- Explicitly list: `allow_methods=["GET", "POST", "PUT", "DELETE"]`
-- Explicitly list headers needed
 
 #### No Rate Limiting (High)
 - Login endpoint `/get_token` has no protection against brute force
@@ -161,10 +159,9 @@ self.console_display = ConsoleDisplay()
 ```
 
 #### Overly Broad Exception Handling
-**File:** `server/app/database.py`
-- 63 instances of `except Exception as e`
-- Should catch specific exceptions (ValueError, TypeError, pymongo errors)
-- Current pattern loses error context
+**File:** `server/app/api.py` — 29 instances remaining (`database.py` is clean)
+- Should catch specific exceptions (e.g. `treelib.exceptions.NodeIDAbsentError`, `pymongo.errors.PyMongoError`)
+- Current pattern loses error context and can silently swallow unexpected failures
 
 ### Performance Concerns
 
@@ -228,3 +225,4 @@ self.console_display = ConsoleDisplay()
 | 2026-02-09 | **Test suite green:** 103 passed, 10 skipped, 0 failed. Isolation tests renamed, scope tests refactored to 403-only (PR #3) |
 | 2026-02-09 | **Security fix:** `/loads/{save_id}` now verifies account ownership |
 | 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
+| 2026-03-15 | **Fixed C2:** CORS now reads origins from `CORS_ORIGINS` env var (required, errors on missing); methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type |
