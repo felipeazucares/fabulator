@@ -1,7 +1,7 @@
 # Codebase Assessment: Fabulator
 
 **Generated:** 2026-02-04
-**Last Updated:** 2026-02-09
+**Last Updated:** 2026-03-15
 **Status:** Active
 
 ## Overview
@@ -48,8 +48,8 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 |---|-------|------|---------|--------|
 | H1a | Overly broad `except Exception` catches | database.py | Throughout | [x] Fixed — 0 remaining |
 | H1b | Overly broad `except Exception` catches | api.py | Throughout | [x] Fixed 2026-03-15 — 0 remaining |
-| H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [ ] Open |
-| H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [ ] Open |
+| H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [x] Fixed 2026-03-15 |
+| H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [x] Fixed 2026-03-15 |
 | H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | [ ] Open |
 | H5 | Missing input validation for tree operations | api.py | 522-538 | [ ] Open |
 
@@ -81,7 +81,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 - [x] **1.1** Fix duplicate `delete_user_details()` method ✅ **Completed 2026-02-09 (PR #4)**
 - [x] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers ✅ **Completed 2026-03-15** — `CORS_ORIGINS` env var required; methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type
-- [ ] **1.3** Add rate limiting - Protect login endpoint from brute force (use SlowAPI or similar)
+- [x] **1.3** Add rate limiting - Protect login endpoint from brute force ✅ **Completed 2026-03-15** — SlowAPI + Redis backend; `LOGIN_RATE_LIMIT` env var (default `5/minute`)
 - [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
 
 ### Phase 2: Code Quality & Reliability
@@ -91,7 +91,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 - [x] **2.2a** Replace broad exception catching in `database.py` ✅ **Completed** — 0 remaining
 - [x] **2.2b** Replace broad exception catching in `api.py` ✅ **Completed 2026-03-15** — 0 remaining
 - [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
-- [ ] **2.4** Fix ConsoleDisplay instantiation - Make it an instance variable, not per-method
+- [x] **2.4** Fix ConsoleDisplay instantiation ✅ **Completed 2026-03-15** — removed 23 per-method `ConsoleDisplay()` calls; all methods now use module-level instance
 - [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
 
 ### Phase 3: Testing & Documentation
@@ -136,9 +136,10 @@ app.add_middleware(
 )
 ```
 
-#### No Rate Limiting (High)
-- Login endpoint `/get_token` has no protection against brute force
-- Recommendation: Add SlowAPI middleware with limits like 5 attempts/minute
+#### No Rate Limiting — ✅ Fixed 2026-03-15
+- SlowAPI + Redis backend wired to existing `REDISHOST` env var
+- `LOGIN_RATE_LIMIT` env var controls limit (default `5/minute` per IP)
+- Set `LOGIN_RATE_LIMIT=1000/minute` in test `.env` to avoid 429s during test runs
 
 ### Code Quality Issues
 
@@ -149,14 +150,11 @@ app.add_middleware(
 
 #### Excessive State Assignment
 **File:** `server/app/database.py`
-- ~110 lines of `self.variable_name = parameter_name` assignments
-- Methods should use local variables instead
-- Example pattern that repeats:
-```python
-self.account_id = account_id
-self.tree = tree
-self.console_display = ConsoleDisplay()
-```
+- ~110 lines of `self.variable_name = parameter_name` assignments remain
+- Methods should use local variables instead (ConsoleDisplay part fixed; parameter assignments still open)
+
+#### ConsoleDisplay Instantiation — ✅ Fixed 2026-03-15
+Removed 23 per-method `self.console_display = ConsoleDisplay()` calls. All methods now use the module-level `console_display` instance. Also fixed latent `AttributeError` in `update_user_details/password/type` `else` branches, and eliminated per-recursive-call instantiation in `add_a_node()`.
 
 #### Overly Broad Exception Handling — ✅ Fixed 2026-03-15
 Both `database.py` and `api.py` now use specific exceptions:
@@ -228,3 +226,5 @@ Both `database.py` and `api.py` now use specific exceptions:
 | 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
 | 2026-03-15 | **Fixed C2:** CORS now reads origins from `CORS_ORIGINS` env var (required, errors on missing); methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type |
 | 2026-03-15 | **Fixed H1b:** All 29 `except Exception` catches in `api.py` replaced with specific exceptions (PyMongoError, treelib exceptions, KeyError/ValueError) |
+| 2026-03-15 | **Fixed H2:** Removed 23 per-method `ConsoleDisplay()` instantiations in `database.py`; all now use module-level instance. Also fixed latent AttributeError in 3 update methods. |
+| 2026-03-15 | **Fixed H3:** Rate limiting on `/get_token` via SlowAPI + Redis. Configurable via `LOGIN_RATE_LIMIT` env var (default `5/minute`). |

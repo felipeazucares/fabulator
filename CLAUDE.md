@@ -172,16 +172,21 @@ class SomeSchema(BaseModel):
 
 ### High Priority
 - ~~Broad `except Exception` catching~~ **Fixed 2026-03-15** — both `database.py` and `api.py` now use specific exceptions
-- No rate limiting on login endpoint
-- `ConsoleDisplay()` instantiated per-method (should be instance var)
+- ~~No rate limiting on login endpoint~~ **Fixed 2026-03-15** — SlowAPI + Redis, `LOGIN_RATE_LIMIT` env var (default `5/minute`)
+- ~~`ConsoleDisplay()` instantiated per-method~~ **Fixed 2026-03-15** — module-level instance used throughout `database.py`
+- New DB client created per-request (no pooling) — `database.py` H4
+- Missing input validation for tree operations — `api.py` H5
 
 ### Medium Priority
-- `api.py` still uses deprecated `pytz` (line 13, 235)
-- Tree recursion has no depth limit
+- Tree recursion has no depth limit — `database.py` M2
 
 ### Recently Fixed
 - **Save isolation bug** (2026-02-09): `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
-- **Redis connections**: Now properly closed with `await conn.aclose()` after each operation
+- **Redis connections** (2026-02-09): Now properly closed with `await conn.aclose()` after each operation
+- **CORS** (2026-03-15): `CORS_ORIGINS` env var required; methods/headers explicitly restricted
+- **Exception handling** (2026-03-15): All broad `except Exception` replaced with specific types in both files
+- **ConsoleDisplay** (2026-03-15): 23 per-method instantiations removed in `database.py`
+- **Rate limiting** (2026-03-15): SlowAPI on `/get_token`, configurable via `LOGIN_RATE_LIMIT`
 
 ## Missing API Functionality (Roadmap)
 

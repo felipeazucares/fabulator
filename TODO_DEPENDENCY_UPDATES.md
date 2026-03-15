@@ -13,6 +13,9 @@ Last Updated: 2026-03-15
 ✅ **Isolation Tests:** 7 tests renamed from `test_scope_*` to `test_isolation_*`, verify cross-user data isolation (404)
 ✅ **Security Fix:** `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
 ✅ **CORS Fix (2026-03-15):** Origins now read from `CORS_ORIGINS` env var; methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type
+✅ **Exception Handling (2026-03-15):** All `except Exception` catches replaced — 0 remaining in both `database.py` and `api.py`
+✅ **ConsoleDisplay (2026-03-15):** 23 per-method instantiations removed in `database.py`; module-level instance used throughout
+✅ **Rate Limiting (2026-03-15):** SlowAPI on `/get_token`; `LOGIN_RATE_LIMIT` env var (default `5/minute`); set higher in test env
 
 ---
 
@@ -53,6 +56,17 @@ Last Updated: 2026-03-15
 ### Documentation
 - Added `quickread.md` — concise guide to tree data model and CRUD operations (PR #5 merged)
 - Updated `CLAUDE.md` with current project state (PR #4 merged)
+
+---
+
+## Completed Work (2026-03-15)
+
+### Security & Code Quality Sprint
+- **CORS:** `CORS_ORIGINS` env var required at startup; explicit methods/headers list
+- **Exception handling:** Replaced all 29 `except Exception` in `api.py` with `pymongo.errors.PyMongoError`, treelib-specific exceptions, `KeyError`/`ValueError` as appropriate. `database.py` was already clean.
+- **ConsoleDisplay:** Removed 23 per-method `ConsoleDisplay()` instantiations in `database.py`. Fixed latent `AttributeError` in `update_user_details/password/type` else branches. Eliminated per-recursive-call instantiation in `add_a_node()`.
+- **Rate limiting:** SlowAPI + existing Redis backend on `/get_token`. `LOGIN_RATE_LIMIT` env var (default `5/minute`). Add `LOGIN_RATE_LIMIT=1000/minute` to test `.env`.
+- **New deps:** `slowapi==0.1.9`, `limits[redis]>=3.6.0` added to `requirements.txt`
 
 ---
 
