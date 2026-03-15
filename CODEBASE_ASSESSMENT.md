@@ -47,7 +47,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
 | H1a | Overly broad `except Exception` catches | database.py | Throughout | [x] Fixed — 0 remaining |
-| H1b | Overly broad `except Exception` catches | api.py | Throughout | [ ] Open — 29 remaining |
+| H1b | Overly broad `except Exception` catches | api.py | Throughout | [x] Fixed 2026-03-15 — 0 remaining |
 | H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [ ] Open |
 | H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [ ] Open |
 | H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | [ ] Open |
@@ -89,7 +89,7 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 - [ ] **2.1** Consolidate DB connections - Use singleton client or dependency injection
 - [x] **2.2a** Replace broad exception catching in `database.py` ✅ **Completed** — 0 remaining
-- [ ] **2.2b** Replace broad exception catching in `api.py` — 29 instances remaining
+- [x] **2.2b** Replace broad exception catching in `api.py` ✅ **Completed 2026-03-15** — 0 remaining
 - [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
 - [ ] **2.4** Fix ConsoleDisplay instantiation - Make it an instance variable, not per-method
 - [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
@@ -158,10 +158,11 @@ self.tree = tree
 self.console_display = ConsoleDisplay()
 ```
 
-#### Overly Broad Exception Handling
-**File:** `server/app/api.py` — 29 instances remaining (`database.py` is clean)
-- Should catch specific exceptions (e.g. `treelib.exceptions.NodeIDAbsentError`, `pymongo.errors.PyMongoError`)
-- Current pattern loses error context and can silently swallow unexpected failures
+#### Overly Broad Exception Handling — ✅ Fixed 2026-03-15
+Both `database.py` and `api.py` now use specific exceptions:
+- `pymongo.errors.PyMongoError` for all MongoDB operations
+- `treelib.exceptions.NodeIDAbsentError`, `DuplicatedNodeIdError`, `MultipleRootError`, `LoopError` for treelib operations
+- `KeyError`/`ValueError` for dict parsing and serialisation
 
 ### Performance Concerns
 
@@ -226,3 +227,4 @@ self.console_display = ConsoleDisplay()
 | 2026-02-09 | **Security fix:** `/loads/{save_id}` now verifies account ownership |
 | 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
 | 2026-03-15 | **Fixed C2:** CORS now reads origins from `CORS_ORIGINS` env var (required, errors on missing); methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type |
+| 2026-03-15 | **Fixed H1b:** All 29 `except Exception` catches in `api.py` replaced with specific exceptions (PyMongoError, treelib exceptions, KeyError/ValueError) |
