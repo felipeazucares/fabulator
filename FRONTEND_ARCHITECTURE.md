@@ -71,12 +71,15 @@ src/
 │
 ├── store/
 │   ├── authStore.js            # JWT token, user, scopes
-│   └── treeStore.js            # Current tree, selected node, dirty state
+│   ├── treeStore.js            # Current tree, selected node, dirty state
+│   └── undoStore.js            # Command pattern undo stack (50 ops max)
 │
 ├── hooks/
 │   ├── usePermissions.js       # Derives allowed actions from JWT scopes
 │   ├── useTree.js              # Fetches + transforms tree data for D3
-│   └── useNodeDetail.js        # Selected node CRUD operations
+│   ├── useNodeDetail.js        # Selected node CRUD operations
+│   ├── useAutoSave.js          # Debounced save (2-3s), dirty state management
+│   └── useUndoStack.js         # Command pattern, 50 op limit
 │
 ├── pages/
 │   ├── LoginPage.jsx           # Auth form
@@ -94,8 +97,9 @@ src/
     │
     ├── node/
     │   ├── NodeDetailPanel.jsx # Right panel shell
-    │   ├── NodeHeader.jsx      # Name, ID, depth
-    │   ├── NodeFields.jsx      # Description, text, previous/next
+    │   ├── NodeHeader.jsx      # Name, ID, depth, dirty indicator dot
+    │   ├── NodeFields.jsx      # Description, text (textarea 3-4 rows), previous/next
+    │   ├── NodePicker.jsx      # Search/select node for previous/next links
     │   ├── NodeTags.jsx        # Tag display + edit
     │   └── NodeActions.jsx     # Add child, delete, duplicate (gated by permissions)
     │
@@ -211,11 +215,13 @@ The following are in the API roadmap but not the v1 frontend:
 
 ---
 
-## Open Questions
+## Design Decisions (resolved)
 
-1. **Node text field** — the API has a `text` field on nodes. Is this a scratchpad/synopsis, or is it the actual prose? (Affects how prominently to display it in the detail panel.)
-2. **Previous/next links** — are these manually set or auto-derived from tree position?
-3. **Save UX** — is saving explicit (button) or automatic on edit?
+| Question | Decision |
+|----------|----------|
+| **Node text field** | Synopsis/treatment — writer's shorthand for the scene ("Elara walks into the lighthouse. The door is already open."). Prominent inline textarea, 3-4 rows, not a full editor. |
+| **Previous/next links** | Manually set by the writer — narrative order can differ from tree position. Needs a node picker (search/select) not free text. A story branch may loop back or skip forward. |
+| **Save UX** | Auto-save on debounce (2-3s after last keystroke). Dirty indicator while unsaved — subtle dot on tree node + toolbar status. Client-side undo stack (command pattern, 50 operations deep). **Note:** API has no revision history endpoint (Tier 5 roadmap) — undo is entirely a frontend concern for v1. |
 
 ---
 
