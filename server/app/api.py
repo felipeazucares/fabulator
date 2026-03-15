@@ -62,18 +62,17 @@ if DEBUG:
 app = FastAPI()
 version = "0.1.0"
 
-origins = [
-    "http://localhost:8000",
-    "localhost:8000"
-]
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "")
+if not _cors_origins_raw.strip():
+    raise RuntimeError("CORS_ORIGINS environment variable is not set. Add it to your .env file.")
+origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
 
-# add CORS middleware - just for development purposes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
