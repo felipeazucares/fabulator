@@ -16,6 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+COPY server/requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt --break-system-packages
+
 # Non-root user — Claude Code runs as 'claude', not root
 RUN useradd -m -u 1001 -s /bin/bash claude
 
