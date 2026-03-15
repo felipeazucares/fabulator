@@ -35,6 +35,8 @@ python-multipart==0.0.22
 redis==7.3.0
 rsa==4.9.1
 six==1.17.0
+slowapi==0.1.9
+limits[redis]>=3.6.0
 starlette==0.52.1
 treelib==1.8.0
 typing-inspection==0.4.2

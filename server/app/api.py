@@ -14,6 +14,10 @@ from datetime import timedelta, datetime
 from jose import JWTError, jwt
 import pymongo.errors
 import treelib.exceptions
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from starlette.requests import Request
 from passlib.context import CryptContext
 from fastapi.security import (
     OAuth2PasswordBearer,
@@ -43,6 +47,7 @@ from .models import (
 # set env variables flag
 
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+LOGIN_RATE_LIMIT = os.getenv('LOGIN_RATE_LIMIT', '5/minute')
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
@@ -61,7 +66,12 @@ if DEBUG:
 # ------------------------
 #      FABULATOR
 # ------------------------
+REDISHOST = os.getenv('REDISHOST', 'redis://localhost:6379')
+limiter = Limiter(key_func=get_remote_address, storage_uri=REDISHOST)
+
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 version = "0.1.0"
 
 _cors_origins_raw = os.getenv("CORS_ORIGINS", "")
@@ -276,7 +286,8 @@ async def get_current_active_user_account(current_user: UserDetails = Security(g
 
 
 @ app.post("/get_token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+@limiter.limit(LOGIN_RATE_LIMIT)
+async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await oauth.authenticate_user(
         form_data.username, form_data.password)
     if not user:
