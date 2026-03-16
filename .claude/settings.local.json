@@ -16,6 +16,26 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat .claude/context.md 2>/dev/null && echo '## Git state' && git branch --show-current && git status --short | head -10"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cp \"$CLAUDE_TRANSCRIPT_PATH\" .claude/backups/last-transcript.jsonl 2>/dev/null || true"
+          }
+        ]
+      }
     ]
   }
 }
