@@ -13,12 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     python3 \
     python3-pip \
-    nano \
-    sudo \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
-RUN echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 COPY server/requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt --break-system-packages
