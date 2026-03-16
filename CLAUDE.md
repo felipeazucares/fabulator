@@ -70,6 +70,7 @@ REDISHOST=redis://localhost:6379
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 LOGIN_RATE_LIMIT=5/minute          # use 1000/minute in test environments
 MAX_TREE_DEPTH=100
+MONGO_MAX_POOL_SIZE=100       # max Motor connections to MongoDB (tune for concurrency)
 DEBUG=False
 ```
 
@@ -191,7 +192,6 @@ class SomeSchema(BaseModel):
 All critical, high, and medium-priority issues are resolved. Remaining open items:
 
 ### Low Priority
-- **4.1** — Motor connection pooling not load-tested in production conditions
 - **4.3** — No performance/load tests
 - **4.4** — Route handlers lack OpenAPI `summary`/`description` annotations
 - Pre-commit hook calls `sudo` (unavailable in some environments)
@@ -211,6 +211,7 @@ All critical, high, and medium-priority issues are resolved. Remaining open item
 - **Unit tests L4** (2026-03-16): `server/tests/test_unit.py` — 43 tests, no live DB required — PR #16
 - **README L2** (2026-03-16): `README.md` added at repo root — PR #16
 - **Self-assignment pattern 4.5** (2026-03-16): 71 `self.x = param` assignments removed from 22 methods; local variables used throughout — PR #17
+- **Motor pool observability 4.1** (2026-03-16): `MONGO_MAX_POOL_SIZE` env var (default 100) wired into `AsyncIOMotorClient`; `_PoolEventLogger` registered when `DEBUG=True`; 2 concurrent-request tests confirm pool reuse — PR #18
 
 ## Missing API Functionality (Roadmap)
 

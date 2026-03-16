@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from datetime import timedelta, datetime
 from jose import JWTError, jwt
 import pymongo.errors
+import pymongo.monitoring
 import treelib.exceptions
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -53,6 +54,7 @@ from .models import (
 # set env variables flag
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
 LOGIN_RATE_LIMIT = os.getenv('LOGIN_RATE_LIMIT', '5/minute')
+MONGO_MAX_POOL_SIZE = int(os.getenv('MONGO_MAX_POOL_SIZE', '100'))
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
@@ -64,6 +66,50 @@ TEST_PASSWORD_TO_CHANGE = os.getenv(key="TESTPWDTOCHANGE")
 
 logger = get_logger(__name__)
 logger.debug(f"Environment variable DEBUG is :{DEBUG}")
+
+
+# ------------------------
+#  Connection pool monitor
+# ------------------------
+
+class _PoolEventLogger(pymongo.monitoring.ConnectionPoolListener):
+    """Logs Motor/PyMongo connection pool events.
+    Registered at startup when DEBUG=True.  Produces INFO-level entries
+    for connection lifecycle events (created/closed) and DEBUG-level
+    entries for checkout/checkin churn, making it easy to confirm that
+    connections are being reused rather than recreated per request.
+    """
+
+    def pool_created(self, event):
+        logger.info(f"[pool] created: address={event.address}")
+
+    def pool_cleared(self, event):
+        logger.info(f"[pool] cleared: address={event.address}")
+
+    def pool_closed(self, event):
+        logger.info(f"[pool] closed: address={event.address}")
+
+    def connection_created(self, event):
+        logger.info(f"[pool] connection created: address={event.address}, id={event.connection_id}")
+
+    def connection_ready(self, event):
+        logger.debug(f"[pool] connection ready: address={event.address}, id={event.connection_id}")
+
+    def connection_checked_out(self, event):
+        logger.debug(f"[pool] checked out: address={event.address}, id={event.connection_id}")
+
+    def connection_check_out_failed(self, event):
+        logger.warning(f"[pool] check out failed: address={event.address}, reason={event.reason}")
+
+    def connection_checked_in(self, event):
+        logger.debug(f"[pool] checked in: address={event.address}, id={event.connection_id}")
+
+    def connection_closed(self, event):
+        logger.info(f"[pool] connection closed: address={event.address}, id={event.connection_id}, reason={event.reason}")
+
+
+if DEBUG:
+    pymongo.monitoring.register(_PoolEventLogger())
 
 
 # ------------------------
@@ -82,7 +128,10 @@ oauth = Authentication()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    motor_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    motor_client = motor.motor_asyncio.AsyncIOMotorClient(
+        MONGO_DETAILS,
+        maxPoolSize=MONGO_MAX_POOL_SIZE,
+    )
     app.state.motor_client = motor_client
     oauth.set_client(motor_client)
     yield
