@@ -553,9 +553,7 @@ async def test_nodes_remove_non_existent_node(return_token, test_create_root_nod
     headers = return_token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/XXXX", headers=headers)
-    assert response.status_code == 404
-    # test that the root node is removed as expected
-    assert response.json()["detail"] == "Node not found in current tree"
+    assert response.status_code == 422
     # now remove the node we just added
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
         response = await client.delete(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", headers=headers)
@@ -625,10 +623,7 @@ async def test_nodes_update_node_for_non_existent_node(test_create_root_node, re
 
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/XXXX", json=data, headers=headers)
-    assert response.status_code == 404
-    # test that an error state is generated as expected
-    assert response.json()[
-        "detail"] == "Node not found in current tree"
+    assert response.status_code == 422
 
     # remove the root node we just created
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
@@ -670,8 +665,6 @@ async def test_nodes_update_node_with_non_existent_parent(test_create_root_node,
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as ac:
         response = await ac.put(f"http://localhost:8000/nodes/{test_create_root_node['node_id']}", json=data, headers=headers)
     assert response.status_code == 422
-    assert response.json()[
-        'detail'] == "Parent XXXX is missing from tree"
 
     # remove the root node we just created
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
@@ -719,10 +712,7 @@ async def test_nodes_get_a_non_existent_node(test_create_root_node, return_token
     headers = return_token
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
         response = await ac.get(f"/nodes/xxx")
-    assert response.status_code == 404
-    # test that an error state is generated as expected
-    assert response.json()[
-        "detail"] == "Node not found in current tree"
+    assert response.status_code == 422
 
     # remove the root node we just created
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
@@ -837,8 +827,6 @@ async def test_nodes_add_child_node_with_invalid_parent(test_create_root_node, r
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url=f"http://localhost:8000") as ac:
         response = await ac.post(f"/nodes/unit test child node", json=data, headers=headers)
     assert response.status_code == 422
-    assert response.json()[
-        "detail"] == "Parent XXXX is missing from tree"
 
     # remove the root & child node we just created
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app)) as client:
@@ -1828,3 +1816,124 @@ async def test_scope_update_type(return_scoped_token):
     assert response.status_code == 403
     assert response.json() == {
         'detail': 'Insufficient permissions to complete action'}
+
+
+# ------------------------
+#   Input Validation Tests
+# ------------------------
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_parent_not_uuid(return_token, test_add_user):
+    """parent field must be a valid UUID"""
+    headers = return_token
+    data = jsonable_encoder({
+        "parent": "not-a-uuid",
+        "description": "test description",
+    })
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/nodes/valid-name", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_name_too_long(return_token, test_add_user):
+    """node name path param must not exceed NODE_NAME_MAX_LEN"""
+    headers = return_token
+    long_name = "x" * 201
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post(f"/nodes/{long_name}", json={}, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_too_many_tags(return_token, test_add_user):
+    """tags list must not exceed TAGS_MAX_COUNT items"""
+    headers = return_token
+    data = jsonable_encoder({"tags": [f"tag{i}" for i in range(51)]})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/nodes/valid-name", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_tag_too_long(return_token, test_add_user):
+    """individual tags must not exceed TAG_MAX_LEN"""
+    headers = return_token
+    data = jsonable_encoder({"tags": ["x" * 101]})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/nodes/valid-name", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_description_too_long(return_token, test_add_user):
+    """description must not exceed DESCRIPTION_MAX_LEN"""
+    headers = return_token
+    data = jsonable_encoder({"description": "x" * 2001})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/nodes/valid-name", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_create_node_text_too_long(return_token, test_add_user):
+    """text must not exceed TEXT_MAX_LEN"""
+    headers = return_token
+    data = jsonable_encoder({"text": "x" * 50001})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/nodes/valid-name", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_update_node_parent_not_uuid(return_token, test_create_root_node):
+    """parent field in update must be a valid UUID"""
+    headers = return_token
+    data = jsonable_encoder({"parent": "not-a-uuid"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/nodes/{test_create_root_node['node_id']}", json=data, headers=headers)
+    assert response.status_code == 422
+    # cleanup
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/nodes/{test_create_root_node['node_id']}", headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_validation_update_node_name_too_long(return_token, test_create_root_node):
+    """name in update body must not exceed NODE_NAME_MAX_LEN"""
+    headers = return_token
+    data = jsonable_encoder({"name": "x" * 201})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/nodes/{test_create_root_node['node_id']}", json=data, headers=headers)
+    assert response.status_code == 422
+    # cleanup
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/nodes/{test_create_root_node['node_id']}", headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_validation_get_node_id_not_uuid(return_token, test_add_user):
+    """GET /nodes/{id} must reject non-UUID ids"""
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/nodes/not-a-uuid", headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_delete_node_id_not_uuid(return_token, test_add_user):
+    """DELETE /nodes/{id} must reject non-UUID ids"""
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.delete("/nodes/not-a-uuid", headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_validation_trees_id_not_uuid(return_token, test_add_user):
+    """GET /trees/{id} must reject non-UUID ids"""
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/trees/not-a-uuid", headers=headers)
+    assert response.status_code == 422

@@ -6,7 +6,7 @@ import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
 from app.authentication import Authentication
 from treelib import Tree
-from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
+from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path
 from typing import Optional
 import motor.motor_asyncio
 from fastapi.encoders import jsonable_encoder
@@ -43,7 +43,9 @@ from .models import (
     UpdateUserType,
     Token,
     TokenData,
-    ResponseModel
+    ResponseModel,
+    UUID_PATTERN,
+    NODE_NAME_MAX_LEN,
 )
 
 
@@ -398,7 +400,7 @@ async def get_tree_root(
 
 @ app.get("/trees/{id}")
 async def prune_subtree(
-    id: str,
+    id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
     user_storage: UserStorage = Depends(get_user_storage),
@@ -438,7 +440,7 @@ async def prune_subtree(
 
 @ app.post("/trees/{id}")
 async def graft_subtree(
-    id: str,
+    id: str = Path(..., pattern=UUID_PATTERN),
     request: SubTree = Body(...),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -531,7 +533,7 @@ async def get_all_nodes(
 
 @ app.get("/nodes/{id}")
 async def get_a_node(
-    id: str,
+    id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
     user_storage: UserStorage = Depends(get_user_storage),
@@ -557,7 +559,7 @@ async def get_a_node(
 
 @ app.post("/nodes/{name}")
 async def create_node(
-    name: str,
+    name: str = Path(..., min_length=1, max_length=NODE_NAME_MAX_LEN),
     request: RequestAddSchema = Body(...),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -644,7 +646,7 @@ async def create_node(
 
 @ app.put("/nodes/{id}")
 async def update_node(
-    id: str,
+    id: str = Path(..., pattern=UUID_PATTERN),
     request: RequestUpdateSchema = Body(...),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -730,7 +732,7 @@ async def update_node(
 
 @ app.delete("/nodes/{id}")
 async def delete_node(
-    id: str,
+    id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
     user_storage: UserStorage = Depends(get_user_storage),
