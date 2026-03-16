@@ -338,7 +338,17 @@ async def get_current_active_user_account(current_user: UserDetails = Security(g
     return current_user.account_id
 
 
-@ app.post("/get_token", response_model=Token)
+@ app.post(
+    "/get_token",
+    response_model=Token,
+    summary="Login",
+    description=(
+        "Authenticate with username and password. Returns a JWT access token scoped to the "
+        "requested permissions. Rate-limited (default 5 requests/minute per IP, configurable "
+        "via `LOGIN_RATE_LIMIT`)."
+    ),
+    tags=["Authentication"],
+)
 @limiter.limit(LOGIN_RATE_LIMIT)
 async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await oauth.authenticate_user(
@@ -362,13 +372,27 @@ async def get_current_user_token(token: str = Depends(oauth2_scheme)):
     return token
 
 
-@ app.get("/logout")
+@ app.get(
+    "/logout",
+    summary="Logout",
+    description=(
+        "Blacklist the current bearer token. The token will be rejected on all subsequent "
+        "requests until it expires naturally."
+    ),
+    tags=["Authentication"],
+)
 async def logout(token: str = Depends(get_current_user_token)):
     if await oauth.add_blacklist_token(token):
         return {'result': True}
 
 
-@ app.get("/users/me", response_model=UserDetails)
+@ app.get(
+    "/users/me",
+    response_model=UserDetails,
+    summary="Get current user",
+    description="Return the full profile of the currently authenticated user.",
+    tags=["Users"],
+)
 async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
     return current_user
 
@@ -383,7 +407,12 @@ def initialise_tree():
     return Tree()
 
 
-@ app.get("/")
+@ app.get(
+    "/",
+    summary="API version",
+    description="Return the API version and the authenticated user's username.",
+    tags=["Meta"],
+)
 async def get(current_user: UserDetails = Security(get_current_user, scopes=["tree:reader", "user:reader"])) -> dict:
     """ Return the API version """
     logger.debug("Get() Called")
@@ -394,7 +423,15 @@ async def get(current_user: UserDetails = Security(get_current_user, scopes=["tr
 # ------------------------
 
 
-@ app.get("/trees/root")
+@ app.get(
+    "/trees/root",
+    summary="Get root node ID",
+    description=(
+        "Return the identifier of the root node in the current user's tree. "
+        "Returns 404 if no tree has been saved yet."
+    ),
+    tags=["Trees"],
+)
 async def get_tree_root(
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -411,7 +448,16 @@ async def get_tree_root(
     return ResponseModel(data={"root": root_node}, message="Success")
 
 
-@ app.get("/trees/{id}")
+@ app.get(
+    "/trees/{id}",
+    summary="Prune subtree",
+    description=(
+        "Remove the subtree rooted at the given node from the current tree and return it as a "
+        "serialized structure. The main tree is saved after removal. "
+        "**Note:** this is a mutating GET — it modifies the stored tree."
+    ),
+    tags=["Trees"],
+)
 async def prune_subtree(
     id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
@@ -444,7 +490,15 @@ async def prune_subtree(
     return ResponseModel(jsonable_encoder(response), message)
 
 
-@ app.post("/trees/{id}")
+@ app.post(
+    "/trees/{id}",
+    summary="Graft subtree",
+    description=(
+        "Attach a previously pruned subtree as a child of the specified node. "
+        "The subtree must be provided as a serialized tree dict in the request body."
+    ),
+    tags=["Trees"],
+)
 async def graft_subtree(
     id: str = Path(..., pattern=UUID_PATTERN),
     request: SubTree = Body(...),
@@ -497,7 +551,15 @@ async def graft_subtree(
 # ------------------------
 
 
-@ app.get("/nodes")
+@ app.get(
+    "/nodes",
+    summary="List all nodes",
+    description=(
+        "Return all nodes in the current tree. Pass `filterval` as a query parameter to return "
+        "only nodes whose tags contain that value."
+    ),
+    tags=["Nodes"],
+)
 async def get_all_nodes(
     filterval: Optional[str] = None,
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
@@ -529,7 +591,12 @@ async def get_all_nodes(
     return ResponseModel(data=data, message="Success")
 
 
-@ app.get("/nodes/{id}")
+@ app.get(
+    "/nodes/{id}",
+    summary="Get a node",
+    description="Return a single node identified by its UUID.",
+    tags=["Nodes"],
+)
 async def get_a_node(
     id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
@@ -550,7 +617,16 @@ async def get_a_node(
     return ResponseModel(jsonable_encoder(node), "Success")
 
 
-@ app.post("/nodes/{name}")
+@ app.post(
+    "/nodes/{name}",
+    summary="Create a node",
+    description=(
+        "Create a new node with the given name. If `parent` is provided in the request body "
+        "the node is created as a child of that node. Omit `parent` to create the root node — "
+        "only one root is allowed per tree."
+    ),
+    tags=["Nodes"],
+)
 async def create_node(
     name: str = Path(..., min_length=1, max_length=NODE_NAME_MAX_LEN),
     request: RequestAddSchema = Body(...),
@@ -620,7 +696,15 @@ async def create_node(
     return ResponseModel({"node": jsonable_encoder(new_node), "object_id": save_result}, "Success")
 
 
-@ app.put("/nodes/{id}")
+@ app.put(
+    "/nodes/{id}",
+    summary="Update a node",
+    description=(
+        "Update the name, payload (description, text, tags, previous, next), and/or parent of "
+        "an existing node. Providing a different `parent` UUID reparents the node within the tree."
+    ),
+    tags=["Nodes"],
+)
 async def update_node(
     id: str = Path(..., pattern=UUID_PATTERN),
     request: RequestUpdateSchema = Body(...),
@@ -687,7 +771,15 @@ async def update_node(
             status_code=404, detail="Node not found in current tree")
 
 
-@ app.delete("/nodes/{id}")
+@ app.delete(
+    "/nodes/{id}",
+    summary="Delete a node",
+    description=(
+        "Remove the specified node and all its descendants from the tree permanently. "
+        "Historical saves are unaffected."
+    ),
+    tags=["Nodes"],
+)
 async def delete_node(
     id: str = Path(..., pattern=UUID_PATTERN),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
@@ -728,7 +820,12 @@ async def delete_node(
 # ------------------------
 
 
-@ app.get("/loads")
+@ app.get(
+    "/loads",
+    summary="Load latest save",
+    description="Return the most recent saved tree snapshot for the current account as a serialized tree structure.",
+    tags=["Saves"],
+)
 async def get_latest_save(
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -745,7 +842,15 @@ async def get_latest_save(
     return ResponseModel(jsonable_encoder(tree), "Success")
 
 
-@ app.get("/loads/{save_id}")
+@ app.get(
+    "/loads/{save_id}",
+    summary="Load a specific save",
+    description=(
+        "Return a historical tree snapshot by its save ID. "
+        "Ownership is verified — you cannot load another user's save."
+    ),
+    tags=["Saves"],
+)
 async def get_a_save(
     save_id: str,
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
@@ -778,7 +883,12 @@ async def get_a_save(
 # ------------------------
 
 
-@ app.get("/saves")
+@ app.get(
+    "/saves",
+    summary="List all saves",
+    description="Return metadata for all saved tree snapshots belonging to the current account.",
+    tags=["Saves"],
+)
 async def get_all_saves(
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -795,7 +905,12 @@ async def get_all_saves(
     return ResponseModel(jsonable_encoder(all_saves), "Success")
 
 
-@ app.delete("/saves")
+@ app.delete(
+    "/saves",
+    summary="Delete all saves",
+    description="Permanently delete every saved snapshot for the current account. This cannot be undone.",
+    tags=["Saves"],
+)
 async def delete_saves(
     account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -815,7 +930,15 @@ async def delete_saves(
 #          Users
 # ------------------------
 
-@ app.post("/users")
+@ app.post(
+    "/users",
+    summary="Register a user",
+    description=(
+        "Create a new user account. Password and username are hashed before storage. "
+        "No authentication required."
+    ),
+    tags=["Users"],
+)
 async def save_user(
     request: UserDetails = Body(...),
     user_storage: UserStorage = Depends(get_user_storage),
@@ -834,7 +957,12 @@ async def save_user(
     return result
 
 
-@ app.get("/users")
+@ app.get(
+    "/users",
+    summary="Get user details",
+    description="Return the profile of the currently authenticated user from the user collection.",
+    tags=["Users"],
+)
 async def get_user(
     account_id: str = Security(get_current_active_user_account, scopes=["user:reader"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
@@ -857,7 +985,12 @@ async def get_user(
             status_code=404, detail="No user record found")
 
 
-@ app.put("/users")
+@ app.put(
+    "/users",
+    summary="Update user details",
+    description="Update the display name (first name, surname) and email address of the current user.",
+    tags=["Users"],
+)
 async def update_user(
     account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
     request: UpdateUserDetails = Body(...),
@@ -881,7 +1014,12 @@ async def update_user(
             status_code=404, detail="No user record found")
 
 
-@ app.put("/users/password")
+@ app.put(
+    "/users/password",
+    summary="Change password",
+    description="Update the password for the current user. The new password is hashed before storage.",
+    tags=["Users"],
+)
 async def update_password(
     account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
     request: UpdateUserPassword = Body(...),
@@ -906,7 +1044,15 @@ async def update_password(
             status_code=401, detail=f"Invalid account_id requested")
 
 
-@ app.put("/users/type")
+@ app.put(
+    "/users/type",
+    summary="Change user type",
+    description=(
+        "Update the subscription type for the current user (`free` or `premium`). "
+        "Requires the `usertype:writer` scope."
+    ),
+    tags=["Users"],
+)
 async def update_type(
     account_id: str = Security(get_current_active_user_account, scopes=["usertype:writer"]),
     request: UpdateUserType = Body(...),
@@ -929,7 +1075,12 @@ async def update_type(
             status_code=401, detail=f"Invalid account_id requested")
 
 
-@ app.delete("/users")
+@ app.delete(
+    "/users",
+    summary="Delete account",
+    description="Permanently delete the current user's account and all associated tree saves.",
+    tags=["Users"],
+)
 async def delete_user(
     account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
     db_storage: TreeStorage = Depends(get_tree_storage),
