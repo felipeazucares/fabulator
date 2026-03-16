@@ -18,8 +18,16 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
     curl \
+    python3 \
+    python3-pip \
+    nano \
+    sudo \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+RUN echo "claude ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # requirements.txt is at project root
 COPY server/requirements.txt .
