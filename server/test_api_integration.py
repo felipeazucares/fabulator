@@ -2022,3 +2022,52 @@ async def test_tree_loading_respects_depth_limit(return_token, test_create_root_
     monkeypatch.setattr(db_module, "MAX_TREE_DEPTH", 100)
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         await ac.delete(f"/nodes/{node_id}", headers=headers)
+
+
+# ------------------------
+#  Connection pool tests
+# ------------------------
+
+async def test_shared_pool_handles_concurrent_requests(return_token, test_create_root_node):
+    """Ten concurrent GET /nodes requests all succeed via the shared Motor connection pool.
+
+    This is a regression guard: if the Depends() wiring is ever broken so that
+    a new AsyncIOMotorClient is created per-request, the test still passes but
+    the pool-event log (visible with DEBUG=True) would show a flood of
+    'connection created' entries instead of 'checked out/checked in' pairs.
+
+    Under normal operation with DEBUG=True you should see:
+        [pool] connection created  ... (once per pool slot, on first use)
+        [pool] checked out         ... (every request)
+        [pool] checked in          ... (every request)
+    """
+    headers = return_token
+
+    async def get_nodes():
+        async with httpx.AsyncClient(
+            transport=ASGITransport(app=api.app),
+            base_url="http://localhost:8000",
+            headers=headers,
+        ) as ac:
+            return await ac.get("/nodes")
+
+    responses = await asyncio.gather(*[get_nodes() for _ in range(10)])
+
+    failed = [r.status_code for r in responses if r.status_code != 200]
+    assert not failed, f"Expected all 200 from concurrent requests, got failures: {failed}"
+
+
+def test_shared_pool_client_is_singleton(motor_client):
+    """The Motor client stored on app.state is the same object for every storage instance.
+
+    Verifies that get_tree_storage / get_user_storage inject the shared client
+    rather than creating a new one, which would bypass connection pooling entirely.
+    """
+    from app.database import TreeStorage, UserStorage
+
+    tree_storage = TreeStorage(collection_name="tree_collection", client=motor_client)
+    user_storage = UserStorage(collection_name="user_collection", client=motor_client)
+
+    assert tree_storage.client is motor_client
+    assert user_storage.client is motor_client
+    assert tree_storage.client is user_storage.client

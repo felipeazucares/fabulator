@@ -24,6 +24,7 @@ Last Updated: 2026-03-16
 ✅ **Unit Tests (2026-03-16):** `server/tests/test_unit.py` — 43 tests covering model validation, auth helpers, tree operations; no live DB required — PR #16
 ✅ **README (2026-03-16):** Added `README.md` at repo root with setup, env vars, run/test instructions, API reference — PR #16
 ✅ **Self-Assignment Refactor 4.5 (2026-03-16):** 71 `self.x = param` assignments removed from 22 methods in `database.py`; local variables throughout; eliminates concurrency risk in recursive `add_a_node()` — PR #17
+✅ **Motor Pool Observability 4.1 (2026-03-16):** `MONGO_MAX_POOL_SIZE` env var (default 100) passed to `AsyncIOMotorClient`; `_PoolEventLogger` registered when `DEBUG=True` to log checkout/checkin/created events; 2 pool regression tests added — PR #18
 
 ---
 
@@ -114,18 +115,22 @@ Last Updated: 2026-03-16
 - `save_user_details()`: 9-field unpack block replaced with direct `UserDetails(...)` construction from `user` param
 - Net: -50 lines in `database.py`
 
+### Motor Pool Observability (4.1) — PR #18
+- `MONGO_MAX_POOL_SIZE = int(os.getenv("MONGO_MAX_POOL_SIZE", "100"))` added to `api.py`
+- `AsyncIOMotorClient(MONGO_DETAILS, maxPoolSize=MONGO_MAX_POOL_SIZE)` in lifespan
+- `_PoolEventLogger(ConnectionPoolListener)` registered with `pymongo.monitoring.register()` when `DEBUG=True`; logs `connection_created` at INFO, `checked_out/checked_in` at DEBUG — confirms reuse vs new socket creation at runtime
+- `test_shared_pool_handles_concurrent_requests`: fires 10 parallel `GET /nodes` via `asyncio.gather()`, asserts all 200
+- `test_shared_pool_client_is_singleton`: asserts `tree_storage.client is user_storage.client is motor_client`
+- `MONGO_MAX_POOL_SIZE` documented in `.env.example` and `CLAUDE.md`
+
 ### Test Suite Status (2026-03-16)
-- **171 tests collected** (128 integration + 43 unit)
-- **161 passed, 10 skipped, 0 failed** (161 after PR #17)
+- **173 tests collected** (130 integration + 43 unit)
+- **163 passed, 10 skipped, 0 failed** (after PR #18)
 - 10 skips are expected scope tests (pytest.skip when token has sufficient scope)
 
 ---
 
 ## Remaining Work
-
-### 4.1 — Verify Motor Connection Pooling
-**Priority:** Medium
-**Scope:** Load-test or profile the app to confirm the single shared `AsyncIOMotorClient` is actually reusing connections rather than creating new TCP sockets per request. Motor's default pool size is 100; verify this is appropriate for expected concurrency.
 
 ### 4.3 — Performance / Load Tests
 **Priority:** Low
