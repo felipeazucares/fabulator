@@ -626,7 +626,7 @@ async def create_node(
                 status_code=422, detail=f"Parent {request['parent']} is missing from tree")
     else:
         # No parent so check if we already have a root
-        if tree.root == None:
+        if tree.root is None:
             try:
                 new_node = tree.create_node(
                     name, data=node_payload)
@@ -986,7 +986,7 @@ async def update_password(
     print(f"request:{request}")
     # make sure that payload account_id is the same as the one that we're logged in under
     request.new_password = pwd_context.hash(request.new_password)
-    if account_id != None:
+    if account_id is not None:
         try:
             update_result = await user_storage.update_user_password(account_id=account_id, user=request)
         except pymongo.errors.PyMongoError as e:
@@ -1013,7 +1013,7 @@ async def update_type(
         console_display.show_debug_message(
             f"update_type({request}) called")
 
-    if account_id != None:
+    if account_id is not None:
         try:
             update_result = await user_storage.update_user_type(account_id=account_id, user=request)
         except pymongo.errors.PyMongoError as e:
