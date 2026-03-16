@@ -67,7 +67,11 @@ if DEBUG:
 #      FABULATOR
 # ------------------------
 REDISHOST = os.getenv('REDISHOST', 'redis://localhost:6379')
-limiter = Limiter(key_func=get_remote_address, storage_uri=REDISHOST)
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=REDISHOST,
+    storage_options={"socket_keepalive": True, "health_check_interval": 30}
+)
 
 app = FastAPI()
 app.state.limiter = limiter
