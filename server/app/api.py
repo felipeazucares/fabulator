@@ -156,7 +156,7 @@ class RoutesHelper():
         except pymongo.errors.PyMongoError as e:
             logger.error(f"Error occured retrieving count of saves for {self.account_id}", exc_info=True)
             raise HTTPException(
-                status_code=500, detail=f"Error occured retrieving details for {account_id} : {e}")
+                status_code=500, detail="An error occurred processing your request")
 
     async def save_document_exists(self, document_id, account_id=None):
         """ Check if save document exists. If account_id provided, also verify ownership. """
@@ -172,7 +172,7 @@ class RoutesHelper():
         except pymongo.errors.PyMongoError as e:
             logger.error(f"Error occured retrieving count of saves for {self.document_id}", exc_info=True)
             raise HTTPException(
-                status_code=500, detail=f"Error occured retrieving count of save documents for document save_id: {self.document_id}: {e}")
+                status_code=500, detail="An error occurred processing your request")
 
     async def user_document_exists(self, user_id):
         self.user_id = user_id
@@ -187,7 +187,7 @@ class RoutesHelper():
         except pymongo.errors.PyMongoError as e:
             logger.error(f"Error occured retrieving user document for {self.user_id}", exc_info=True)
             raise HTTPException(
-                status_code=500, detail=f"Error occured retrieving count of user documents user_id: {self.user_id}: {e}")
+                status_code=500, detail="An error occurred processing your request")
 
     async def get_tree_for_account(self, account_id: str) -> Tree:
         """
@@ -211,7 +211,7 @@ class RoutesHelper():
             except pymongo.errors.PyMongoError as e:
                 logger.error(f"Error loading tree for account {account_id}", exc_info=True)
                 raise HTTPException(
-                    status_code=500, detail=f"Error loading tree for account {account_id}: {e}")
+                    status_code=500, detail="An error occurred loading the tree")
         else:
             # No saves exist - return a new empty tree
             logger.debug(f"No saves found for account {account_id}, creating new tree")
@@ -423,7 +423,7 @@ async def graft_subtree(
         except (KeyError, ValueError) as e:
             logger.error(f"Error occured building the subtree from the request dict object.", exc_info=True)
             raise HTTPException(
-                status_code=500, detail=f"Error occured building the subtree from the request dict object. {e}")
+                status_code=500, detail="An error occurred building the subtree")
         try:
             if DEBUG:
                 tree.save2file(
@@ -544,7 +544,7 @@ async def create_node(
             except (treelib.exceptions.NodeIDAbsentError, treelib.exceptions.DuplicatedNodeIdError) as e:
                 logger.error(f"Error occured adding child node to working tree. name:{name}, parent:{request['parent']}", exc_info=True)
                 raise HTTPException(
-                    status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}, request['parent']:{request['parent']}:{e} ")
+                    status_code=500, detail="An error occurred creating the node")
         else:
             raise HTTPException(
                 status_code=422, detail=f"Parent {request['parent']} is missing from tree")
@@ -557,7 +557,7 @@ async def create_node(
             except (treelib.exceptions.DuplicatedNodeIdError, treelib.exceptions.MultipleRootError) as e:
                 logger.error(f"Error occured adding root node to working tree. name:{name}", exc_info=True)
                 raise HTTPException(
-                    status_code=500, detail=f"request['name']:{request['name']}, data:{node_payload}:{e}")
+                    status_code=500, detail="An error occurred creating the root node")
         else:
             raise HTTPException(
                 status_code=422, detail="Tree already has a root node")
@@ -566,7 +566,7 @@ async def create_node(
     except pymongo.errors.PyMongoError as e:
         logger.error("Error occured saving the working tree to the database", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Error occured saving the working tree to the database: {e}")
+            status_code=500, detail="An error occurred saving the tree")
     logger.debug(f"mongo save: {save_result}")
     return ResponseModel({"node": jsonable_encoder(new_node), "object_id": save_result}, "Success")
 
@@ -691,7 +691,7 @@ async def get_latest_save(
     # Load tree from database for this account
     if not await routes_helper.account_id_exists(account_id=account_id):
         raise HTTPException(
-            status_code=404, detail=f"Unable to locate saves for account_id:{account_id}")
+            status_code=404, detail="No saves found for this account")
     tree = await routes_helper.get_tree_for_account(account_id=account_id)
     return ResponseModel(jsonable_encoder(tree), "Success")
 
@@ -708,7 +708,7 @@ async def get_a_save(
     logger.debug(f"get_a_save({account_id}/{save_id}) called")
     if not await routes_helper.account_id_exists(account_id=account_id):
         raise HTTPException(
-            status_code=404, detail=f"Unable to retrieve documents with account_id: {account_id}")
+            status_code=404, detail="No saves found for this account")
     if not await routes_helper.save_document_exists(document_id=save_id, account_id=account_id):
         raise HTTPException(
             status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
@@ -721,7 +721,7 @@ async def get_a_save(
     except pymongo.errors.PyMongoError as e:
         logger.error(f"Error occured loading specified save into working tree. save_id:{save_id}", exc_info=True)
         raise HTTPException(
-            status_code=500, detail=f"Error occured loading specified save into working tree. save_id: {save_id}: {e}")
+            status_code=500, detail="An error occurred loading the specified save")
     return ResponseModel(jsonable_encoder(tree), "Success")
 
 # ------------------------
@@ -805,7 +805,7 @@ async def get_user(
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for account_id:{account_id}")
+            status_code=404, detail="No user record found")
 
 
 @ app.put("/users")
@@ -829,7 +829,7 @@ async def update_user(
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for account_id:{account_id}")
+            status_code=404, detail="No user record found")
 
 
 @ app.put("/users/password")
@@ -899,4 +899,4 @@ async def delete_user(
         return result
     else:
         raise HTTPException(
-            status_code=404, detail=f"No user record found for id:{account_id}")
+            status_code=404, detail="No user record found")
