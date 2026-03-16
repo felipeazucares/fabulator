@@ -4,6 +4,7 @@ from app.api import TEST_USERNAME_TO_ADD, TEST_PASSWORD_TO_ADD, TEST_USERNAME_TO
 import pytest
 import asyncio
 import os
+import motor.motor_asyncio
 import httpx
 from httpx import ASGITransport
 import app.api as api
@@ -32,6 +33,21 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # ------------------------
 
 @pytest.fixture
+def motor_client():
+    client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_DETAILS"))
+    yield client
+    client.close()
+
+
+@pytest.fixture(autouse=True)
+def setup_app_state(motor_client):
+    """Wire the shared Motor client into app.state and oauth for every test.
+    httpx ASGITransport does not trigger the FastAPI lifespan, so we do it here."""
+    api.app.state.motor_client = motor_client
+    api.oauth.set_client(motor_client)
+
+
+@pytest.fixture
 def get_dummy_user_account_id():
     # set up unit test user
     username = TEST_USERNAME_TO_ADD
@@ -54,11 +70,11 @@ def dummy_user_to_add():
 
 
 @pytest.fixture
-async def test_add_user(dummy_user_to_add):
+async def test_add_user(dummy_user_to_add, motor_client):
     """ Add a new user so that we can authorise against it"""
     data = jsonable_encoder(dummy_user_to_add)
     # first check to see if the user exists
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(dummy_user_to_add['username'])
     if user is not None:
         result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
@@ -90,7 +106,7 @@ async def test_add_user(dummy_user_to_add):
 
 
 @pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer", "usertype:writer"])
-async def return_scoped_token(request):
+async def return_scoped_token(request, motor_client):
     """ Add a new user so that we can authorise against it"""
 
     if request.param != "user:reader":
@@ -110,7 +126,7 @@ async def return_scoped_token(request):
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
     # first check to see if the user exists
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(dummy_user_to_add_scoped['username'])
     if user is not None:
         result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
@@ -152,7 +168,7 @@ async def return_scoped_token(request):
 
 
 @pytest.fixture(params=["", "user:reader", "user:writer", "tree:reader", "tree:writer"])
-async def return_simple_scoped_token(request):
+async def return_simple_scoped_token(request, motor_client):
     """ Add a new user so that we can authorise against it"""
 
     user_scopes = request.param
@@ -169,7 +185,7 @@ async def return_simple_scoped_token(request):
     })
     data = jsonable_encoder(dummy_user_to_add_scoped)
     # first check to see if the user exists
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(dummy_user_to_add_scoped['username'])
     if user is not None:
         result = await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
@@ -211,7 +227,7 @@ async def return_simple_scoped_token(request):
 
 
 @pytest.fixture
-async def return_isolation_token():
+async def return_isolation_token(motor_client):
     """
     Create a dedicated user for isolation testing with full permissions.
     This fixture is NOT parameterized - it always provides full scopes
@@ -234,7 +250,7 @@ async def return_isolation_token():
     })
 
     # Check if user exists and delete if so
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(username)
     if user is not None:
         await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
@@ -258,10 +274,10 @@ async def return_isolation_token():
 
 
 @pytest.fixture
-async def dummy_user_update():
+async def dummy_user_update(motor_client):
     # read user collection to get the account_id of the user we added earlier so we can simulate
     # data provided by UI
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(TEST_USERNAME_TO_ADD)
     assert user is not None
     return {
@@ -392,7 +408,7 @@ def get_scoped_user_account_id():
 
 
 @pytest.fixture
-async def return_scoped_user_full_token():
+async def return_scoped_user_full_token(motor_client):
     """Get a full-permission token for scope test setup (separate user from parameterized tests)"""
     full_scopes = "user:reader user:writer tree:reader tree:writer usertype:writer"
     # Use a DIFFERENT username than return_scoped_token to avoid conflicts
@@ -411,7 +427,7 @@ async def return_scoped_user_full_token():
     })
 
     # Check if user exists and delete if so
-    db_storage = database.UserStorage(collection_name="user_collection")
+    db_storage = database.UserStorage(collection_name="user_collection", client=motor_client)
     user = await db_storage.get_user_details_by_username(dummy_user['username'])
     if user is not None:
         await db_storage.delete_user_details_by_account_id(account_id=user.account_id)
