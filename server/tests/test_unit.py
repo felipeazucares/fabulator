@@ -244,10 +244,9 @@ class TestUsersSavesHelper:
         result = users_saves_helper(self._raw_user())
         assert result.username == "testuser"
 
-    def test_disabled_coerced_to_string(self):
-        # Documents the known behaviour: disabled=False becomes "False" (truthy string).
+    def test_disabled_preserved(self):
         result = users_saves_helper(self._raw_user())
-        assert result.disabled == "False"
+        assert result.disabled == False
 
 
 # ---------------------------------------------------------------------------
