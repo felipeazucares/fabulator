@@ -23,6 +23,7 @@ Last Updated: 2026-03-16
 ✅ **Exception Leaking (2026-03-16):** All `HTTPException` detail strings that embedded `{e}` replaced with generic user-facing messages; full details in `logger.error(..., exc_info=True)` — PR #16
 ✅ **Unit Tests (2026-03-16):** `server/tests/test_unit.py` — 43 tests covering model validation, auth helpers, tree operations; no live DB required — PR #16
 ✅ **README (2026-03-16):** Added `README.md` at repo root with setup, env vars, run/test instructions, API reference — PR #16
+✅ **Self-Assignment Refactor 4.5 (2026-03-16):** 71 `self.x = param` assignments removed from 22 methods in `database.py`; local variables throughout; eliminates concurrency risk in recursive `add_a_node()` — PR #17
 
 ---
 
@@ -106,9 +107,16 @@ Last Updated: 2026-03-16
 - **L4:** `server/tests/test_unit.py` — 43 unit tests (no live DB required): Pydantic model validation, `saves_helper`/`users_saves_helper`, auth helpers (hash/verify, token creation), tree depth boundary tests.
 - **L2:** `README.md` added at repo root.
 
+### Self-Assignment Refactor (4.5) — PR #17
+- 71 `self.x = param` assignments removed across 22 methods (11 `TreeStorage` + 11 `UserStorage`)
+- All parameters, intermediates and return values now use local variables
+- `add_a_node()` recursive method: `self.name`, `self.id`, `self.children`, `self.child_id` etc. all local — eliminates the hidden concurrency risk where recursive frames overwrote shared instance state
+- `save_user_details()`: 9-field unpack block replaced with direct `UserDetails(...)` construction from `user` param
+- Net: -50 lines in `database.py`
+
 ### Test Suite Status (2026-03-16)
 - **171 tests collected** (128 integration + 43 unit)
-- **160 passed, 10 skipped, 0 failed**
+- **161 passed, 10 skipped, 0 failed** (161 after PR #17)
 - 10 skips are expected scope tests (pytest.skip when token has sufficient scope)
 
 ---
@@ -126,10 +134,6 @@ Last Updated: 2026-03-16
 ### 4.4 — Comprehensive API Documentation
 **Priority:** Low
 **Scope:** Add OpenAPI `summary`, `description`, `response_model`, and example schemas to all route handlers. FastAPI auto-generates docs at `/docs` but they currently lack descriptive text.
-
-### 4.5 — Remove Self-Assignment Pattern in database.py
-**Priority:** Medium
-**Scope:** Every method assigns parameters to instance variables (`self.account_id = account_id`, `self.save_id = save_id`, etc.) that are only used within the same method. ~110 lines of unnecessary instance state. Should be local variables. Creates subtle risk of state leaking between concurrent calls on the same instance.
 
 ### Optional: Happy-Path Scope Tests
 **Priority:** Low

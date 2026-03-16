@@ -188,10 +188,7 @@ class SomeSchema(BaseModel):
 
 ## Known Issues (See CODEBASE_ASSESSMENT.md)
 
-All critical and high-priority issues are resolved. Remaining open items:
-
-### Medium Priority
-- **4.5** — `self.x = param` pattern in `database.py` methods (~110 lines of unnecessary instance state; should be local variables)
+All critical, high, and medium-priority issues are resolved. Remaining open items:
 
 ### Low Priority
 - **4.1** — Motor connection pooling not load-tested in production conditions
@@ -213,6 +210,7 @@ All critical and high-priority issues are resolved. Remaining open items:
 - **Exception leaking M5** (2026-03-16): HTTPException details no longer embed raw `{e}` — PR #16
 - **Unit tests L4** (2026-03-16): `server/tests/test_unit.py` — 43 tests, no live DB required — PR #16
 - **README L2** (2026-03-16): `README.md` added at repo root — PR #16
+- **Self-assignment pattern 4.5** (2026-03-16): 71 `self.x = param` assignments removed from 22 methods; local variables used throughout — PR #17
 
 ## Missing API Functionality (Roadmap)
 
