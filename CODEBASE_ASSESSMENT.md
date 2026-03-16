@@ -1,7 +1,7 @@
 # Codebase Assessment: Fabulator
 
 **Generated:** 2026-02-04
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-16
 **Status:** Active
 
 ## Overview
@@ -9,15 +9,20 @@
 FastAPI backend for a collaborative tree-editing/narrative application using MongoDB, Redis for token blacklisting, and JWT authentication with role-based access control.
 
 ### Architecture
+
 ```
 /server/app/
-├── api.py              (924 lines - main FastAPI app & routes)
-├── database.py         (629 lines - MongoDB operations)
-├── authentication.py   (89 lines - JWT & password handling)
-├── models.py           (242 lines - Pydantic schemas)
-├── helpers.py          (52 lines - logging utilities)
-├── config.py           (9 lines - env loading)
-└── __init__.py
+├── api.py              (1,102 lines — main FastAPI app, all routes)
+├── database.py         (438 lines — MongoDB operations, tree reconstruction)
+├── authentication.py   (103 lines — JWT, password hashing, Redis blacklist)
+├── models.py           (284 lines — Pydantic schemas, validation constants)
+├── helpers.py          (21 lines — get_logger() factory)
+└── config.py           (4 lines — load_dotenv only)
+
+/server/
+├── test_api_integration.py  (2,073 lines — 87 integration tests)
+└── tests/
+    └── test_unit.py         (363 lines — 43 unit tests, no live DB)
 ```
 
 ---
@@ -26,10 +31,13 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 | Area | Details |
 |------|---------|
-| **Architecture** | Async-first design with FastAPI, recent refactor removed global state (per-request tree loading) |
-| **Security Foundation** | OAuth2 with JWT tokens, scope-based RBAC, token blacklisting via Redis |
-| **Testing** | Comprehensive integration tests (1,700+ lines), covers auth, CRUD, permissions |
-| **Dependencies** | Recently modernized (Pydantic v2, modern pytest-asyncio, zoneinfo) |
+| **Architecture** | Async-first design; per-request tree loading eliminates global state; single shared `AsyncIOMotorClient` via FastAPI lifespan + `Depends()` |
+| **Security** | OAuth2 JWT with scope-based RBAC; token blacklisting via Redis; bcrypt password hashing; rate limiting on login; CORS restricted by env var; no raw exception details in HTTP responses |
+| **Input Validation** | UUID pattern enforcement on all `id` path params; field length limits via Pydantic `Annotated` types; tag count/length/whitespace validation; tree depth limit with HTTP 422 on breach |
+| **Observability** | Python `logging` module throughout; `_PoolEventLogger` for MongoDB connection pool events when `DEBUG=True`; structured log format with timestamps and module names |
+| **Testing** | 173 tests (130 integration + 43 unit); isolation tests verify cross-user data separation; scope tests verify 403 on insufficient permissions; concurrent-request pool test |
+| **API Docs** | All 22 routes annotated with `summary`, `description`, and `tags` — visible at `/docs` |
+| **Dependencies** | Pydantic v2, Motor 3.7.1, FastAPI 0.128.1, modern pytest-asyncio, zoneinfo |
 
 ---
 
@@ -39,171 +47,191 @@ FastAPI backend for a collaborative tree-editing/narrative application using Mon
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| C1 | Duplicate `delete_user_details()` method definition | database.py | 554, 598 | [x] Fixed 2026-02-09 (PR #4) |
-| C2 | CORS allows all methods/headers with credentials | api.py | 67-78 | [x] Fixed 2026-03-15 (PR #6) |
+| C1 | Duplicate `delete_user_details()` method definition | database.py | 554, 598 | ✅ Fixed 2026-02-09 (PR #4) |
+| C2 | CORS allows all methods/headers with credentials | api.py | 67-78 | ✅ Fixed 2026-03-15 (PR #6) |
 
 ### High
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| H1a | Overly broad `except Exception` catches | database.py | Throughout | [x] Fixed — 0 remaining |
-| H1b | Overly broad `except Exception` catches | api.py | Throughout | [x] Fixed 2026-03-15 — 0 remaining |
-| H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | [x] Fixed 2026-03-15 |
-| H3 | No rate limiting on `/get_token` login endpoint | api.py | 271 | [x] Fixed 2026-03-15 |
-| H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | [ ] Open |
-| H5 | Missing input validation for tree operations | api.py | 522-538 | [ ] Open |
+| H1a | Overly broad `except Exception` catches | database.py | Throughout | ✅ Fixed — 0 remaining |
+| H1b | Overly broad `except Exception` catches | api.py | Throughout | ✅ Fixed 2026-03-15 — 0 remaining |
+| H2 | `ConsoleDisplay()` instantiated 50+ times unnecessarily | database.py | Throughout | ✅ Fixed 2026-03-15 — replaced with `logging` |
+| H3 | No rate limiting on `/get_token` login endpoint | api.py | 341 | ✅ Fixed 2026-03-15 (PR #6) |
+| H4 | New DB connections created per-request (no pooling) | database.py | 36, 341 | ✅ Fixed 2026-03-16 (PR #12) — single shared client via lifespan |
+| H5 | Missing input validation for tree operations | api.py, models.py | Throughout | ✅ Fixed 2026-03-16 (PR #13) |
 
 ### Medium
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| M1 | Deprecated `pytz` replaced with zoneinfo | api.py | 12, 234 | [x] Fixed 2026-02-05 |
-| M2 | Tree recursion has no depth limit | database.py | 237-335 | [ ] Open |
-| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | [x] Fixed 2026-02-09 — lazy connection via `_get_redis_connection()`, closed with `aclose()` |
-| M4 | Null checks missing before `saves_helper()` | database.py | 131 | [x] Fixed 2026-02-09 — `get_tree_for_account()` checks save count before loading |
-| M5 | Exception messages could leak internal details | api.py | Multiple | [ ] Open |
+| M1 | Deprecated `pytz` replaced with zoneinfo | api.py | 12, 234 | ✅ Fixed 2026-02-05 |
+| M2 | Tree recursion has no depth limit | database.py | 237-335 | ✅ Fixed 2026-03-16 (PR #14) — `MAX_TREE_DEPTH` + `TreeDepthLimitExceeded` |
+| M3 | Redis connection never explicitly closed | authentication.py | 29-31 | ✅ Fixed 2026-02-09 — lazy connection via `_get_redis_connection()`, closed with `aclose()` |
+| M4 | Null checks missing before `saves_helper()` | database.py | 131 | ✅ Fixed 2026-02-09 — `get_tree_for_account()` checks save count before loading |
+| M5 | Exception messages could leak internal details | api.py | Multiple | ✅ Fixed 2026-03-16 (PR #16) — generic user-facing messages; details in `logger.error()` |
+| M6 | `UserDetails` response model exposes hashed password | api.py, models.py | api.py:391, models.py:157 | ⚠️ Open — `GET /users/me` has `response_model=UserDetails` which includes `password: str`; bcrypt hash is non-reversible but leaking it is not best practice |
+| M7 | No `response_model` on 20 of 22 routes | api.py | Throughout | ⚠️ Open — only `/get_token` and `/users/me` declare `response_model`; FastAPI cannot validate output shape or generate accurate response schemas for the rest |
 
 ### Low
 
 | # | Issue | File | Line(s) | Status |
 |---|-------|------|---------|--------|
-| L1 | Inconsistent `== None` vs `is None` | api.py | 541 | [ ] Open |
-| L2 | Missing README & API documentation | N/A | N/A | [ ] Open |
-| L3 | No structured logging (only console) | helpers.py | 8 | [ ] Open |
-| L4 | Test coverage gaps (no unit tests) | test_api_integration.py | N/A | [ ] Open |
+| L1 | Inconsistent `== None` vs `is None` | api.py | 541 | ✅ Fixed 2026-03-16 (PR #16) — 0 remaining |
+| L2 | Missing README & API documentation | N/A | N/A | ✅ Fixed 2026-03-16 (PR #16) — README.md added at repo root |
+| L3 | No structured logging (only console) | helpers.py | 8 | ✅ Fixed 2026-03-16 (PR #16) — Python `logging` via `get_logger()` factory |
+| L4 | Test coverage gaps (no unit tests) | test_api_integration.py | N/A | ✅ Fixed 2026-03-16 (PR #16) — 43 unit tests, no live DB required |
+| L5 | `self.x = param` pattern in database.py methods | database.py | Throughout | ✅ Fixed 2026-03-16 (PR #17) — 71 assignments removed from 22 methods |
+| L6 | `self.x = param` pattern remains in `RoutesHelper` | api.py | 199, 212, 227 | ⚠️ Open — `account_id_exists`, `save_document_exists`, `user_document_exists` still assign params to instance variables |
+| L7 | Debug `print()` statement in `update_password` | api.py | 1030 | ⚠️ Open — `print(f"request:{request}")` logs password-change request data to stdout; should use `logger.debug()` |
+| L8 | Unused classes in models.py | models.py | 103, 205 | ⚠️ Open — `ResponseModel2` and `UserAccount` are defined but never imported or used anywhere |
+| L9 | No-op statement in authentication.py | authentication.py | 15 | ⚠️ Open — `datetime.now(ZoneInfo(tzname[0]))` result is not assigned; appears to be leftover initialisation code |
+| L10 | Unused `self._redis_conn = None` in Authentication | authentication.py | 31 | ⚠️ Open — attribute is set in `__init__` but never read; `_get_redis_connection()` always creates a fresh connection |
+| L11 | `saves_helper()` called without None guard in `return_latest_save` / `return_save` | database.py | 109, 134 | ⚠️ Open — `find_one()` returns `None` if no document found; `saves_helper(None)` would raise `TypeError`; callers do check save count before reaching these paths, but the guard is not in the methods themselves |
 
 ---
 
-## Work Areas (Prioritized by Impact)
+## Work Areas Status
 
-### Phase 1: Critical Security & Bugs
-**Estimated Effort:** 1-2 days
+### Phase 1: Critical Security & Bugs — ✅ Complete
+- [x] **1.1** Fix duplicate `delete_user_details()` method — PR #4
+- [x] **1.2** Fix CORS configuration — PR #6
+- [x] **1.3** Add rate limiting on login endpoint — PR #6
+- [x] **1.4** Replace pytz with zoneinfo — 2026-02-05
 
-- [x] **1.1** Fix duplicate `delete_user_details()` method ✅ **Completed 2026-02-09 (PR #4)**
-- [x] **1.2** Fix CORS configuration - Use env var for origins, explicitly list methods/headers ✅ **Completed 2026-03-15** — `CORS_ORIGINS` env var required; methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type
-- [x] **1.3** Add rate limiting - Protect login endpoint from brute force ✅ **Completed 2026-03-15** — SlowAPI + Redis backend; `LOGIN_RATE_LIMIT` env var (default `5/minute`)
-- [x] **1.4** Replaced pytz with zoneinfo in `api.py` ✅ **Completed 2026-02-05**
+### Phase 2: Code Quality & Reliability — ✅ Complete
+- [x] **2.1** Consolidate DB connections — single shared client via lifespan + `Depends()` — PR #12
+- [x] **2.2** Replace broad exception catching — 0 remaining in both files
+- [x] **2.3** Add tree depth validation — `MAX_TREE_DEPTH` env var, `TreeDepthLimitExceeded`, HTTP 422 — PR #14
+- [x] **2.4** Fix ConsoleDisplay instantiation — replaced with Python `logging` — PR #16
+- [x] **2.5** Add null checks before `saves_helper()` — `get_tree_for_account()` guards via save count check
 
-### Phase 2: Code Quality & Reliability
-**Estimated Effort:** 2-3 days
+### Phase 3: Testing & Documentation — ✅ Complete
+- [x] **3.1** Fix and run test suite — 163 passed, 10 skipped, 0 failed
+- [x] **3.2** Add unit tests — 43 tests, no live DB required — PR #16
+- [x] **3.3** Create README.md — PR #16
+- [x] **3.4** Add structured logging — Python `logging` via `get_logger()` — PR #16
+- [x] **3.5** Input validation and tree depth constraints — PR #13, PR #14
+- [x] **3.6** Security-focused tests — isolation tests (404), scope tests (403)
 
-- [ ] **2.1** Consolidate DB connections - Use singleton client or dependency injection
-- [x] **2.2a** Replace broad exception catching in `database.py` ✅ **Completed** — 0 remaining
-- [x] **2.2b** Replace broad exception catching in `api.py` ✅ **Completed 2026-03-15** — 0 remaining
-- [ ] **2.3** Add tree depth validation - Prevent stack overflow on deep trees
-- [x] **2.4** Fix ConsoleDisplay instantiation ✅ **Completed 2026-03-15** — removed 23 per-method `ConsoleDisplay()` calls; all methods now use module-level instance
-- [x] **2.5** Add null checks before `saves_helper()` calls ✅ **Completed 2026-02-09** — `get_tree_for_account()` checks `number_of_saves_for_account() > 0`
+### Phase 4: Performance & Polish — Mostly Complete
+- [x] **4.1** Verify Motor connection pooling — `MONGO_MAX_POOL_SIZE` env var, `_PoolEventLogger`, concurrent tests — PR #18
+- [x] **4.2** Redis connection cleanup — lazy `_get_redis_connection()` + `aclose()` — 2026-02-09
+- [ ] **4.3** Performance/load tests — Locust or pytest-benchmark against staging; not yet implemented
+- [x] **4.4** OpenAPI documentation — all 22 routes annotated with `summary`, `description`, `tags` — PR #19
+- [x] **4.5** Remove `self.x = param` pattern — 71 assignments removed from `database.py` — PR #17
 
-### Phase 3: Testing & Documentation
-**Estimated Effort:** 3-5 days
+### Phase 5: Remaining Polish (New)
 
-- [x] **3.1** Fix and run test suite ✅ **Completed 2026-02-09** — 103 passed, 10 skipped, 0 failed. Both blockers resolved (Database None handling, Redis event loop).
-- [ ] **3.2** Add unit tests - Currently only integration tests exist
-- [ ] **3.3** Create README.md - Document setup, architecture, API endpoints
-- [ ] **3.4** Add structured logging - Replace console output with Python logging module
-- [ ] **3.5** Document tree depth limits and constraints
-- [ ] **3.6** Add security-focused tests (attack scenarios, edge cases)
-
-### Phase 4: Performance & Polish
-**Estimated Effort:** 2-3 days
-
-- [ ] **4.1** Verify Motor connection pooling is working correctly
-- [x] **4.2** Implement Redis connection cleanup ✅ **Completed 2026-02-09** — lazy connection + `aclose()` after each operation
-- [ ] **4.3** Add performance/load tests
-- [ ] **4.4** Generate comprehensive API documentation
-- [ ] **4.5** Remove code duplication in database.py (query patterns, update patterns)
+| # | Issue | Effort | Notes |
+|---|-------|--------|-------|
+| **5.1** | Remove `print()` in `update_password` | Trivial | Replace with `logger.debug()` |
+| **5.2** | Fix `self.x = param` in `RoutesHelper` | Small | 3 methods, same pattern as PR #17 |
+| **5.3** | Remove unused `ResponseModel2`, `UserAccount` from models.py | Trivial | Dead code |
+| **5.4** | Remove no-op line in authentication.py | Trivial | Line 15 |
+| **5.5** | Remove unused `self._redis_conn = None` | Trivial | Line 31 |
+| **5.6** | Add `response_model` to remaining 20 routes | Medium | Requires defining response schemas |
+| **5.7** | Exclude `password` from `GET /users/me` response | Small | Add `response_model_exclude` or create `UserDetailsPublic` schema |
+| **5.8** | Add None guard in `saves_helper()` callers | Small | `return_latest_save` and `return_save` should handle `None` from `find_one()` |
 
 ---
 
 ## Detailed Findings
 
-### Security Issues
+### Security
 
-#### CORS Configuration (Critical) — ✅ Fixed 2026-03-15
-**File:** `server/app/api.py:65-76`
+#### CORS Configuration — ✅ Fixed 2026-03-15
+Origins read from `CORS_ORIGINS` env var (raises `RuntimeError` at startup if missing). Methods restricted to GET/POST/PUT/DELETE; headers to Authorization/Content-Type.
+
+#### Rate Limiting — ✅ Fixed 2026-03-15
+SlowAPI + Redis on `POST /get_token`. `LOGIN_RATE_LIMIT` env var (default `5/minute` per IP). Set `LOGIN_RATE_LIMIT=1000/minute` in test `.env` to avoid 429s during test runs.
+
+#### Password Field in Response (M6 — Open)
+**File:** `server/app/api.py:391`, `server/app/models.py:157`
+
+`GET /users/me` declares `response_model=UserDetails`. The `UserDetails` model includes `password: str`, which holds the bcrypt hash. bcrypt is non-reversible, but returning hashes in API responses is not best practice — it unnecessarily exposes data that has no client-side use. Fix: create a `UserDetailsPublic` schema that excludes `password`, or use `response_model_exclude={"password"}`.
+
+#### No Exception Handling in authentication.py
+`add_blacklist_token()` and `is_token_blacklisted()` have no try/except around Redis operations. A Redis outage would propagate an unhandled exception rather than a clean HTTP 500. (Lower priority: Redis is already guarded at the middleware level in many paths.)
+
+### Code Quality
+
+#### Debug print() in update_password (L7 — Open)
+**File:** `server/app/api.py:1030`
 ```python
-_cors_origins_raw = os.getenv("CORS_ORIGINS", "")
-if not _cors_origins_raw.strip():
-    raise RuntimeError("CORS_ORIGINS environment variable is not set.")
-origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+print(f"request:{request}")   # ← should be logger.debug() or removed
+```
+Logs the password-change request object (including the hashed new password) to stdout on every call. Should use `logger.debug()` or be removed entirely.
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
-)
+#### self.x = param in RoutesHelper (L6 — Open)
+**File:** `server/app/api.py:199, 212, 227`
+
+Three `RoutesHelper` helper methods still assign parameters to instance variables. The 4.5 refactor (PR #17) covered `database.py` but not `api.py`:
+```python
+async def account_id_exists(self, account_id: str):
+    self.account_id = account_id      # ← should be local
+
+async def save_document_exists(self, document_id, account_id=None):
+    self.document_id = document_id    # ← should be local
+
+async def user_document_exists(self, user_id):
+    self.user_id = user_id            # ← should be local
 ```
 
-#### No Rate Limiting — ✅ Fixed 2026-03-15
-- SlowAPI + Redis backend wired to existing `REDISHOST` env var
-- `LOGIN_RATE_LIMIT` env var controls limit (default `5/minute` per IP)
-- Set `LOGIN_RATE_LIMIT=1000/minute` in test `.env` to avoid 429s during test runs
+#### Unused Code in models.py (L8 — Open)
+**File:** `server/app/models.py:103, 205`
+- `ResponseModel2` (Pydantic class) — never imported or used. The actual response helper is `ResponseModel` (a plain function). `ResponseModel2` was likely a leftover from an earlier refactor attempt.
+- `UserAccount` — never imported or used.
 
-### Code Quality Issues
+#### Dead Code in authentication.py (L9, L10 — Open)
+**File:** `server/app/authentication.py:15, 31`
+- Line 15: `datetime.now(ZoneInfo(tzname[0]))` — result discarded; no-op statement, likely a leftover from testing timezone initialisation.
+- Line 31: `self._redis_conn = None` — set in `__init__` but never read. `_get_redis_connection()` always constructs a fresh connection; this attribute serves no purpose.
 
-#### Duplicate Method (Critical)
-**File:** `server/app/database.py`
-- Lines 554 and 598 both define `delete_user_details(self, id: str)`
-- Second definition shadows the first
+### Architecture
 
-#### Excessive State Assignment
-**File:** `server/app/database.py`
-- ~110 lines of `self.variable_name = parameter_name` assignments remain
-- Methods should use local variables instead (ConsoleDisplay part fixed; parameter assignments still open)
+#### Append-Only Save Model
+Every tree write (create node, update node, delete node, prune, graft) appends a complete new MongoDB document. There is no in-place update and no automatic pruning of old snapshots. The `tree_collection` grows linearly with edits. This is an intentional design choice (full revision history is a free side-effect) but will require periodic cleanup or pagination strategy at scale.
 
-#### ConsoleDisplay Instantiation — ✅ Fixed 2026-03-15
-Removed 23 per-method `self.console_display = ConsoleDisplay()` calls. All methods now use the module-level `console_display` instance. Also fixed latent `AttributeError` in `update_user_details/password/type` `else` branches, and eliminated per-recursive-call instantiation in `add_a_node()`.
+#### Motor Connection Pooling
+Single `AsyncIOMotorClient` created in FastAPI lifespan, stored on `app.state`, injected via `Depends()`. Pool size configurable via `MONGO_MAX_POOL_SIZE` env var (default 100). Enable `DEBUG=True` to see pool checkout/checkin events in logs confirming connection reuse.
 
-#### Overly Broad Exception Handling — ✅ Fixed 2026-03-15
-Both `database.py` and `api.py` now use specific exceptions:
-- `pymongo.errors.PyMongoError` for all MongoDB operations
-- `treelib.exceptions.NodeIDAbsentError`, `DuplicatedNodeIdError`, `MultipleRootError`, `LoopError` for treelib operations
-- `KeyError`/`ValueError` for dict parsing and serialisation
-
-### Performance Concerns
-
-#### Database Connections
-- New `AsyncIOMotorClient` created in every `TreeStorage`/`UserStorage` instance
-- Routes create new storage instances per request
-- Should use singleton or dependency injection
-
-#### Tree Recursion
-**File:** `server/app/database.py:237-335`
-- `add_a_node()` is recursive with no depth limit
-- Could hit Python's recursion limit (~1000) on deeply nested trees
+#### Missing response_model Declarations (M7 — Open)
+Only 2 of 22 routes declare `response_model`. Without it:
+- FastAPI cannot validate output shape at serialisation time
+- OpenAPI schema shows generic responses
+- Clients get no schema-driven type hints
 
 ---
 
-## Testing Status & Gaps
+## Testing Status
 
-### Current Test Suite Status (2026-02-09)
-- **Environment:** Fresh venv, MongoDB Atlas and Redis Cloud verified accessible
-- **Collection:** 113 tests collected (pytest-asyncio auto mode)
-- **Results:** 103 passed, 10 skipped, 0 failed
-- **Blockers resolved:**
-  - Database None handling: `get_tree_for_account()` checks save count before loading
-  - Redis event loop: Lazy connection via `_get_redis_connection()`, closed with `aclose()`
+### Current Test Suite (2026-03-16)
 
-### Test Architecture (2026-02-09)
-- **Isolation tests** (`test_isolation_*`): 7 tests verify User B cannot access User A's data (expect 404)
-- **Scope tests** (`test_scope_*`): 10 tests verify insufficient scopes get 403; `pytest.skip()` when token has sufficient scope
-- **Security fix:** `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
+| Suite | Tests | Pass | Skip | Fail |
+|-------|-------|------|------|------|
+| Integration (`test_api_integration.py`) | 130 | 120 | 10 | 0 |
+| Unit (`tests/test_unit.py`) | 43 | 43 | 0 | 0 |
+| **Total** | **173** | **163** | **10** | **0** |
 
-### What Exists
-- 1,700+ lines of integration tests
-- Covers: user CRUD, authentication, tree operations, saves
-- Tests 401/403 unauthorized scenarios and cross-user data isolation
-- Updated for httpx 0.28.1 API compatibility
+10 skips are expected: scope tests call `pytest.skip()` when the token has the required scope (only insufficient-permission cases run).
 
-### What's Missing
-- Unit tests (all tests are integration)
-- Database mocking (requires live MongoDB)
-- Edge cases: deep trees, large payloads, concurrent requests
-- Error scenarios: MongoDB down, Redis failures
-- Performance/load tests
-- Security attack scenario tests
+### Test Coverage
+
+| Area | Covered | Notes |
+|------|---------|-------|
+| User CRUD | ✅ | Create, read, update, delete |
+| Authentication | ✅ | Login, logout, token blacklist |
+| Tree operations | ✅ | Nodes, prune, graft, saves |
+| Cross-user isolation | ✅ | `test_isolation_*` — expects 404 |
+| Scope enforcement | ✅ | `test_scope_*` — expects 403 |
+| Input validation | ✅ | UUID, length limits, tag constraints |
+| Tree depth limit | ✅ | Boundary tests in both unit and integration suites |
+| Concurrent requests | ✅ | `test_shared_pool_handles_concurrent_requests` — 10 parallel GET /nodes |
+| Pool singleton | ✅ | `test_shared_pool_client_is_singleton` |
+| Performance/load | ❌ | No Locust or sustained-load tests |
+| Redis failure | ❌ | No tests for Redis outage handling |
+| MongoDB failure | ❌ | No tests for MongoDB outage handling |
 
 ---
 
@@ -212,19 +240,12 @@ Both `database.py` and `api.py` now use specific exceptions:
 | Date | Changes |
 |------|---------|
 | 2026-02-04 | Initial assessment created |
-| 2026-02-04 | Dependencies modernized: List->list type hints in models.py |
-| 2026-02-05 | **Environment:** Fresh venv with Python 3.9.6, all dependencies updated to 2024/2025 versions (FastAPI 0.128.1, Pydantic 2.12.5, Motor 3.7.1, pytest 8.4.2, httpx 0.28.1, redis 7.0.1) |
-| 2026-02-05 | **Fixed M1:** Replaced pytz with zoneinfo in api.py (lines 12, 234). Removed unused tzname import and orphaned timezone line. |
-| 2026-02-05 | **Test suite:** Updated test_api_integration.py for httpx 0.28.1 API (AsyncClient now requires ASGITransport). 148 tests collected successfully. |
-| 2026-02-05 | **Test blockers identified:** (1) Database None handling for new users without saves, (2) Redis event loop lifecycle issue. See TODO_DEPENDENCY_UPDATES.md for details. |
-| 2026-02-09 | **Fixed C1:** Removed duplicate `delete_user_details()` method (PR #4) |
-| 2026-02-09 | **Fixed M3:** Redis connections now use lazy init + `aclose()` cleanup |
-| 2026-02-09 | **Fixed M4:** `get_tree_for_account()` checks save count before loading, returns empty `Tree()` for new users |
-| 2026-02-09 | **Fixed 4.2:** Redis connection cleanup implemented |
-| 2026-02-09 | **Test suite green:** 103 passed, 10 skipped, 0 failed. Isolation tests renamed, scope tests refactored to 403-only (PR #3) |
-| 2026-02-09 | **Security fix:** `/loads/{save_id}` now verifies account ownership |
-| 2026-02-09 | **Docs:** Added `quickread.md` tree model guide (PR #5), updated CLAUDE.md (PR #4) |
-| 2026-03-15 | **Fixed C2:** CORS now reads origins from `CORS_ORIGINS` env var (required, errors on missing); methods restricted to GET/POST/PUT/DELETE; headers restricted to Authorization/Content-Type |
-| 2026-03-15 | **Fixed H1b:** All 29 `except Exception` catches in `api.py` replaced with specific exceptions (PyMongoError, treelib exceptions, KeyError/ValueError) |
-| 2026-03-15 | **Fixed H2:** Removed 23 per-method `ConsoleDisplay()` instantiations in `database.py`; all now use module-level instance. Also fixed latent AttributeError in 3 update methods. |
-| 2026-03-15 | **Fixed H3:** Rate limiting on `/get_token` via SlowAPI + Redis. Configurable via `LOGIN_RATE_LIMIT` env var (default `5/minute`). |
+| 2026-02-05 | Dependencies modernized; pytz→zoneinfo; httpx 0.28.1 ASGITransport |
+| 2026-02-09 | Fixed C1 (duplicate method), M3 (Redis cleanup), M4 (None guard). Test suite green: 103 passed, 10 skipped |
+| 2026-03-15 | Fixed C2 (CORS), H1b (exception handling), H2 (ConsoleDisplay), H3 (rate limiting) |
+| 2026-03-16 | Fixed H4 (DB pooling PR #12), H5 (input validation PR #13), M2 (tree depth PR #14) |
+| 2026-03-16 | Fixed L1/L3/L4/M5 (cleanup + logging + unit tests + exception leaking — PR #16) |
+| 2026-03-16 | Fixed L5 (self.x = param in database.py — PR #17); 161 tests pass |
+| 2026-03-16 | Fixed 4.1 (Motor pool observability — PR #18); MONGO_MAX_POOL_SIZE env var; _PoolEventLogger; 2 new tests |
+| 2026-03-16 | Fixed 4.4 (OpenAPI annotations — PR #19); all 22 routes annotated; 6 tag groups |
+| 2026-03-16 | **Re-assessment:** fresh scan identified M6/M7 (response model gaps), L6–L11 (minor dead code and remaining self.x patterns in RoutesHelper). All critical, high, and original medium/low issues resolved. |
