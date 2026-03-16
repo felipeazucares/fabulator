@@ -27,6 +27,15 @@ from .models import (
 
 MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
 DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
+MAX_TREE_DEPTH = int(os.getenv("MAX_TREE_DEPTH", "100"))
+
+
+class TreeDepthLimitExceeded(Exception):
+    """Raised when tree reconstruction exceeds MAX_TREE_DEPTH."""
+    def __init__(self, depth: int, limit: int):
+        self.depth = depth
+        self.limit = limit
+        super().__init__(f"Tree depth {depth} exceeds maximum allowed depth of {limit}")
 
 
 console_display = ConsoleDisplay()
@@ -242,11 +251,16 @@ class TreeStorage:
             raise
 
         self.final_tree = self.add_a_node(tree_id=self.tree_dict["_identifier"], loaded_tree=self.tree_dict,
-                                          new_tree=self.new_tree, node_id=self.root_node)
+                                          new_tree=self.new_tree, node_id=self.root_node, depth=0)
         return self.final_tree
 
-    def add_a_node(self, tree_id, loaded_tree, new_tree, node_id) -> Tree:
+    def add_a_node(self, tree_id, loaded_tree, new_tree, node_id, depth: int = 0) -> Tree:
         """ Traverse the dict in mongo and rebuild the tree a node at a time (recursive) """
+        if depth > MAX_TREE_DEPTH:
+            console_display.show_exception_message(
+                message_to_show=f"Tree depth {depth} exceeds MAX_TREE_DEPTH={MAX_TREE_DEPTH}")
+            raise TreeDepthLimitExceeded(depth=depth, limit=MAX_TREE_DEPTH)
+
         self.tree_id = tree_id
         self.loaded_tree = loaded_tree
         self.new_tree = new_tree
@@ -336,7 +350,7 @@ class TreeStorage:
                     message_to_show=f"recursive call")
             for self.child_id in self.children:
                 self.add_a_node(tree_id=self.tree_id, loaded_tree=self.loaded_tree,
-                                new_tree=self.new_tree, node_id=self.child_id)
+                                new_tree=self.new_tree, node_id=self.child_id, depth=depth + 1)
 
         else:
             if DEBUG:

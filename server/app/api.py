@@ -30,6 +30,7 @@ from fastapi.security import (
 from .database import (
     MONGO_DETAILS,
     TreeStorage,
+    TreeDepthLimitExceeded,
     UserStorage
 )
 from .models import (
@@ -230,6 +231,11 @@ class RoutesHelper():
                     self.console_display.show_debug_message(
                         message_to_show=f"Loaded tree from database for account: {account_id}")
                 return tree
+            except TreeDepthLimitExceeded as e:
+                self.console_display.show_exception_message(
+                    message_to_show=f"Tree for account {account_id} exceeds depth limit: {e}")
+                raise HTTPException(
+                    status_code=422, detail=f"Tree exceeds maximum allowed depth of {e.limit}")
             except pymongo.errors.PyMongoError as e:
                 self.console_display.show_exception_message(
                     message_to_show=f"Error loading tree for account {account_id}: {e}")
@@ -462,6 +468,11 @@ async def graft_subtree(
         try:
             sub_tree = db_storage.build_tree_from_dict(
                 tree_dict=request.sub_tree)
+        except TreeDepthLimitExceeded as e:
+            routes_helper.console_display.show_exception_message(
+                message_to_show=f"Subtree exceeds depth limit: {e}")
+            raise HTTPException(
+                status_code=422, detail=f"Subtree exceeds maximum allowed depth of {e.limit}")
         except (KeyError, ValueError) as e:
             routes_helper.console_display.show_exception_message(
                 message_to_show=f"Error occured building the subtree from the request dict object. {e}")
@@ -819,6 +830,11 @@ async def get_a_save(
             status_code=404, detail=f"Unable to retrieve save document with id: {save_id}")
     try:
         tree = await db_storage.load_save_into_working_tree(save_id=save_id)
+    except TreeDepthLimitExceeded as e:
+        console_display.show_exception_message(
+            message_to_show=f"Save {save_id} exceeds depth limit: {e}")
+        raise HTTPException(
+            status_code=422, detail=f"Tree exceeds maximum allowed depth of {e.limit}")
     except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show=f"Error occured loading specified save into working tree. save_id:{save_id}")
