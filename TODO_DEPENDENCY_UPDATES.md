@@ -82,6 +82,11 @@ Last Updated: 2026-03-15
 **Scope:** Dedicated tests confirming users WITH correct scopes CAN perform operations
 **Notes:** Now that scope tests only test 403, these would complement them
 
+### Pre-commit Hook: `sudo` Not Found
+**Priority:** Low
+**Issue:** The `.git/hooks/pre-commit` script calls `sudo`, which is not available in all environments (e.g. CI, Dev Containers). The hook silently fails (`sudo: not found`) rather than blocking the commit, so it's not currently causing harm — but whatever it was meant to enforce is being skipped.
+**Action:** Inspect `.git/hooks/pre-commit`, determine if `sudo` is necessary, and either remove it or replace with a non-privileged equivalent.
+
 ### Architectural Consideration: Tree Storage Model
 **Priority:** Awareness (not blocking)
 **Issue:** Every read/write reconstructs the full tree from MongoDB and every write appends a new complete snapshot. Works fine at current scale but will hit performance/concurrency issues with larger trees or multiple concurrent users. See `quickread.md` for details.
