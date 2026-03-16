@@ -65,16 +65,18 @@ There is no explicit "save" endpoint -- saves happen implicitly on every write o
 
 ## How Reconstruction Works
 
-When a tree is loaded from MongoDB, `build_tree_from_dict()` (`database.py:220`) walks the serialized dict recursively:
+When a tree is loaded from MongoDB, `build_tree_from_dict()` (`database.py`) walks the serialized dict recursively:
 
 1. Find the `root` node ID
 2. Create a new `treelib.Tree` with the stored `_identifier`
-3. `add_a_node()` recurses depth-first: reads `_tag`, `_identifier`, `data`, and `_successors` from the dict, creates each node in the new tree, then recurses into children
+3. `add_a_node()` recurses depth-first: reads `_tag`, `_identifier`, `data`, and `_successors` from the dict, creates each node in the new tree, then recurses into children passing `depth + 1`
+4. If `depth` exceeds `MAX_TREE_DEPTH` (default 100, set via env var), `TreeDepthLimitExceeded` is raised and the API returns HTTP 422
 
 ## Key Things to Remember
 
 - **`account_id`** is the universal tenant key -- it's a bcrypt hash of the username, set at registration, and used to partition all data
 - **Every write = new save** -- there's no update-in-place, so the saves collection grows linearly with edits
 - **`previous`/`next`** on NodePayload are **not used by treelib** -- they're application-level hints for sibling ordering within the narrative (treelib doesn't have sibling order)
-- **No depth limit** on tree recursion during reconstruction
+- **Depth limit** enforced during reconstruction — `MAX_TREE_DEPTH` env var (default 100); returns HTTP 422 if exceeded
+- **Input validation** enforced on all write endpoints — UUIDs on `id` path params and `parent` body fields; length limits on `name`, `description`, `text`, `previous`, `next`; tag list capped at 50 items
 - The `GET /trees/{id}` prune endpoint is a mutating GET (known quirk)

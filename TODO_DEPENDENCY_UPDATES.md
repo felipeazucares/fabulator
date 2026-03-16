@@ -1,6 +1,6 @@
 # Dependency Update Tasks
 
-Last Updated: 2026-03-15
+Last Updated: 2026-03-16
 
 ## Status Summary
 
@@ -16,6 +16,13 @@ Last Updated: 2026-03-15
 ✅ **Exception Handling (2026-03-15):** All `except Exception` catches replaced — 0 remaining in both `database.py` and `api.py`
 ✅ **ConsoleDisplay (2026-03-15):** 23 per-method instantiations removed in `database.py`; module-level instance used throughout
 ✅ **Rate Limiting (2026-03-15):** SlowAPI on `/get_token`; `LOGIN_RATE_LIMIT` env var (default `5/minute`); set higher in test env
+✅ **DB Connection Pooling (2026-03-16):** Single `AsyncIOMotorClient` created in FastAPI lifespan, stored on `app.state`, injected via `Depends()` — PR #12
+✅ **Input Validation (2026-03-16):** UUID pattern on all `id` path params and `parent` body fields; length/tag constraints via Pydantic `Annotated` types — PR #13
+✅ **Tree Depth Limit (2026-03-16):** `MAX_TREE_DEPTH` env var (default 100); `TreeDepthLimitExceeded` exception; depth tracked through `add_a_node()` recursion — PR #14
+✅ **Structured Logging (2026-03-16):** `ConsoleDisplay` replaced with Python `logging` module via `get_logger()` factory in `helpers.py`; `config.py` simplified — PR #16
+✅ **Exception Leaking (2026-03-16):** All `HTTPException` detail strings that embedded `{e}` replaced with generic user-facing messages; full details in `logger.error(..., exc_info=True)` — PR #16
+✅ **Unit Tests (2026-03-16):** `server/tests/test_unit.py` — 43 tests covering model validation, auth helpers, tree operations; no live DB required — PR #16
+✅ **README (2026-03-16):** Added `README.md` at repo root with setup, env vars, run/test instructions, API reference — PR #16
 
 ---
 
@@ -70,21 +77,68 @@ Last Updated: 2026-03-15
 
 ---
 
+## Completed Work (2026-03-16)
+
+### DB Connection Pooling (H4) — PR #12
+- Single `AsyncIOMotorClient` created once in FastAPI lifespan context manager
+- Client stored on `app.state.motor_client`, injected into `TreeStorage`/`UserStorage` via `Depends()`
+- `Authentication.set_client()` called from lifespan to wire the shared client
+- Test infrastructure: `autouse=True` `setup_app_state` fixture manually sets `app.state` since `ASGITransport` does not trigger the FastAPI lifespan
+
+### Input Validation (H5) — PR #13
+- `UUID_PATTERN`, `NODE_NAME_MAX_LEN`, and field length constants added to `models.py`
+- `Annotated` type aliases (`UuidStr`, `NodeNameStr`, `DescriptionStr`, `TextStr`, `LinkStr`) used throughout request schemas
+- `Path(pattern=UUID_PATTERN)` on all `id` path params; `Path(min_length=1, max_length=NODE_NAME_MAX_LEN)` on `POST /nodes/{name}`
+- `parent` body field validated as UUID; `previous`/`next` validated as `LinkStr` (free-text, not UUID)
+- Tags validated: max 50 items, max 100 chars each, no empty/whitespace strings
+
+### Tree Depth Limit (M2) — PR #14
+- `MAX_TREE_DEPTH = int(os.getenv("MAX_TREE_DEPTH", "100"))` in `database.py`
+- `TreeDepthLimitExceeded(depth, limit)` custom exception
+- `add_a_node()` takes `depth: int = 0` parameter; raises at `depth > MAX_TREE_DEPTH`; passes `depth + 1` on recursive calls
+- Three call sites in `api.py` catch `TreeDepthLimitExceeded` and return HTTP 422
+- `MAX_TREE_DEPTH` documented in `.env.example`
+
+### Cleanup & Docs Sprint (L1/L2/L3/L4/M5) — PR #16
+- **L1:** Three `== None` → `is None` fixes in `api.py`
+- **L3:** `ConsoleDisplay` replaced with Python `logging` module. `helpers.py` rewritten as `get_logger()` factory (stream + file handlers, level from `DEBUG` env var). `config.py` reduced to `load_dotenv()` only. All 146 call sites updated across `database.py` and `api.py`. `exc_info=True` added on all error-level except blocks.
+- **M5:** 9 `HTTPException` detail strings no longer embed `{e}`; 5 more 404 messages stripped of internal `account_id`. Full exception details retained in `logger.error()`.
+- **L4:** `server/tests/test_unit.py` — 43 unit tests (no live DB required): Pydantic model validation, `saves_helper`/`users_saves_helper`, auth helpers (hash/verify, token creation), tree depth boundary tests.
+- **L2:** `README.md` added at repo root.
+
+### Test Suite Status (2026-03-16)
+- **171 tests collected** (128 integration + 43 unit)
+- **160 passed, 10 skipped, 0 failed**
+- 10 skips are expected scope tests (pytest.skip when token has sufficient scope)
+
+---
+
 ## Remaining Work
 
-### Optional: Unit Test Suite for api.py
-**Priority:** Low (deferred — may refactor api.py first)
-**Scope:** ~74 tests across 21 route handlers, mocking DB and auth layers
-**Estimated cost:** ~$1.45 (full suite) or ~$0.50 (nodes-only)
+### 4.1 — Verify Motor Connection Pooling
+**Priority:** Medium
+**Scope:** Load-test or profile the app to confirm the single shared `AsyncIOMotorClient` is actually reusing connections rather than creating new TCP sockets per request. Motor's default pool size is 100; verify this is appropriate for expected concurrency.
+
+### 4.3 — Performance / Load Tests
+**Priority:** Low
+**Scope:** Locust or pytest-benchmark tests against a staging environment; focus on tree load/save cycle under concurrent users.
+
+### 4.4 — Comprehensive API Documentation
+**Priority:** Low
+**Scope:** Add OpenAPI `summary`, `description`, `response_model`, and example schemas to all route handlers. FastAPI auto-generates docs at `/docs` but they currently lack descriptive text.
+
+### 4.5 — Remove Self-Assignment Pattern in database.py
+**Priority:** Medium
+**Scope:** Every method assigns parameters to instance variables (`self.account_id = account_id`, `self.save_id = save_id`, etc.) that are only used within the same method. ~110 lines of unnecessary instance state. Should be local variables. Creates subtle risk of state leaking between concurrent calls on the same instance.
 
 ### Optional: Happy-Path Scope Tests
 **Priority:** Low
-**Scope:** Dedicated tests confirming users WITH correct scopes CAN perform operations
-**Notes:** Now that scope tests only test 403, these would complement them
+**Scope:** Dedicated tests confirming users WITH correct scopes CAN perform operations.
+**Notes:** Now that scope tests only test 403, these would complement them.
 
 ### Pre-commit Hook: `sudo` Not Found
 **Priority:** Low
-**Issue:** The `.git/hooks/pre-commit` script calls `sudo`, which is not available in all environments (e.g. CI, Dev Containers). The hook silently fails (`sudo: not found`) rather than blocking the commit, so it's not currently causing harm — but whatever it was meant to enforce is being skipped.
+**Issue:** The `.git/hooks/pre-commit` script calls `sudo`, which is not available in all environments (e.g. CI, Dev Containers). The hook silently fails (`sudo: not found`) rather than blocking the commit.
 **Action:** Inspect `.git/hooks/pre-commit`, determine if `sudo` is necessary, and either remove it or replace with a non-privileged equivalent.
 
 ### Architectural Consideration: Tree Storage Model

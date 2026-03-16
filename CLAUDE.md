@@ -19,16 +19,19 @@ Fabulator is a FastAPI-based backend for a collaborative tree-editing applicatio
 fabulator/
 ├── server/
 │   ├── app/
-│   │   ├── api.py           # Main FastAPI app, all routes (924 lines)
+│   │   ├── api.py           # Main FastAPI app, all routes
 │   │   ├── database.py      # MongoDB operations - TreeStorage, UserStorage classes
 │   │   ├── authentication.py # JWT creation, password hashing, token blacklist
 │   │   ├── models.py        # Pydantic schemas for requests/responses
-│   │   ├── helpers.py       # ConsoleDisplay logging utility
-│   │   └── config.py        # Environment loading
+│   │   ├── helpers.py       # get_logger() factory (Python logging module)
+│   │   └── config.py        # Environment loading (load_dotenv only)
+│   ├── tests/
+│   │   └── test_unit.py     # Unit tests (no live DB required)
 │   ├── main.py              # Entry point (runs uvicorn)
-│   ├── test_api_integration.py  # Integration tests (1,700+ lines)
+│   ├── test_api_integration.py  # Integration tests (1,900+ lines)
 │   ├── pytest.ini           # pytest config (asyncio_mode = auto)
 │   └── requirements.txt     # Python dependencies
+├── README.md                # Setup, env vars, API reference
 ├── .env.example             # Environment template
 ├── CODEBASE_ASSESSMENT.md   # Known issues and work areas
 └── TODO_DEPENDENCY_UPDATES.md
@@ -51,9 +54,9 @@ fabulator/
 5. Logout blacklists token in Redis
 
 ### Database Classes
-- `TreeStorage(collection_name)` - CRUD for tree documents
-- `UserStorage(collection_name)` - CRUD for user documents
-- Both create new Motor client in `__init__` (connection pooling concern noted)
+- `TreeStorage(collection_name, client)` - CRUD for tree documents
+- `UserStorage(collection_name, client)` - CRUD for user documents
+- Both receive a shared `AsyncIOMotorClient` injected via FastAPI `Depends()` — client created once in the lifespan context manager and stored on `app.state.motor_client`
 
 ## Environment Variables
 
@@ -64,6 +67,9 @@ SECRET_KEY=<jwt-secret>
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REDISHOST=redis://localhost:6379
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+LOGIN_RATE_LIMIT=5/minute          # use 1000/minute in test environments
+MAX_TREE_DEPTH=100
 DEBUG=False
 ```
 
@@ -86,10 +92,14 @@ uvicorn app.api:app --reload
 
 ```bash
 cd server
-pytest  # Requires MongoDB Atlas and Redis running
+pytest  # Requires MongoDB Atlas and Redis running (171 tests: 160 pass, 10 skip)
+
+# Unit tests only — no live DB required
+pytest tests/test_unit.py
 ```
 
 Tests use `asyncio_mode = auto` - no need for `@pytest.mark.asyncio` decorators.
+Set `LOGIN_RATE_LIMIT=1000/minute` in `.env` to avoid 429 errors during integration test runs.
 
 ## API Endpoints
 
@@ -129,9 +139,11 @@ Tests use `asyncio_mode = auto` - no need for `@pytest.mark.asyncio` decorators.
 ```python
 @app.get("/endpoint", response_model=ResponseModel2)
 async def endpoint_name(
-    current_user: UserDetails = Security(get_current_user, scopes=["tree:reader"])
-):
-    tree_storage = TreeStorage(collection_name="tree_collection")
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     # ... operations
     return ResponseModel(data=result, message="Success")
 ```
@@ -139,18 +151,27 @@ async def endpoint_name(
 ### Database Pattern
 ```python
 class TreeStorage:
-    def __init__(self, collection_name):
-        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    def __init__(self, collection_name: str, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client  # shared client injected — do not create here
         self.database = self.client.fabulator
         self.tree_collection = self.database.get_collection(collection_name)
 
     async def some_operation(self, param: str) -> dict:
         try:
             result = await self.tree_collection.find_one({"field": param})
-        except Exception as e:
-            # Log and re-raise
+        except (ConnectionFailure, OperationFailure) as e:
+            logger.error("Description of operation that failed", exc_info=True)
             raise
         return result
+```
+
+### Logging Pattern
+```python
+from app.helpers import get_logger
+logger = get_logger(__name__)
+
+logger.debug("Called with param: ...")   # DEBUG env var controls visibility
+logger.error("Something went wrong", exc_info=True)  # includes traceback
 ```
 
 ### Pydantic Model Pattern
@@ -167,26 +188,31 @@ class SomeSchema(BaseModel):
 
 ## Known Issues (See CODEBASE_ASSESSMENT.md)
 
-### Critical
-- ~~`api.py:67-78` - CORS allows all methods/headers with credentials~~ **Fixed 2026-03-15** — `CORS_ORIGINS` env var required; methods/headers explicitly restricted
-
-### High Priority
-- ~~Broad `except Exception` catching~~ **Fixed 2026-03-15** — both `database.py` and `api.py` now use specific exceptions
-- ~~No rate limiting on login endpoint~~ **Fixed 2026-03-15** — SlowAPI + Redis, `LOGIN_RATE_LIMIT` env var (default `5/minute`)
-- ~~`ConsoleDisplay()` instantiated per-method~~ **Fixed 2026-03-15** — module-level instance used throughout `database.py`
-- New DB client created per-request (no pooling) — `database.py` H4
-- Missing input validation for tree operations — `api.py` H5
+All critical and high-priority issues are resolved. Remaining open items:
 
 ### Medium Priority
-- Tree recursion has no depth limit — `database.py` M2
+- **4.5** — `self.x = param` pattern in `database.py` methods (~110 lines of unnecessary instance state; should be local variables)
+
+### Low Priority
+- **4.1** — Motor connection pooling not load-tested in production conditions
+- **4.3** — No performance/load tests
+- **4.4** — Route handlers lack OpenAPI `summary`/`description` annotations
+- Pre-commit hook calls `sudo` (unavailable in some environments)
 
 ### Recently Fixed
-- **Save isolation bug** (2026-02-09): `/loads/{save_id}` now verifies account ownership via `check_if_document_exists(save_id, account_id)`
-- **Redis connections** (2026-02-09): Now properly closed with `await conn.aclose()` after each operation
+- **Save isolation bug** (2026-02-09): `/loads/{save_id}` now verifies account ownership
+- **Redis connections** (2026-02-09): Closed with `await conn.aclose()` after each operation
 - **CORS** (2026-03-15): `CORS_ORIGINS` env var required; methods/headers explicitly restricted
-- **Exception handling** (2026-03-15): All broad `except Exception` replaced with specific types in both files
-- **ConsoleDisplay** (2026-03-15): 23 per-method instantiations removed in `database.py`
+- **Exception handling** (2026-03-15): All broad `except Exception` replaced with specific types
+- **ConsoleDisplay** (2026-03-15): Removed per-method instantiations; module-level instance
 - **Rate limiting** (2026-03-15): SlowAPI on `/get_token`, configurable via `LOGIN_RATE_LIMIT`
+- **DB connection pooling H4** (2026-03-16): Single shared `AsyncIOMotorClient` via lifespan + `Depends()` — PR #12
+- **Input validation H5** (2026-03-16): UUID/length/tag constraints via Pydantic `Annotated` types and FastAPI `Path()` — PR #13
+- **Tree depth limit M2** (2026-03-16): `MAX_TREE_DEPTH` env var; `TreeDepthLimitExceeded` exception; HTTP 422 on breach — PR #14
+- **Structured logging L3** (2026-03-16): `ConsoleDisplay` replaced with Python `logging` via `get_logger()` — PR #16
+- **Exception leaking M5** (2026-03-16): HTTPException details no longer embed raw `{e}` — PR #16
+- **Unit tests L4** (2026-03-16): `server/tests/test_unit.py` — 43 tests, no live DB required — PR #16
+- **README L2** (2026-03-16): `README.md` added at repo root — PR #16
 
 ## Missing API Functionality (Roadmap)
 
