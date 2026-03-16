@@ -1,5 +1,6 @@
 
 import os
+from contextlib import asynccontextmanager
 from pydantic import ValidationError
 import app.config  # loads the load_env lib to access .env file
 import app.helpers as helpers
@@ -7,6 +8,7 @@ from app.authentication import Authentication
 from treelib import Tree
 from fastapi import FastAPI, HTTPException, Body, Depends, Security, status
 from typing import Optional
+import motor.motor_asyncio
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from zoneinfo import ZoneInfo
@@ -26,6 +28,7 @@ from fastapi.security import (
 )
 
 from .database import (
+    MONGO_DETAILS,
     TreeStorage,
     UserStorage
 )
@@ -73,7 +76,20 @@ limiter = Limiter(
     storage_options={"socket_keepalive": True, "health_check_interval": 30}
 )
 
-app = FastAPI()
+# Authentication singleton — user_storage is wired up in the lifespan
+oauth = Authentication()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    motor_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    app.state.motor_client = motor_client
+    oauth.set_client(motor_client)
+    yield
+    motor_client.close()
+
+
+app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 version = "0.1.0"
@@ -100,7 +116,18 @@ oauth2_scheme = OAuth2PasswordBearer(
             "usertype:writer": "Update user_types"
             }
 )
-oauth = Authentication()
+
+
+# ------------------------
+#   Storage dependencies
+# ------------------------
+
+def get_tree_storage(request: Request) -> TreeStorage:
+    return TreeStorage(collection_name="tree_collection", client=request.app.state.motor_client)
+
+
+def get_user_storage(request: Request) -> UserStorage:
+    return UserStorage(collection_name="user_collection", client=request.app.state.motor_client)
 
 
 # ------------------------
@@ -111,16 +138,15 @@ oauth = Authentication()
 class RoutesHelper():
     """ helper class containg API route utility functions"""
 
-    def __init__(self):
-        # create an instance of db_storage
-        self.db_storage = TreeStorage(collection_name="tree_collection")
-        self.user_storage = UserStorage(collection_name="user_collection")
+    def __init__(self, db_storage: TreeStorage, user_storage: UserStorage):
+        self.db_storage = db_storage
+        self.user_storage = user_storage
         self.console_display = helpers.ConsoleDisplay()
         self.DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-        
+
     @app.get("/health")
     async def health():
-        return {"status": "ok"}      
+        return {"status": "ok"}
 
     async def account_id_exists(self, account_id):
         self.account_id = account_id
@@ -213,7 +239,7 @@ class RoutesHelper():
                 self.console_display.show_debug_message(
                     message_to_show=f"No saves found for account {account_id}, creating new tree")
             return Tree()
-          
+
 
 # ------------------------
 #       API Routes
@@ -351,10 +377,14 @@ async def get(current_user: UserDetails = Security(get_current_user, scopes=["tr
 
 
 @ app.get("/trees/root")
-async def get_tree_root(account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_tree_root(
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ return the id of the root node on current tree if there is one"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_tree_root({account_id}) called")
@@ -367,10 +397,15 @@ async def get_tree_root(account_id: str = Security(get_current_active_user_accou
 
 
 @ app.get("/trees/{id}")
-async def prune_subtree(id: str, account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def prune_subtree(
+    id: str,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ cut a node & children specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         routes_helper.console_display.show_debug_message(
             f"prune_subtree({account_id},{id}) called")
@@ -389,8 +424,6 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
             print(e)
             raise
         try:
-            db_storage = TreeStorage(
-                collection_name="tree_collection")
             await db_storage.save_working_tree(tree=tree, account_id=account_id)
         except pymongo.errors.PyMongoError as e:
             routes_helper.console_display.show_exception_message(
@@ -404,11 +437,16 @@ async def prune_subtree(id: str, account_id: str = Security(get_current_active_u
 
 
 @ app.post("/trees/{id}")
-async def graft_subtree(id: str, request: SubTree = Body(...), account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def graft_subtree(
+    id: str,
+    request: SubTree = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ paste a subtree & beneath the node specified"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
-    db_storage = TreeStorage(collection_name="tree_collection")
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         routes_helper.console_display.show_debug_message(
             f"graft_subtree({account_id},{id}) called")
@@ -454,10 +492,15 @@ async def graft_subtree(id: str, request: SubTree = Body(...), account_id: str =
 
 
 @ app.get("/nodes")
-async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_all_nodes(
+    filterval: Optional[str] = None,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Get a list of all the nodes in the working tree"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_all_nodes({account_id}, {filterval}) called")
@@ -487,10 +530,15 @@ async def get_all_nodes(filterval: Optional[str] = None, account_id: str = Secur
 
 
 @ app.get("/nodes/{id}")
-async def get_a_node(id: str, account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_a_node(
+    id: str,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Return a node specified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_a_node({account_id}, {id}) called")
@@ -508,10 +556,16 @@ async def get_a_node(id: str, account_id: str = Security(get_current_active_user
 
 
 @ app.post("/nodes/{name}")
-async def create_node(name: str, request: RequestAddSchema = Body(...), account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def create_node(
+    name: str,
+    request: RequestAddSchema = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Add a node to the working tree using name supplied """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     # map the incoming fields from the https request to the fields required by the treelib API
     if DEBUG:
         console_display.show_debug_message(
@@ -575,7 +629,6 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
             raise HTTPException(
                 status_code=422, detail="Tree already has a root node")
     try:
-        db_storage = TreeStorage(collection_name="tree_collection")
         save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
     except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
@@ -590,10 +643,16 @@ async def create_node(name: str, request: RequestAddSchema = Body(...), account_
 
 
 @ app.put("/nodes/{id}")
-async def update_node(id: str, request: RequestUpdateSchema = Body(...), account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def update_node(
+    id: str,
+    request: RequestUpdateSchema = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Update a node in the working tree identified by supplied id"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             f"update_node({account_id},{id}) called")
@@ -653,7 +712,6 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
                         status_code=422, detail=f"Parent {request.parent} is missing from tree")
 
         try:
-            db_storage = TreeStorage(collection_name="tree_collection")
             save_result = await db_storage.save_working_tree(tree=tree, account_id=account_id)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
@@ -671,12 +729,17 @@ async def update_node(id: str, request: RequestUpdateSchema = Body(...), account
 
 
 @ app.delete("/nodes/{id}")
-async def delete_node(id: str, account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def delete_node(
+    id: str,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Delete a node from the working tree identified by supplied id """
     # remove the node with the supplied id
     # todo: probably want to stash the children somewhere first in a sub tree for later use
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             f"delete_node({account_id},{id}) called")
@@ -696,7 +759,6 @@ async def delete_node(id: str, account_id: str = Security(get_current_active_use
             raise
         else:
             try:
-                db_storage = TreeStorage(collection_name="tree_collection")
                 await db_storage.save_working_tree(tree=tree, account_id=account_id)
             except pymongo.errors.PyMongoError as e:
                 console_display.show_exception_message(
@@ -715,10 +777,14 @@ async def delete_node(id: str, account_id: str = Security(get_current_active_use
 
 
 @ app.get("/loads")
-async def get_latest_save(account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_latest_save(
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Return the latest saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_latest_save({account_id}) called")
@@ -731,11 +797,15 @@ async def get_latest_save(account_id: str = Security(get_current_active_user_acc
 
 
 @ app.get("/loads/{save_id}")
-async def get_a_save(save_id: str, account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_a_save(
+    save_id: str,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ Return the specified saved tree in the db collection"""
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
-    routes_helper = RoutesHelper()
-    db_storage = TreeStorage(collection_name="tree_collection")
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if DEBUG:
         console_display.show_debug_message(
             message_to_show=f"get_a_save({account_id}/{save_id}) called")
@@ -761,13 +831,14 @@ async def get_a_save(save_id: str, account_id: str = Security(get_current_active
 
 
 @ app.get("/saves")
-async def get_all_saves(account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"])) -> dict:
+async def get_all_saves(
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+) -> dict:
     """ Return a dict of all the trees saved in the db collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     try:
-        db_storage = TreeStorage(collection_name="tree_collection")
         all_saves = await db_storage.list_all_saved_trees(account_id=account_id)
-        # all_saves = await list_all_saved_trees(account_id=account_id)
     except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured loading all saves")
@@ -781,14 +852,16 @@ async def get_all_saves(account_id: str = Security(get_current_active_user_accou
 
 
 @ app.delete("/saves")
-async def delete_saves(account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"])) -> dict:
+async def delete_saves(
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+) -> dict:
     """ Delete all saves from the db trees collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"delete_saves({account_id}) called")
     try:
-        db_storage = TreeStorage(collection_name="tree_collection")
         delete_result = await db_storage.delete_all_saves(account_id=account_id)
     except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
@@ -804,7 +877,10 @@ async def delete_saves(account_id: str = Security(get_current_active_user_accoun
 # ------------------------
 
 @ app.post("/users")
-async def save_user(request: UserDetails = Body(...)) -> dict:
+async def save_user(
+    request: UserDetails = Body(...),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ save a user to users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     # hash the password & username before storage
@@ -814,8 +890,7 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
         console_display.show_debug_message(
             f"save_user({request}) called")
     try:
-        db_storage = UserStorage(collection_name="user_collection")
-        save_result = await db_storage.save_user_details(user=request)
+        save_result = await user_storage.save_user_details(user=request)
     except pymongo.errors.PyMongoError as e:
         console_display.show_exception_message(
             message_to_show="Error occured saving user details:{account_id}")
@@ -825,18 +900,21 @@ async def save_user(request: UserDetails = Body(...)) -> dict:
 
 
 @ app.get("/users")
-async def get_user(account_id: str = Security(get_current_active_user_account, scopes=["user:reader"])) -> dict:
+async def get_user(
+    account_id: str = Security(get_current_active_user_account, scopes=["user:reader"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ get a user's details from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"get_user({account_id}) called")
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     # use the accounts_id checker here replace id references
     if await routes_helper.account_id_exists(account_id=account_id):
         try:
-            db_storage = UserStorage(collection_name="user_collection")
-            get_result = await db_storage.get_user_details_by_account_id(account_id=account_id)
+            get_result = await user_storage.get_user_details_by_account_id(account_id=account_id)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured getting user details:{account_id}")
@@ -849,18 +927,22 @@ async def get_user(account_id: str = Security(get_current_active_user_account, s
 
 
 @ app.put("/users")
-async def update_user(account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]), request: UpdateUserDetails = Body(...)) -> dict:
+async def update_user(
+    account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
+    request: UpdateUserDetails = Body(...),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"update_user({request}) called")
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     # use the accounts_id checker here replace id references
     if await routes_helper.account_id_exists(account_id=account_id):
         try:
-            db_storage = UserStorage(collection_name="user_collection")
-            update_result = await db_storage.update_user_details(account_id=account_id, user=request)
+            update_result = await user_storage.update_user_details(account_id=account_id, user=request)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user details:{account_id}")
@@ -873,7 +955,11 @@ async def update_user(account_id: str = Security(get_current_active_user_account
 
 
 @ app.put("/users/password")
-async def update_password(account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]), request: UpdateUserPassword = Body(...)) -> dict:
+async def update_password(
+    account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
+    request: UpdateUserPassword = Body(...),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ update a user document """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -884,8 +970,7 @@ async def update_password(account_id: str = Security(get_current_active_user_acc
     request.new_password = pwd_context.hash(request.new_password)
     if account_id != None:
         try:
-            db_storage = UserStorage(collection_name="user_collection")
-            update_result = await db_storage.update_user_password(account_id=account_id, user=request)
+            update_result = await user_storage.update_user_password(account_id=account_id, user=request)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user password:{account_id}")
@@ -899,7 +984,11 @@ async def update_password(account_id: str = Security(get_current_active_user_acc
 
 
 @ app.put("/users/type")
-async def update_type(account_id: str = Security(get_current_active_user_account, scopes=["usertype:writer"]), request: UpdateUserType = Body(...)) -> dict:
+async def update_type(
+    account_id: str = Security(get_current_active_user_account, scopes=["usertype:writer"]),
+    request: UpdateUserType = Body(...),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ update a user type """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
@@ -908,8 +997,7 @@ async def update_type(account_id: str = Security(get_current_active_user_account
 
     if account_id != None:
         try:
-            db_storage = UserStorage(collection_name="user_collection")
-            update_result = await db_storage.update_user_type(account_id=account_id, user=request)
+            update_result = await user_storage.update_user_type(account_id=account_id, user=request)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show=f"Error occured updating user password:{account_id}")
@@ -923,17 +1011,20 @@ async def update_type(account_id: str = Security(get_current_active_user_account
 
 
 @ app.delete("/users")
-async def delete_user(account_id: str = Security(get_current_active_user_account, scopes=["user:writer"])) -> dict:
+async def delete_user(
+    account_id: str = Security(get_current_active_user_account, scopes=["user:writer"]),
+    db_storage: TreeStorage = Depends(get_tree_storage),
+    user_storage: UserStorage = Depends(get_user_storage),
+) -> dict:
     """ delete a user from users collection """
     DEBUG = bool(os.getenv('DEBUG', 'False') == 'True')
     if DEBUG:
         console_display.show_debug_message(
             f"delete_user({account_id}) called")
-    routes_helper = RoutesHelper()
+    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     if await routes_helper.account_id_exists(account_id=account_id):
         try:
-            db_storage = UserStorage(collection_name="user_collection")
-            delete_result = await db_storage.delete_user_details_by_account_id(account_id=account_id)
+            delete_result = await user_storage.delete_user_details_by_account_id(account_id=account_id)
         except pymongo.errors.PyMongoError as e:
             console_display.show_exception_message(
                 message_to_show="Error occured deleteing user details:{account_id}")

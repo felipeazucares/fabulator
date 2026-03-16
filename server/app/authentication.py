@@ -18,15 +18,22 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class Authentication():
 
-    def __init__(self):
+    def __init__(self, client=None):
 
         self.SECRET_KEY = os.getenv('SECRET_KEY')
         self.ALGORITHM = os.getenv('ALGORITHM')
         self.ACCESS_TOKEN_EXPIRE_MINUTES = int(
             os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
-        self.user_storage = database.UserStorage(
-            collection_name="user_collection")
+        self.user_storage = None
+        if client is not None:
+            self.user_storage = database.UserStorage(
+                collection_name="user_collection", client=client)
         self._redis_conn = None
+
+    def set_client(self, client):
+        """Set the Motor client; called from the FastAPI lifespan on startup."""
+        self.user_storage = database.UserStorage(
+            collection_name="user_collection", client=client)
 
     def _get_redis_connection(self):
         """Get or create Redis connection for the current event loop."""

@@ -38,8 +38,8 @@ console_display = ConsoleDisplay()
 
 class TreeStorage:
 
-    def __init__(self, collection_name):
-        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    def __init__(self, collection_name: str, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
         self.database = self.client.fabulator
         self.tree_collection = self.database.get_collection(collection_name)
 
@@ -348,8 +348,8 @@ class TreeStorage:
 
 class UserStorage:
 
-    def __init__(self, collection_name):
-        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
+    def __init__(self, collection_name: str, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
         self.database = self.client.fabulator
         self.user_collection = self.database.get_collection(collection_name)
         self.tree_collection = self.database.get_collection("tree_collection")
@@ -417,10 +417,6 @@ class UserStorage:
 
     async def get_user_details_by_username(self, username: str):
         """ return the a user's details given their username - used for log in """
-        # have to have this in there to avoid event_loop_closed errors during testing
-        self.client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-        self.database = self.client.fabulator
-        self.user_collection = self.database.get_collection("user_collection")
         self.username = username
 
         if DEBUG:
