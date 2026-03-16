@@ -1937,3 +1937,88 @@ async def test_validation_trees_id_not_uuid(return_token, test_add_user):
     async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
         response = await ac.get("/trees/not-a-uuid", headers=headers)
     assert response.status_code == 422
+
+
+# ---------------------------------
+#   Tree Depth Limit Tests (M2)
+# ---------------------------------
+
+
+def _build_chain_tree_dict(depth: int) -> dict:
+    """Build a minimal serialized treelib tree dict with a linear chain of `depth` levels.
+    Level 0 = root, level `depth-1` = deepest leaf."""
+    from treelib import Tree
+    from fastapi.encoders import jsonable_encoder
+
+    tree = Tree()
+    parent_id = None
+    for i in range(depth):
+        node = tree.create_node(tag=f"node_{i}", parent=parent_id)
+        parent_id = node.identifier
+    return jsonable_encoder(tree)
+
+
+def test_unit_tree_depth_limit_exceeded(motor_client):
+    """build_tree_from_dict raises TreeDepthLimitExceeded for trees deeper than MAX_TREE_DEPTH."""
+    from app.database import TreeStorage, TreeDepthLimitExceeded, MAX_TREE_DEPTH
+    storage = TreeStorage(collection_name="tree_collection", client=motor_client)
+    deep_dict = _build_chain_tree_dict(MAX_TREE_DEPTH + 2)
+    with pytest.raises(TreeDepthLimitExceeded) as exc_info:
+        storage.build_tree_from_dict(tree_dict=deep_dict)
+    assert exc_info.value.depth > exc_info.value.limit
+    assert "exceeds" in str(exc_info.value)
+
+
+def test_unit_tree_depth_limit_at_boundary(motor_client):
+    """build_tree_from_dict succeeds for a tree exactly MAX_TREE_DEPTH levels deep."""
+    from app.database import TreeStorage, MAX_TREE_DEPTH
+    storage = TreeStorage(collection_name="tree_collection", client=motor_client)
+    boundary_dict = _build_chain_tree_dict(MAX_TREE_DEPTH)
+    result = storage.build_tree_from_dict(tree_dict=boundary_dict)
+    assert result is not None
+    assert result.size() == MAX_TREE_DEPTH
+
+
+def test_unit_tree_depth_limit_under_boundary(motor_client):
+    """build_tree_from_dict succeeds for a tree one level under MAX_TREE_DEPTH."""
+    from app.database import TreeStorage, MAX_TREE_DEPTH
+    storage = TreeStorage(collection_name="tree_collection", client=motor_client)
+    shallow_dict = _build_chain_tree_dict(MAX_TREE_DEPTH - 1)
+    result = storage.build_tree_from_dict(tree_dict=shallow_dict)
+    assert result is not None
+    assert result.size() == MAX_TREE_DEPTH - 1
+
+
+@pytest.mark.asyncio
+async def test_tree_loading_respects_depth_limit(return_token, test_create_root_node, monkeypatch):
+    """Loading a saved tree that exceeds a lowered MAX_TREE_DEPTH returns HTTP 422."""
+    import app.database as db_module
+    headers = return_token
+    node_id = test_create_root_node["node_id"]
+
+    # Build a 4-level chain via the API (root already created by fixture)
+    parent_id = node_id
+    created_ids = [node_id]
+    for i in range(3):
+        child_data = jsonable_encoder({
+            "parent": parent_id,
+            "description": f"depth level {i + 1}",
+        })
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+            response = await ac.post(f"/nodes/depth_node_{i}", json=child_data, headers=headers)
+        assert response.status_code == 200
+        parent_id = response.json()["data"]["node"]["_identifier"]
+        created_ids.append(parent_id)
+
+    # Lower MAX_TREE_DEPTH to 2 so a 4-level tree exceeds it
+    monkeypatch.setattr(db_module, "MAX_TREE_DEPTH", 2)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000", headers=headers) as ac:
+        response = await ac.get("/loads")
+    assert response.status_code == 422
+    assert "maximum allowed depth" in response.json()["detail"]
+
+    # Restore and clean up
+    monkeypatch.setattr(db_module, "MAX_TREE_DEPTH", 100)
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/nodes/{node_id}", headers=headers)
