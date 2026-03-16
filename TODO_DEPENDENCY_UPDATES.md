@@ -25,6 +25,7 @@ Last Updated: 2026-03-16
 ✅ **README (2026-03-16):** Added `README.md` at repo root with setup, env vars, run/test instructions, API reference — PR #16
 ✅ **Self-Assignment Refactor 4.5 (2026-03-16):** 71 `self.x = param` assignments removed from 22 methods in `database.py`; local variables throughout; eliminates concurrency risk in recursive `add_a_node()` — PR #17
 ✅ **Motor Pool Observability 4.1 (2026-03-16):** `MONGO_MAX_POOL_SIZE` env var (default 100) passed to `AsyncIOMotorClient`; `_PoolEventLogger` registered when `DEBUG=True` to log checkout/checkin/created events; 2 pool regression tests added — PR #18
+✅ **OpenAPI Annotations 4.4 (2026-03-16):** `summary`, `description`, and `tags` on all 22 route handlers; routes grouped into 6 tag sections visible at `/docs` — PR #19
 
 ---
 
@@ -123,9 +124,14 @@ Last Updated: 2026-03-16
 - `test_shared_pool_client_is_singleton`: asserts `tree_storage.client is user_storage.client is motor_client`
 - `MONGO_MAX_POOL_SIZE` documented in `.env.example` and `CLAUDE.md`
 
+### OpenAPI Route Annotations (4.4) — PR #19
+- `summary`, `description`, and `tags` added to all 22 route handlers in `api.py`
+- Routes grouped into 6 tag sections: Authentication, Meta, Trees, Nodes, Saves, Users
+- Descriptions cover key behaviours: rate limiting, mutating GET quirk on prune, ownership check on load, hashing on register/password change
+
 ### Test Suite Status (2026-03-16)
 - **173 tests collected** (130 integration + 43 unit)
-- **163 passed, 10 skipped, 0 failed** (after PR #18)
+- **163 passed, 10 skipped, 0 failed**
 - 10 skips are expected scope tests (pytest.skip when token has sufficient scope)
 
 ---
@@ -135,10 +141,6 @@ Last Updated: 2026-03-16
 ### 4.3 — Performance / Load Tests
 **Priority:** Low
 **Scope:** Locust or pytest-benchmark tests against a staging environment; focus on tree load/save cycle under concurrent users.
-
-### 4.4 — Comprehensive API Documentation
-**Priority:** Low
-**Scope:** Add OpenAPI `summary`, `description`, `response_model`, and example schemas to all route handlers. FastAPI auto-generates docs at `/docs` but they currently lack descriptive text.
 
 ### Optional: Happy-Path Scope Tests
 **Priority:** Low

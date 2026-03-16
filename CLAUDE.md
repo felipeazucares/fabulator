@@ -193,7 +193,6 @@ All critical, high, and medium-priority issues are resolved. Remaining open item
 
 ### Low Priority
 - **4.3** — No performance/load tests
-- **4.4** — Route handlers lack OpenAPI `summary`/`description` annotations
 - Pre-commit hook calls `sudo` (unavailable in some environments)
 
 ### Recently Fixed
@@ -212,6 +211,7 @@ All critical, high, and medium-priority issues are resolved. Remaining open item
 - **README L2** (2026-03-16): `README.md` added at repo root — PR #16
 - **Self-assignment pattern 4.5** (2026-03-16): 71 `self.x = param` assignments removed from 22 methods; local variables used throughout — PR #17
 - **Motor pool observability 4.1** (2026-03-16): `MONGO_MAX_POOL_SIZE` env var (default 100) wired into `AsyncIOMotorClient`; `_PoolEventLogger` registered when `DEBUG=True`; 2 concurrent-request tests confirm pool reuse — PR #18
+- **OpenAPI annotations 4.4** (2026-03-16): `summary`, `description`, and `tags` added to all 22 route handlers; routes grouped as Authentication / Meta / Trees / Nodes / Saves / Users — PR #19
 
 ## Missing API Functionality (Roadmap)
 
