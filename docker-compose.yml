@@ -1,58 +1,84 @@
-# =============================================================================
-# Fabulator — Docker Compose
-# =============================================================================
-# Two containers, two Dockerfiles:
-#   fabulator-api  → server/Dockerfile       (FastAPI, Atlas + Redis Cloud)
-#   claude-code    → .devcontainer/Dockerfile (Claude Code)
-#
-# Auth:
-#   fabulator-api  uses ANTHROPIC_API_KEY from .env
-#   claude-code    uses CLAUDE_CODE_OAUTH_TOKEN from .env
-#                  DO NOT pass ANTHROPIC_API_KEY to claude-code — auth conflict.
-#
-# Usage:
-#   Both services:        docker compose up
-#   API only:             docker compose up fabulator-api
-#   One-shot Claude Code: docker compose run --rm claude-code
-# =============================================================================
-services:
+version: '3.8'
 
+services:
   fabulator-api:
     build:
-      context: .                        # root — so COPY requirements.txt works
-      dockerfile: server/Dockerfile
+      context: ./server
+      dockerfile: Dockerfile
     container_name: fabulator-api
-    platform: linux/arm64
     ports:
       - "8000:8000"
     volumes:
-      - ./server:/app:cached            # live reload without rebuild
-    env_file:
-      - .env
+      - ./server:/app
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - fabulator
     restart: unless-stopped
 
-  claude-code:
+  dev-claude:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile
-    image: fabulator-claude-code
-    container_name: fabulator-claude
-    platform: linux/arm64
+      dockerfile: .devcontainer-claude/Dockerfile
+    container_name: fabulator-dev-claude
     volumes:
-      - .:/workspace:cached
-      - ${HOME}/.gitconfig:/home/claude/.gitconfig:ro
-      - ${HOME}/.ssh:/home/claude/.ssh:ro
+      - .:/code
+      - ${HOME}/.claude:/root/.claude
     environment:
-      # OAuth token auth — DO NOT also set ANTHROPIC_API_KEY here
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
-      - FABULATOR_API_URL=http://fabulator-api:8000
-    depends_on:
-      fabulator-api:
-        condition: service_healthy
-    stdin_open: true
-    tty: true
-    restart: "no"
+    networks:
+      - fabulator
+    ports:
+      - "8080:8080"
+
+  dev-qwen:
+    build:
+      context: .
+      dockerfile: .devcontainer-qwen/Dockerfile
+    container_name: fabulator-dev-qwen
+    volumes:
+      - .:/code
+      - ${HOME}/.claude:/root/.claude
+    networks:
+      - fabulator
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fabulator-ollama
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_cache:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_KEEP_ALIVE=5m
+    networks:
+      - fabulator
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 20G
+        reservations:
+          memory: 18G
+
+volumes:
+  ollama_cache:
+    driver: local
 
 networks:
-  default:
-    name: fabulator-network
+  fabulator:
+    driver: bridge
