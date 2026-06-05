@@ -3,8 +3,8 @@ services:
     env_file:
     - .env
     build:
-      context: ./server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: server/Dockerfile
     container_name: fabulator-api
     ports:
       - "8000:8000"
@@ -33,6 +33,7 @@ services:
       context: .
       dockerfile: .devcontainer-qwen/Dockerfile
     container_name: fabulator-dev-qwen
+    command: sleep infinity
     volumes:
       - .:/code
       - ${HOME}/.claude:/root/.claude
