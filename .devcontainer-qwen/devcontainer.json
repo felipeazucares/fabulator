@@ -1,6 +1,6 @@
 {
   "name": "Fabulator Dev (Qwen)",
-  "dockerComposeFile": ["../../docker-compose.yml"],
+  "dockerComposeFile": ["../docker-compose.yml"],
   "service": "dev-qwen",
   "workspaceFolder": "/code",
   "mounts": [
