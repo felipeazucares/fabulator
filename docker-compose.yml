@@ -18,6 +18,8 @@ services:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+    container_name: fabulator-dev-claude
+    command: sleep infinity
     volumes:
         - .:/code
         - ${HOME}/.claude:/root/.claude
