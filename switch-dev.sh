@@ -3,12 +3,12 @@ set -e
 
 case $1 in
   claude)
-    rm -f .devcontainer
+    rm -rf .devcontainer  # Changed to -rf
     ln -s .devcontainer-claude .devcontainer
     echo "✓ Switched to Claude. Run: code ."
     ;;
   qwen)
-    rm -f .devcontainer
+    rm -rf .devcontainer  # Changed to -rf
     ln -s .devcontainer-qwen .devcontainer
     echo "✓ Switched to Qwen. Run: code ."
     ;;
