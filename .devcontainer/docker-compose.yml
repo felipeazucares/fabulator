@@ -16,107 +16,87 @@
 #     docker compose --profile dev run --rm claude-code
 # =============================================================================
 
+version: '3.8'
+
 services:
-  # ---------------------------------------------------------------------------
-  # Fabulator FastAPI Application
-  # ---------------------------------------------------------------------------
   fabulator-api:
     build:
-      context: ./fabulator
+      context: ./server
       dockerfile: Dockerfile
     container_name: fabulator-api
-    platform: linux/arm64 # Native on M5. No emulation, no drama.
     ports:
       - "8000:8000"
     volumes:
-      # Source mount — live reload picks up your edits immediately
-      - ./fabulator:/app:cached
+      - ./server:/app
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-    env_file:
-      - .env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+    networks:
+      - fabulator
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Claude Code Dev Container
-  # Profile: dev — only starts when explicitly requested
-  # ---------------------------------------------------------------------------
-  claude-code:
+  dev-claude:
     build:
-      context: .devcontainer
-      dockerfile: Dockerfile
-    container_name: fabulator-claude
-    platform: linux/arm64
-    profiles:
-      - dev # Won't start with plain 'docker compose up'
+      context: .
+      dockerfile: .devcontainer-claude/Dockerfile
+    container_name: fabulator-dev-claude
     volumes:
-      # Project source — Claude reads and writes your actual code
-      - .:/workspace:cached
-
-      # THE CRITICAL ONE. Mount ~/.claude from host into container.
-      # Without this, auth is lost on every rebuild. This was almost
-      # certainly yesterday's problem.
-      - ${HOME}/.claude:/home/claude/.claude
-
-      # Git config so commits show up as you, not 'claude in a box'
-      - ${HOME}/.gitconfig:/home/claude/.gitconfig:ro
-
-      # SSH keys (read-only) for git push/pull
-      # If you use GitHub tokens instead, remove this
-      - ${HOME}/.ssh:/home/claude/.ssh:ro
-
+      - .:/code
+      - ${HOME}/.claude:/root/.claude
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      # Tells Claude Code where the API is running inside the compose network
-      - FABULATOR_API_URL=http://fabulator-api:8000
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+    networks:
+      - fabulator
+    ports:
+      - "8080:8080"
 
-    depends_on:
-      fabulator-api:
-        condition: service_healthy # Wait for API to be genuinely ready
-
-    # Keep container running for VS Code to attach to
-    # Override for interactive sessions: docker compose run --rm claude-code
-    stdin_open: true
-    tty: true
-    restart: "no" # Dev tool — don't auto-restart
-
-  # ---------------------------------------------------------------------------
-  # Qwen Dev Container
-  # Profile: dev — only starts when explicitly requested
-  # ---------------------------------------------------------------------------
   dev-qwen:
     build:
       context: .
       dockerfile: .devcontainer-qwen/Dockerfile
     container_name: fabulator-dev-qwen
-    profiles: ["qwen"]
     volumes:
       - .:/code
       - ${HOME}/.claude:/root/.claude
+    networks:
+      - fabulator
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=development
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fabulator-ollama
+    profiles: ["ollama"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_cache:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_KEEP_ALIVE=5m
     networks:
       - fabulator
-    depends_on:
-      ollama:
-        condition: service_healthy
-
-# =============================================================================
-# Networks & Volumes
-# =============================================================================
-networks:
-  default:
-    name: fabulator-network
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 20G
+        reservations:
+          memory: 18G
 
 volumes:
-  # Named volume for any persistent data fabulator-api needs
-  # (expand this when you add postgres etc)
-  fabulator-data:
+  ollama_cache:
+    driver: local
+
+networks:
+  fabulator:
+    driver: bridge
