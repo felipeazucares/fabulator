@@ -1,7 +1,7 @@
-version: '3.8'
-
 services:
   fabulator-api:
+    env_file:
+    - .env
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -10,10 +10,6 @@ services:
       - "8000:8000"
     volumes:
       - ./server:/app
-    environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - REDIS_URL=${REDIS_URL}
-      - JWT_SECRET=${JWT_SECRET}
     networks:
       - fabulator
     restart: unless-stopped
@@ -21,17 +17,16 @@ services:
   dev-claude:
     build:
       context: .
-      dockerfile: .devcontainer-claude/Dockerfile
-    container_name: fabulator-dev-claude
+      dockerfile: .devcontainer/Dockerfile
     volumes:
-      - .:/code
-      - ${HOME}/.claude:/root/.claude
+        - .:/code
+        - ${HOME}/.claude:/root/.claude
     environment:
-      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
+        - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
     networks:
-      - fabulator
+        - fabulator
     ports:
-      - "8080:8080"
+        - "8080:8080"
 
   dev-qwen:
     build:
