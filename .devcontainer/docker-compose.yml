@@ -17,7 +17,6 @@
 # =============================================================================
 
 services:
-
   # ---------------------------------------------------------------------------
   # Fabulator FastAPI Application
   # ---------------------------------------------------------------------------
@@ -26,7 +25,7 @@ services:
       context: ./fabulator
       dockerfile: Dockerfile
     container_name: fabulator-api
-    platform: linux/arm64          # Native on M5. No emulation, no drama.
+    platform: linux/arm64 # Native on M5. No emulation, no drama.
     ports:
       - "8000:8000"
     volumes:
@@ -55,7 +54,7 @@ services:
     container_name: fabulator-claude
     platform: linux/arm64
     profiles:
-      - dev                        # Won't start with plain 'docker compose up'
+      - dev # Won't start with plain 'docker compose up'
     volumes:
       # Project source — Claude reads and writes your actual code
       - .:/workspace:cached
@@ -79,13 +78,36 @@ services:
 
     depends_on:
       fabulator-api:
-        condition: service_healthy  # Wait for API to be genuinely ready
+        condition: service_healthy # Wait for API to be genuinely ready
 
     # Keep container running for VS Code to attach to
     # Override for interactive sessions: docker compose run --rm claude-code
     stdin_open: true
     tty: true
-    restart: "no"                  # Dev tool — don't auto-restart
+    restart: "no" # Dev tool — don't auto-restart
+
+  # ---------------------------------------------------------------------------
+  # Qwen Dev Container
+  # Profile: dev — only starts when explicitly requested
+  # ---------------------------------------------------------------------------
+  dev-qwen:
+    build:
+      context: .
+      dockerfile: .devcontainer-qwen/Dockerfile
+    container_name: fabulator-dev-qwen
+    profiles: ["qwen"]
+    volumes:
+      - .:/code
+      - ${HOME}/.claude:/root/.claude
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+    networks:
+      - fabulator
+    depends_on:
+      ollama:
+        condition: service_healthy
 
 # =============================================================================
 # Networks & Volumes
