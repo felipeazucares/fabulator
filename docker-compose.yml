@@ -17,7 +17,7 @@ services:
   dev-claude:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile
+      dockerfile: .devcontainer/claude/Dockerfile
     container_name: fabulator-dev-claude
     command: sleep infinity
     volumes:
@@ -33,7 +33,7 @@ services:
   dev-qwen:
     build:
       context: .
-      dockerfile: .devcontainer-qwen/Dockerfile
+      dockerfile: .devcontainer/qwen/Dockerfile
     container_name: fabulator-dev-qwen
     command: sleep infinity
     volumes:
