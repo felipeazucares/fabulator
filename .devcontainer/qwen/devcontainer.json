@@ -1,0 +1,21 @@
+{
+  "name": "Fabulator Dev (Qwen)",
+  "dockerComposeFile": [
+    "../../docker-compose.yml"
+  ],
+  "service": "dev-qwen",
+  "workspaceFolder": "/code",
+  "forwardPorts": [
+    8000,
+    11434
+  ],
+  "postCreateCommand": "npm install -g npm@latest",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "continue.continue"
+      ]
+    }
+  },
+  "shutdownAction": "none"
+}
