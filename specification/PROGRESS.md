@@ -124,7 +124,7 @@
 | T-37 | Remove no-op line `authentication.py:15` | L9 | ✅ | 5 min |
 | T-38 | Remove unused `self._redis_conn = None` in `authentication.py:31` | L10 | ✅ | 5 min |
 | T-39 | Fix `GET /users/me` to exclude `password` hash from response | M6 | ✅ | 15 min |
-| T-40 | Add `None` guard in `saves_helper()` callers | L11 | ⬜ | 10 min |
+| T-40 | Add `None` guard in `saves_helper()` callers | L11 | ✅ | 10 min |
 
 *Note: M7 (20 routes missing `response_model`) is resolved by the refactor — all new routes have `response_model` from the start.*
 
@@ -199,16 +199,16 @@
 - **T-37**: Removed no-op `datetime.now(ZoneInfo(tzname[0]))` from `authentication.py:15`
 - **T-38**: Marked ✅ (unused `self._redis_conn = None` was already removed)
 - **T-39**: Created `UserDetailsSafe` model (excludes `password` field), updated `GET /users/me` endpoint to use it
+- **T-40**: Added `None` guard in all `users_saves_helper()` callers (226, 234, 255, 267)
 - Commit: `0b5720a` "Phase 9: Known issues cleanup"
 - Commit: `4a4c1d8` "docs: update PROGRESS.md Phase 8 and Phase 9 totals"
 
 ### Current State
 - **Phase 8**: Completed (4/4 tasks)
-- **Phase 9**: T-35 to T-39 completed; T-40 remaining
-- **Total**: 20/56 tasks complete
+- **Phase 9**: T-35 to T-40 completed; all tasks done
+- **Total**: 21/56 tasks complete
 
 ### Next Steps
-- **Phase 9**: T-40 — Add `None` guard in `saves_helper()` callers
 - **Phase 10**: Unit tests (T-41 through T-45)
 - **Phase 11**: Integration tests (T-46 through T-50)
 - **Phase 12**: Documentation updates (T-51 through T-53)
