@@ -36,6 +36,7 @@ from .database import (
 )
 from .models import (
     UserDetails,
+    UserDetailsSafe,
     UpdateUserDetails,
     UpdateUserPassword,
     UpdateUserType,
@@ -735,14 +736,14 @@ async def logout(token: str = Depends(get_current_user_token)):
 
 
 @app.get(
-     "/users/me",
-    response_model=UserDetails,
+    "/users/me",
+    response_model=UserDetailsSafe,
     summary="Get current user",
     description="Return the full profile of the currently authenticated user.",
     tags=["Users"],
 )
 async def read_users_me(current_user: UserDetails = Depends(get_current_active_user)):
-    return current_user
+    return UserDetailsSafe.model_validate(current_user)
 
 
 # ------------------------

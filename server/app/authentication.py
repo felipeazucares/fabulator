@@ -12,7 +12,6 @@ import app.database as database
 import redis.asyncio as redis
 
 REDISHOST = os.getenv(key="REDISHOST")
-datetime.now(ZoneInfo(tzname[0]))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -28,7 +27,6 @@ class Authentication():
         if client is not None:
             self.user_storage = database.UserStorage(
                 collection_name="user_collection", client=client)
-        self._redis_conn = None
 
     def set_client(self, client):
         """Set the Motor client; called from the FastAPI lifespan on startup."""

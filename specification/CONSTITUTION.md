@@ -1,8 +1,8 @@
 # Fabulator — Constitution
 ## Spec-Driven Development Reference
 
-**Version:** 1.0
-**Date:** 2026-06-06
+**Version:** 1.2
+**Date:** 2026-06-07
 **Authority:** This document overrides all other guidance where conflicts exist.
 **Scope:** Backend (`server/`), frontend (`client/`), infrastructure (Docker/Colima), and AI-assisted development workflow.
 
@@ -19,23 +19,92 @@ This is the authoritative rulebook for all changes to Fabulator. Every pull requ
 
 ---
 
+## Part 0 - Coding Guidelines
+
+### Agentoic Workflow
+- Think step-by-step
+- For each assigned item generate a to do
+- T-Shirt size likely effort
+- Use sub-agents to parallelise as much as possible 
+
+### Do
+- Use async/await for all I/O operations
+- Use Pydantic models for request/response validation
+
+### Don't
+- Don't use global state for tree data (load per-request)
+- Don't catch bare `Exception` - use specific exceptions
+- Don't create new DB clients per-method (use instance variable)
+- Don't hardcode CORS origins (use environment variables)
+
+## Testing Guidelines
+
+- Tests are integration tests requiring live MongoDB/Redis
+- Use fixtures for test data setup
+- Clean up created data after tests
+- Test both success and failure (401/403) scenarios
+- No `@pytest.mark.asyncio` needed (auto mode enabled)
+
+### Test Types
+
+**Isolation Tests (`test_isolation_*`):**
+- Verify User B cannot access User A's data
+- Expected response: 404 (data not found)
+- Use `return_isolation_token` fixture (full permissions, separate user)
+
+**Scope Tests (`test_scope_*`):**
+- Verify user with limited scopes cannot perform restricted operations on their OWN data
+- Expected response: 403 (insufficient permissions)
+- Use `return_scoped_token` fixture (parameterized with 6 scope values)
+- Tests `pytest.skip()` when the token has the required scope — only insufficient-permission cases run
+- 10 tests, each with ~5 passing parametrizations and ~1 skipped (the sufficient-scope case)
+
+## Git Workflow
+
+**IMPORTANT: Always use feature branches. Never commit directly to `main`.**
+
+Workflow for all changes:
+1. Create a feature branch: `git checkout -b feature/description` or `fix/issue-name`
+2. Make changes and commit to the feature branch
+3. Push the feature branch: `git push -u origin feature/description`
+4. Create a pull request for review
+
+Branch naming conventions:
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `refactor/` - Code refactoring
+- `docs/` - Documentation updates
+
+## Commit Style
+
+```
+<action> <subject>
+
+<optional body>
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+Examples:
+- `Fix duplicate method definition in database.py`
+- `Add rate limiting to login endpoint`
+- `Update dependencies to latest versions (2024/2025)`
+
 ## Part I — Architectural Invariants
 
 These rules define what Fabulator fundamentally *is*. They MUST NOT be changed without a full architectural review.
 
-### I.1 — Stateless Per-Request Tree Loading
+### I.1 — Normalised Adjacency-List Storage
 
-The system MUST load tree data fresh from MongoDB on every request. There MUST be no in-memory global tree state shared between requests or users.
+The system MUST store each node as an independent MongoDB document in `node_collection` with a `parent_id` pointer to its parent. Works are stored in a separate `work_collection`. There MUST be no single-document tree snapshots. The `tree_collection` is retired and MUST NOT be written to.
 
-**Rationale:** Eliminates entire classes of concurrency bugs. Intentional trade-off against performance — acceptable at current scale.
+**Rationale:** Individual node documents allow single-document lookups, targeted updates, and cascade deletes without loading the full tree. treelib is removed entirely.
 
-### I.2 — Append-Only Save Model
+### I.2 — In-Place Node Updates
 
-Every write operation (create node, update node, delete node, prune, graft) MUST insert a brand-new MongoDB document. In-place updates of existing save documents are PROHIBITED.
+Node write operations (create, update, delete, reorder, duplicate) MUST operate directly on individual node documents. There is no append-only snapshot model. `updated_at` MUST be set to `datetime.now(timezone.utc)` on every write.
 
-**Consequence:** The `tree_collection` grows linearly with edits. This is a known, accepted trade-off. Full revision history is a free side-effect.
-
-**Corollary:** There is no explicit "save" endpoint. Saves are implicit on every write.
+**Corollary:** There are no save/load endpoints. The node documents ARE the persistent state.
 
 ### I.3 — Single Shared Motor Client
 
@@ -45,13 +114,21 @@ Creating new `AsyncIOMotorClient` instances per-request or per-method is PROHIBI
 
 ### I.4 — Account Isolation via account_id
 
-Every MongoDB document that belongs to a user MUST be keyed by `account_id` (a bcrypt hash of the username set at registration). All database queries MUST filter by `account_id`. Cross-user data access MUST return HTTP 404, not HTTP 403.
+Every MongoDB document (Work or node) MUST carry `account_id` (a bcrypt hash of the username set at registration). All database queries MUST filter by `account_id`. Cross-user data access MUST return HTTP 404, not HTTP 403.
 
 **Rationale:** 404 reveals nothing about whether the resource exists for another user.
 
-### I.5 — Tree Depth Enforcement
+### I.5 — Hierarchy Enforcement
 
-Tree reconstruction MUST enforce `MAX_TREE_DEPTH` (default 100, env-configurable). Exceeding the limit MUST raise `TreeDepthLimitExceeded` and return HTTP 422 to the client. This check MUST occur during `add_a_node()` recursion, not as a post-hoc guard.
+The node type hierarchy is fixed: `Work → Part → Chapter → Scene → Beat`. This MUST be enforced at application level on every create and reparent operation. Violations MUST return HTTP 422. The hierarchy MUST also be enforced at MongoDB schema level via a JSON Schema validator on `node_collection`.
+
+### I.6 — Work Scoping
+
+Every node MUST carry a `work_id` foreign key linking it to a `work_collection` document. All node queries MUST be scoped to a `work_id`. Nodes from different Works MUST NOT be mixed in any operation.
+
+### I.7 — Author Denormalisation
+
+The `author` field from the Work MUST be copied onto every child node at creation time. When `author` is updated on a Work, the system MUST cascade the update to ALL nodes belonging to that Work in a single operation.
 
 ---
 
@@ -79,7 +156,7 @@ Allowed headers MUST be restricted to: `Authorization`, `Content-Type`.
 
 ### II.4 — Input Validation
 
-All user-supplied path parameters that accept node/save identifiers MUST be validated as UUIDs via `Path(pattern=UUID_PATTERN)`. All user-supplied string fields MUST have explicit length limits enforced via Pydantic `Annotated` types. Tag lists MUST be capped at 50 items, each tag at 100 characters, with empty/whitespace strings rejected.
+All user-supplied path parameters that accept node or work identifiers MUST be validated as UUID4 via `Path(pattern=UUID_PATTERN)`. All user-supplied string fields MUST have explicit length limits enforced via Pydantic `Annotated` types. Tag lists MUST be capped at 50 items, each tag at 100 characters, with empty/whitespace strings rejected.
 
 ### II.5 — Exception Exposure
 
@@ -101,13 +178,14 @@ All route handlers MUST follow this pattern:
 @app.METHOD("/path", response_model=ResponseSchema, summary="...", description="...", tags=["Group"])
 async def handler_name(
     account_id: str = Security(get_current_active_user_account, scopes=["scope:required"]),
-    db_storage: TreeStorage = Depends(get_tree_storage),
-    user_storage: UserStorage = Depends(get_user_storage),
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
 ) -> dict:
-    routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
-    # ... operations
-    return ResponseModel(data=result, message="Success")
+    # ... operations directly on storage classes
+    return result
 ```
+
+`RoutesHelper` is retired and MUST NOT be used. Storage classes are injected directly.
 
 ### III.2 — Response Models
 
@@ -115,11 +193,11 @@ Every route MUST declare a `response_model`. Routes MUST NOT omit this — doing
 
 ### III.3 — OpenAPI Annotations
 
-Every route MUST have `summary`, `description`, and `tags`. Routes MUST be grouped into one of: `Authentication`, `Meta`, `Trees`, `Nodes`, `Saves`, `Users`.
+Every route MUST have `summary`, `description`, and `tags`. Routes MUST be grouped into one of: `Authentication`, `Meta`, `Works`, `Nodes`, `Users`.
 
 ### III.4 — Mutating GET Prohibition
 
-`GET /trees/{id}` (prune) is a known legacy quirk where a GET is destructive. This pattern MUST NOT be replicated in new endpoints. New endpoints that mutate state MUST use `POST`, `PUT`, or `DELETE`.
+New endpoints that mutate state MUST use `POST`, `PUT`, or `DELETE`. GET endpoints MUST be read-only.
 
 ### III.5 — HTTP Status Codes
 
@@ -127,70 +205,90 @@ Every route MUST have `summary`, `description`, and `tags`. Routes MUST be group
 |-----------|--------|
 | Success | 200 |
 | Created | 201 |
-| Validation error (bad input, depth exceeded) | 422 |
+| Validation error | 422 |
 | Unauthenticated | 401 |
 | Insufficient scope | 403 |
 | Resource not found (or cross-user isolation) | 404 |
 | Rate limited | 429 |
 | Server error | 500 |
 
+### III.6 — Standardised Error Responses
+
+All 4xx and 5xx responses MUST return:
+
+```json
+{
+  "detail": "human-readable, sanitised error message"
+}
+```
+
+`detail` MUST NEVER contain stack traces, internal IDs, or raw exceptions. Specific required error message strings are defined in `SPEC.md`.
+
 ---
 
 ## Part IV — Data Model Contract
 
-### IV.1 — Node Identifier Format
+### IV.1 — Work Document
 
-All node identifiers MUST be UUIDs (UUID4 format). The `_identifier` field is set by treelib and MUST NOT be overridden with non-UUID values.
+Every Work document in `work_collection` MUST carry: `work_id` (UUID4), `account_id`, `title`, `description`, `author`, `tags`, `created_at`, `updated_at`.
 
-### IV.2 — NodePayload Fields
+### IV.2 — Node Document
 
-The `data` field of every tree node MUST conform to the `NodePayload` schema: `description`, `text`, `previous`, `next`, `tags`. The `previous` and `next` fields are application-level narrative ordering hints — they are NOT enforced by treelib and MUST be treated as free-text references, not foreign keys.
+Every node document in `node_collection` MUST carry: `node_id` (UUID4), `work_id` (UUID4), `account_id`, `author`, `node_type`, `parent_id`, `position`, `tag`, `description`, `text`, `previous`, `next`, `tags`, `created_at`, `updated_at`.
 
-### IV.3 — Serialization Format
+### IV.3 — Node Type Enum
 
-Trees MUST be serialized and deserialized via treelib's native dict format. Custom serialization formats MUST NOT be introduced without updating `build_tree_from_dict()` and all associated unit tests.
+`node_type` MUST be one of: `"part"`, `"chapter"`, `"scene"`, `"beat"`. No other values are permitted. This MUST be enforced by both the application and the MongoDB JSON Schema validator on `node_collection`.
 
-### IV.4 — Timestamp Convention
+### IV.4 — Identifier Format
 
-All timestamps MUST use `datetime.now(timezone.utc)` (not `datetime.utcnow()`, not `pytz`). The `zoneinfo` standard library module MUST be used for timezone handling.
+All `node_id` and `work_id` values MUST be UUID4. Identifiers MUST NOT be MongoDB `_id` ObjectIds. Application code MUST use `node_id` / `work_id` for all lookups — never `_id`.
+
+### IV.5 — Position Field
+
+The `position` field represents zero-based ordering among siblings. After any create, delete, or reorder operation, sibling positions MUST form a contiguous zero-based sequence with no gaps.
+
+### IV.6 — Timestamp Convention
+
+All timestamps MUST use `datetime.now(timezone.utc)`. `datetime.utcnow()` and `pytz` are PROHIBITED. The `zoneinfo` standard library module MUST be used for timezone handling.
+
+### IV.7 — MongoDB Schema Validation and Indexes
+
+`work_collection` and `node_collection` MUST be created with JSON Schema validators enforcing field types and enums as defined in `SPEC.md`. Required indexes are defined in `SPEC.md Part II.4` and MUST be created at application startup if not present.
 
 ---
 
-## Part V — Code Quality Gates
+## Part V — Code Quality & Tooling Contract
 
-These rules apply to all new and modified code.
+### V.1 — Automated Linting & Formatting
 
-### V.1 — Exception Handling
+All syntax, style, and type rules are enforced via automated tooling. The following MUST be configured and run in CI/pre-commit:
 
-Bare `except Exception` and `except:` are PROHIBITED. Exceptions MUST be caught by specific type (`pymongo.errors.PyMongoError`, `KeyError`, `ValueError`, treelib-specific exceptions, etc.). Every `except` block at error level MUST call `logger.error(..., exc_info=True)`.
+- `ruff` for linting, formatting, and import sorting
+- `mypy` or `pyright` for static type checking
+- `commitlint` for commit message structure
 
-### V.2 — Async I/O
+Manual enforcement of style rules in PR reviews is PROHIBITED. Tooling failures MUST block merges.
+
+### V.2 — Exception Handling
+
+Bare `except Exception` and `except:` are PROHIBITED. Exceptions MUST be caught by specific type (`pymongo.errors.PyMongoError`, `KeyError`, `ValueError`, etc.). Every `except` block at error level MUST call `logger.error(..., exc_info=True)`.
+
+### V.3 — Async I/O
 
 All database, Redis, and network operations MUST use `async/await`. Synchronous blocking calls in async route handlers are PROHIBITED.
 
-### V.3 — Type Syntax
+### V.4 — Parameter Assignment Pattern
 
-Python 3.9+ built-in generics MUST be used: `list[str]` not `List[str]`, `dict[str, Any]` not `Dict[str, Any]`, `Optional[str]` is acceptable but `str | None` is preferred.
+Methods MUST NOT assign method parameters to instance variables (`self.x = param`) for use within the same method. Local variables MUST be used instead.
 
-### V.4 — Null Checks
+### V.5 — Dead Code
 
-`is None` MUST be used for null comparisons. `== None` is PROHIBITED.
-
-### V.5 — Parameter Assignment Pattern
-
-Methods MUST NOT assign method parameters to instance variables (`self.x = param`) for use within the same method. Local variables MUST be used instead. This eliminates hidden concurrency risk in recursive methods.
+Unused classes, methods, and module-level statements MUST NOT be left in the codebase. Before adding a class or function, verify it will be used. Before removing one, verify it is not imported elsewhere.
 
 ### V.6 — Logging
 
 All diagnostic output MUST use the Python `logging` module via `get_logger(__name__)`. `print()` statements are PROHIBITED in production code paths. Debug information MUST use `logger.debug()`, errors MUST use `logger.error(exc_info=True)`.
-
-### V.7 — Dead Code
-
-Unused classes, methods, and module-level statements MUST NOT be left in the codebase. Before adding a class or function, verify it will be used. Before removing one, verify it is not imported elsewhere.
-
-### V.8 — Environment Variables
-
-All configuration MUST be read from environment variables. Hardcoded secrets, hostnames, credentials, or environment-specific values in source code are PROHIBITED. All required env vars MUST be documented in `.env.example`.
 
 ---
 
@@ -204,26 +302,26 @@ All changes to routes, database methods, or authentication MUST include correspo
 
 | Category | Location | DB Required | What it proves |
 |----------|----------|-------------|----------------|
-| Unit | `server/tests/test_unit.py` | No | Models, auth helpers, tree logic in isolation |
+| Unit | `server/tests/test_unit.py` | No | Models, auth helpers, hierarchy validation, sibling reordering, cycle detection |
 | Integration | `server/test_api_integration.py` | Yes | End-to-end HTTP behavior against real MongoDB + Redis |
 | Isolation | `test_isolation_*` tests | Yes | User B cannot access User A's data (expect 404) |
 | Scope | `test_scope_*` tests | Yes | Insufficient-scope tokens get 403 on their own data |
 
 ### VI.3 — Isolation Tests
 
-Every endpoint that reads or mutates user-owned resources MUST have a corresponding `test_isolation_*` test that verifies a second user's token receives 404.
+Every endpoint that reads or mutates user-owned resources MUST have a corresponding `test_isolation_*` test verifying a second user's token receives 404. This applies to both Work and Node endpoints.
 
 ### VI.4 — Scope Tests
 
-Every endpoint protected by a specific scope MUST have a corresponding `test_scope_*` test that verifies a token without that scope receives 403. The test MUST call `pytest.skip()` when the parameterized token does have the required scope (only the insufficient-permission case is tested).
+Every endpoint protected by a specific scope MUST have a corresponding `test_scope_*` test verifying a token without that scope receives 403.
 
 ### VI.5 — Unit Test Independence
 
-Unit tests MUST NOT require a running MongoDB or Redis instance. Business logic that depends on the database MUST be testable by passing mock or in-memory data directly to the function under test.
+Unit tests MUST NOT require a running MongoDB or Redis instance. Business logic (hierarchy validation, cycle detection, sibling renumbering, author propagation) MUST be testable by passing data directly to the function under test.
 
 ### VI.6 — Test Configuration
 
-`asyncio_mode = auto` is set in `pytest.ini`. `@pytest.mark.asyncio` decorators MUST NOT be added. Set `LOGIN_RATE_LIMIT=1000/minute` in the test `.env` to prevent 429s during integration test runs.
+`asyncio_mode = auto` is set in `pytest.ini`. `@pytest.mark.asyncio` decorators MUST NOT be added. Set `LOGIN_RATE_LIMIT=1000/minute` in the test `.env` to prevent 429s.
 
 ---
 
@@ -242,11 +340,12 @@ Branch naming MUST follow:
 ### VII.2 — Pull Request Requirements
 
 A PR MUST NOT be merged unless:
-- All tests pass (163 pass, 10 expected skips, 0 failures)
+- All tests pass
 - All security contract rules (Part II) are satisfied
 - All code quality gates (Part V) are satisfied
 - New endpoints have response models and OpenAPI annotations
 - No bare `except Exception` blocks remain
+- Linting/formatting checks pass via pre-commit/CI
 
 ### VII.3 — Commit Style
 
@@ -258,37 +357,31 @@ A PR MUST NOT be merged unless:
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
-Commit messages MUST describe intent, not mechanics. "Fix" means a bug was corrected. "Add" means new capability. "Update" means an enhancement to existing capability. "Refactor" means behavior-preserving restructuring.
+Actions are limited to: `Fix`, `Add`, `Update`, `Refactor`. Body MUST explain intent, not mechanics.
 
 ---
 
 ## Part VIII — Frontend Contract
 
-This section applies to the React web client (`client/`) and any future React Native client.
-
 ### VIII.1 — D3/React DOM Boundary
 
-D3 MUST have exclusive ownership of the SVG element inside `TreeVisualiser`. React MUST NOT render or manipulate any DOM nodes inside that SVG. `TreeVisualiser` is the hard boundary — everything inside is D3's; everything outside is React's.
-
-**Rationale:** D3 and React both mutate the DOM. Mixing them in the same DOM subtree causes unpredictable behavior.
+D3 MUST have exclusive ownership of the SVG element inside `TreeVisualiser`. React MUST NOT render or manipulate any DOM nodes inside that SVG.
 
 ### VIII.2 — JWT Storage
 
 JWT tokens MUST be stored in memory (Zustand `authStore`) only. Tokens MUST NOT be written to `localStorage`, `sessionStorage`, or cookies unless the token is in an httpOnly cookie set by the server.
 
-On logout, the token MUST be cleared from both the Zustand store AND any persistent storage before redirecting.
-
 ### VIII.3 — 401 Handling
 
-All HTTP clients MUST intercept 401 responses globally. On 401, the client MUST clear the auth store and redirect to the login page with a user-visible message. Silent 401s (requests that fail without user feedback) are PROHIBITED.
+All HTTP clients MUST intercept 401 responses globally. On 401, the client MUST clear the auth store and redirect to the login page with a user-visible message.
 
 ### VIII.4 — Permission Gating
 
-UI actions that require specific JWT scopes (create, update, delete) MUST be gated by the `usePermissions()` hook, which derives allowed actions from the decoded JWT. Actions MUST NOT be hidden or disabled based on hardcoded logic — they MUST consult the token's scopes.
+UI actions that require specific JWT scopes MUST be gated by the `usePermissions()` hook. Actions MUST NOT be hidden or disabled based on hardcoded logic — they MUST consult the token's scopes.
 
 ### VIII.5 — React Native Migration Path
 
-All business logic, API calls, and state management MUST be kept separate from rendering components. `TreeVisualiser` is the only component with a web-native implementation — all other components MUST be portable to React Native without modification. CSS Modules MUST be used for web styles (not inline styles or CSS-in-JS) to make the eventual swap to `StyleSheet` straightforward.
+All business logic, API calls, and state management MUST be kept separate from rendering components. `TreeVisualiser` is the only component with a web-native implementation. CSS Modules MUST be used for web styles.
 
 ---
 
@@ -296,9 +389,9 @@ All business logic, API calls, and state management MUST be kept separate from r
 
 ### IX.1 — Container Runtime
 
-The project MUST run in Docker containers managed by Docker Compose. The API service is `fabulator-api` (`python:3.12-slim-bookworm`). The Claude Code service is `claude-code` (`node:20-slim`) and MUST be behind the `dev` profile so it does not start in production.
+The project MUST run in Docker containers managed by Docker Compose. The API service is `fabulator-api` (`python:3.12-slim-bookworm`). Dev containers (`dev-claude`, `dev-qwen`) MUST be defined in `.devcontainer/claude/` and `.devcontainer/qwen/` respectively and MUST NOT start in production.
 
-Alpine Linux MUST NOT be used for the Claude Code container — musl libc crashes Claude Code on first run.
+Alpine Linux MUST NOT be used for dev containers — musl libc crashes Claude Code on first run.
 
 ### IX.2 — Database and Cache
 
@@ -308,45 +401,50 @@ MongoDB Atlas and Redis Cloud are the canonical external dependencies. Local con
 
 `.env` is the sole secrets file. It MUST be in `.gitignore` and MUST NOT be committed. `.env.example` MUST document every variable without real values. `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` MUST be kept in separate containers — they MUST NOT both be set in the same container.
 
+### IX.4 — Performance & Scaling Contract
+
+- All list endpoints MUST enforce `limit` (default 50, max 200) and cursor pagination. Unbounded queries are PROHIBITED.
+- The server MUST expose `/health` and `/metrics` endpoints.
+- Any feature that increases average request latency by >20% MUST include a baseline load test before merge.
+
 ---
 
 ## Part X — Roadmap Prioritization Contract
 
-When deciding what to build next, work MUST proceed in this order unless there is explicit written justification for deviation:
+When deciding what to build next, work MUST proceed in this order:
 
 | Tier | Category | Principle |
 |------|----------|-----------|
 | 0 | Security defects and data loss bugs | Fix immediately, no exceptions |
-| 1 | Core CRUD gaps (missing fundamental operations) | Block Tier 2+ |
-| 2 | Tree navigation (children, parent, siblings, ancestors, leaves, stats) | Block frontend visualization |
+| 1 | Work CRUD + Core Node CRUD | Block all other tiers |
+| 2 | Node navigation (children, parent, siblings, ancestors, leaves, stats) | Block frontend visualization |
 | 3 | Search and query | After navigation is complete |
 | 4 | Enhanced features (relationships, comments, export, bulk) | After search |
 | 5 | Advanced features (characters, timeline, templates, analytics, sharing) | After Tier 4 is stable |
 
-Current Tier 1 backlog (MUST be completed before Tier 2 work begins):
-- `DELETE /saves/{save_id}` — delete a specific save
-- `GET /saves/{save_id}` — save metadata without loading tree
-- `POST /nodes/{id}/duplicate` — copy node with optional children
-- `PUT /nodes/{id}/reorder` — change position among siblings
-
 ---
 
-## Part XI — Known Accepted Exceptions
+## Part XI — Technical Debt Registry & Governance
 
-These are rule violations that are known, documented, and accepted until explicitly resolved. They MUST NOT be used as precedent for introducing new violations of the same type.
+### XI.1 — Registry Schema
 
-| Ref | Violation | Location | Resolution Target |
-|-----|-----------|----------|-------------------|
-| M7 | 20 of 22 routes missing `response_model` | `api.py` | Phase 5.6 |
-| M6 | `GET /users/me` response includes password hash | `api.py:391` | Phase 5.7 |
-| L6 | `self.x = param` pattern in `RoutesHelper` | `api.py:199,212,227` | Phase 5.2 |
-| L7 | `print()` statement in `update_password` | `api.py:1030` | Phase 5.1 |
-| L8 | Unused `ResponseModel2`, `UserAccount` in models.py | `models.py:103,205` | Phase 5.3 |
-| L9 | No-op line in `authentication.py` | `authentication.py:15` | Phase 5.4 |
-| L10 | Unused `self._redis_conn = None` | `authentication.py:31` | Phase 5.5 |
-| L11 | No `None` guard inside `saves_helper()` callers | `database.py:109,134` | Phase 5.8 |
-| 4.3 | No performance/load tests | — | Future sprint |
-| — | Mutating `GET /trees/{id}` prune endpoint | `api.py` | Not to be replicated |
+All accepted exceptions MUST be logged in `docs/DEBT_REGISTRY.md` with: ID, Description, Severity, Owner, Target Version, Status, Resolution Criteria.
+
+### XI.2 — Governance Rules
+
+- **Quarterly Audit:** Every 4th release, all Open debt items MUST be reviewed.
+- **New Exceptions:** Require a PR updating `DEBT_REGISTRY.md` with trade-off and mitigation plan.
+- **Security Debt:** Critical severity items MUST be resolved within 1 minor version.
+
+### XI.3 — Current Registry Snapshot
+
+All pre-refactor debt items (M7, M6, L6, L7, L8, L9, L10, L11) from the treelib era are resolved by the adjacency-list refactor. The following carry forward:
+
+| Ref | Violation | Severity | Target Version | Status |
+|-----|-----------|----------|----------------|--------|
+| 4.3 | No performance/load tests | High | v1.3 | Open |
+| P-01 | Pagination not yet enforced on list endpoints | High | v1.2 | Open |
+| P-02 | `/metrics` endpoint not yet implemented | Medium | v1.3 | Open |
 
 ---
 
@@ -361,7 +459,6 @@ These are rule violations that are known, documented, and accepted until explici
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Yes | — | Token lifetime |
 | `CORS_ORIGINS` | Yes | — | Comma-separated allowed origins |
 | `LOGIN_RATE_LIMIT` | No | `5/minute` | Login rate limit per IP |
-| `MAX_TREE_DEPTH` | No | `100` | Max tree reconstruction depth |
 | `MONGO_MAX_POOL_SIZE` | No | `100` | Motor connection pool size |
 | `DEBUG` | No | `False` | Enables pool event logging |
 
@@ -384,4 +481,4 @@ These are rule violations that are known, documented, and accepted until explici
 
 ---
 
-*Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>*
+*Co-Authored-By: Millie Kovacs / Claude Sonnet 4.6 <noreply@anthropic.com>*
