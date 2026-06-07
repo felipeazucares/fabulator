@@ -108,10 +108,10 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-31 | Remove from `api.py`: prune, graft, `/saves`, `/loads` endpoints | ⬜ | 30 min | Verify nothing external references before removing |
-| T-32 | Remove/retire `TreeStorage` from `database.py` | ⬜ | 20 min | `UserStorage` untouched |
-| T-33 | Remove `treelib==1.8.0` from `requirements.txt`; remove all treelib imports | ⬜ | 15 min | |
-| T-34 | Remove or gut `RoutesHelper` (tree-loading methods gone) | ⬜ | 20 min | Keep `account_id_exists` + `user_document_exists` if still needed |
+| T-31 | Remove from `api.py`: prune, graft, `/saves`, `/loads` endpoints | ✅ | 30 min | Verify nothing external references before removing |
+| T-32 | Remove/retire `TreeStorage` from `database.py` | ✅ | 20 min | `UserStorage` untouched |
+| T-33 | Remove `treelib==1.8.0` from `requirements.txt`; remove all treelib imports | ✅ | 15 min | |
+| T-34 | Remove or gut `RoutesHelper` (tree-loading methods gone) | ✅ | 20 min | Keep `account_id_exists` + `user_document_exists` if still needed |
 
 ---
 
@@ -121,7 +121,7 @@
 |---|------|-----|--------|-----|
 | T-35 | Replace `print()` in `update_password` with `logger.debug()` | L7 | ✅ | 5 min |
 | T-36 | Fix `self.x = param` pattern in remaining `RoutesHelper` methods | L6 | ✅ | 10 min |
-| T-37 | Remove no-op line `authentication.py:15` | L9 | ⬜ | 5 min |
+| T-37 | Remove no-op line `authentication.py:15` | L9 | ✅ | 5 min |
 | T-38 | Remove unused `self._redis_conn = None` in `authentication.py:31` | L10 | ✅ | 5 min |
 | T-39 | Fix `GET /users/me` to exclude `password` hash from response | M6 | ✅ | 15 min |
 | T-40 | Add `None` guard in `saves_helper()` callers | L11 | ⬜ | 10 min |
@@ -180,7 +180,7 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 11 | 56 |
+| Tasks complete | 15 | 56 |
 
 ---
 
