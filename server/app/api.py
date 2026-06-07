@@ -222,6 +222,406 @@ def get_node_storage(request: Request) -> NodeStorage:
     return NodeStorage(client=request.app.state.motor_client)
 
 
+# ── Work endpoints ──────────────────────────────────────────────
+
+
+@app.post(
+    "/works",
+    response_model=WorkResponse,
+    status_code=201,
+    summary="Create a work",
+    description=(
+        "Create a new narrative work for the authenticated user. "
+        "A work is the top-level container for a node hierarchy (parts, chapters, scenes, beats). "
+        "Returns HTTP 201 on success."
+    ),
+    tags=["Works"],
+)
+async def create_work(
+    request: CreateWorkRequest,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+) -> dict:
+    logger.debug(f"create_work({account_id}) called")
+    try:
+        work = await work_storage.create_work(
+            account_id=account_id,
+            data=request.model_dump(),
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in create_work", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return work
+
+
+@app.get(
+    "/works",
+    response_model=list[WorkResponse],
+    summary="List works",
+    description=(
+        "Return all works belonging to the authenticated user, ordered by creation date "
+        "descending (most recent first)."
+    ),
+    tags=["Works"],
+)
+async def list_works(
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+) -> list[dict]:
+    logger.debug(f"list_works({account_id}) called")
+    try:
+        works = await work_storage.list_works(account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in list_works", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return works
+
+
+@app.get(
+    "/works/{work_id}",
+    response_model=WorkResponse,
+    summary="Get a work",
+    description=(
+        "Return a single work by its UUID. Returns 404 if the work does not exist "
+        "or belongs to a different account."
+    ),
+    tags=["Works"],
+)
+async def get_work(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+) -> dict:
+    logger.debug(f"get_work({work_id}) called")
+    try:
+        work = await work_storage.get_work(work_id=work_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in get_work for {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return work
+
+
+@app.put(
+    "/works/{work_id}",
+    response_model=WorkResponse,
+    summary="Update a work",
+    description=(
+        "Update one or more fields of an existing work. Omitted fields are left unchanged. "
+        "If `author` is updated, the new value is cascaded to all nodes belonging to this work. "
+        "Returns 404 if the work does not exist or belongs to a different account."
+    ),
+    tags=["Works"],
+)
+async def update_work(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    request: UpdateWorkRequest = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+) -> dict:
+    logger.debug(f"update_work({work_id}) called")
+    updates = request.model_dump(exclude_unset=True)
+    try:
+        work = await work_storage.update_work(
+            work_id=work_id,
+            account_id=account_id,
+            updates=updates,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in update_work for {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return work
+
+
+@app.delete(
+    "/works/{work_id}",
+    summary="Delete a work",
+    description=(
+        "Permanently delete a work and all of its nodes. "
+        "Returns the count of nodes removed alongside the confirmation. "
+        "Returns 404 if the work does not exist or belongs to a different account."
+    ),
+    tags=["Works"],
+)
+async def delete_work(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+) -> dict:
+    logger.debug(f"delete_work({work_id}) called")
+    try:
+        found, nodes_deleted = await work_storage.delete_work(
+            work_id=work_id,
+            account_id=account_id,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in delete_work for {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if not found:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return {"detail": f"Work deleted. {nodes_deleted} node(s) removed."}
+
+
+# ── Node endpoints — core CRUD ──────────────────────────────────
+
+
+@app.post(
+    "/nodes",
+    response_model=NodeResponse,
+    status_code=201,
+    summary="Create a node",
+    description=(
+        "Create a new node within a work. The `work_id` and `node_type` are required. "
+        "Provide `parent_id` to attach the node under an existing parent; omit it to create "
+        "a root-level `part` node. Hierarchy rules are enforced: "
+        "part → chapter → scene → beat. Returns HTTP 201 on success."
+    ),
+    tags=["Nodes"],
+)
+async def create_normalised_node(
+    request: CreateNodeRequest = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    logger.debug(f"create_normalised_node({account_id}) called")
+
+    # Validate that the work exists and belongs to this account.
+    try:
+        work = await work_storage.get_work(work_id=request.work_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error fetching work in create_normalised_node", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+
+    # Validate parent exists (when supplied) and hierarchy rules.
+    if request.parent_id is not None:
+        try:
+            parent = await node_storage.get_node(
+                node_id=request.parent_id, account_id=account_id
+            )
+        except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+            logger.error("Database error fetching parent node in create_normalised_node", exc_info=True)
+            raise HTTPException(status_code=503, detail="Database error")
+        if parent is None:
+            raise HTTPException(status_code=404, detail="Parent node not found")
+        if not is_valid_parent_child(parent["node_type"], request.node_type):
+            raise HTTPException(
+                status_code=422,
+                detail=f"A {request.node_type} cannot be a child of a {parent['node_type']}",
+            )
+    else:
+        # No parent: only "part" may be a root node.
+        if not is_valid_parent_child(None, request.node_type):
+            raise HTTPException(
+                status_code=422,
+                detail="Only 'part' nodes may have no parent",
+            )
+
+    try:
+        node = await node_storage.create_node(
+            account_id=account_id,
+            work_doc=work,
+            data=request.model_dump(),
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in create_normalised_node", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return node
+
+
+@app.get(
+    "/works/{work_id}/nodes",
+    response_model=list[NodeResponse],
+    summary="List nodes for a work",
+    description=(
+        "Return all nodes belonging to the specified work. "
+        "Pass `node_type` as a query parameter to filter by type "
+        "(one of: `part`, `chapter`, `scene`, `beat`). "
+        "Returns 404 if the work does not exist or belongs to a different account."
+    ),
+    tags=["Nodes"],
+)
+async def list_normalised_nodes(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    node_type: Optional[NodeType] = None,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> list[dict]:
+    logger.debug(f"list_normalised_nodes({work_id}, node_type={node_type}) called")
+
+    # Confirm the work exists and belongs to this account before listing its nodes.
+    try:
+        work = await work_storage.get_work(work_id=work_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error fetching work {work_id} in list_normalised_nodes", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+
+    try:
+        nodes = await node_storage.list_nodes(
+            work_id=work_id,
+            account_id=account_id,
+            node_type=node_type.value if node_type is not None else None,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error listing nodes for work {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return nodes
+
+
+@app.get(
+    "/nodes/{node_id}",
+    response_model=NodeResponse,
+    summary="Get a node",
+    description=(
+        "Return a single node by its UUID. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Nodes"],
+)
+async def get_normalised_node(
+    node_id: str = Path(..., pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    logger.debug(f"get_normalised_node({node_id}) called")
+    try:
+        node = await node_storage.get_node(node_id=node_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in get_normalised_node for {node_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if node is None:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return node
+
+
+@app.put(
+    "/nodes/{node_id}",
+    response_model=NodeResponse,
+    summary="Update a node",
+    description=(
+        "Partially update a node. Only fields present in the request body are changed; "
+        "omitted fields are left as-is. "
+        "Providing a new `parent_id` reparents the node — hierarchy rules are enforced "
+        "and cycle detection prevents invalid restructuring. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Nodes"],
+)
+async def update_normalised_node(
+    node_id: str = Path(..., pattern=UUID_PATTERN),
+    request: UpdateNodeRequest = Body(...),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    logger.debug(f"update_normalised_node({node_id}) called")
+
+    updates = request.model_dump(exclude_unset=True)
+
+    # When reparenting, validate the new parent exists, hierarchy is valid, and no cycle forms.
+    if "parent_id" in updates:
+        new_parent_id = updates["parent_id"]
+        if new_parent_id is not None:
+            try:
+                parent = await node_storage.get_node(
+                    node_id=new_parent_id, account_id=account_id
+                )
+            except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+                logger.error(
+                    f"Database error fetching new parent {new_parent_id} in update_normalised_node",
+                    exc_info=True,
+                )
+                raise HTTPException(status_code=503, detail="Database error")
+            if parent is None:
+                raise HTTPException(status_code=404, detail="Parent node not found")
+
+            try:
+                node = await node_storage.get_node(
+                    node_id=node_id, account_id=account_id
+                )
+            except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+                logger.error(
+                    f"Database error fetching node {node_id} in update_normalised_node",
+                    exc_info=True,
+                )
+                raise HTTPException(status_code=503, detail="Database error")
+            if node is None:
+                raise HTTPException(status_code=404, detail="Node not found")
+
+            if not is_valid_parent_child(parent["node_type"], node["node_type"]):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Invalid hierarchy: a {node['node_type']} cannot be a child "
+                        f"of a {parent['node_type']}"
+                    ),
+                )
+
+            try:
+                cycle = await node_storage.would_create_cycle(
+                    node_id=node_id,
+                    new_parent_id=new_parent_id,
+                    account_id=account_id,
+                )
+            except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+                logger.error(
+                    f"Database error during cycle detection for {node_id}",
+                    exc_info=True,
+                )
+                raise HTTPException(status_code=503, detail="Database error")
+            if cycle:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Reparenting would create a cycle",
+                )
+
+    try:
+        result = await node_storage.update_node(
+            node_id=node_id, account_id=account_id, updates=updates
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in update_normalised_node for {node_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if result is None:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return result
+
+
+@app.delete(
+    "/nodes/{node_id}",
+    summary="Delete a node",
+    description=(
+        "Permanently delete the specified node and all of its descendants. "
+        "Returns the count of descendant nodes removed alongside the confirmation. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Nodes"],
+)
+async def delete_normalised_node(
+    node_id: str = Path(..., pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    logger.debug(f"delete_normalised_node({node_id}) called")
+    try:
+        found, descendants_deleted = await node_storage.delete_node_cascade(
+            node_id=node_id, account_id=account_id
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in delete_normalised_node for {node_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if not found:
+        raise HTTPException(status_code=404, detail="Node not found")
+    return {"detail": f"Node deleted. {descendants_deleted} descendant(s) removed."}
+
+
 # ------------------------
 #     API Helper Class
 # ------------------------
