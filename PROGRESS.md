@@ -52,7 +52,7 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-10 | Add `get_work_storage` and `get_node_storage` `Depends()` functions | ⬜ | 15 min | Follows existing `get_tree_storage` pattern |
+| T-10 | Add `get_work_storage` and `get_node_storage` `Depends()` functions | ✅ | 15 min | Also wired `setup_collections` into lifespan startup |
 
 ---
 
@@ -180,7 +180,7 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 10 | 56 |
+| Tasks complete | 11 | 56 |
 
 ---
 

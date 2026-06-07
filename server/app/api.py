@@ -27,7 +27,16 @@ from fastapi.security import (
     SecurityScopes,
 )
 
-from .database import MONGO_DETAILS, TreeStorage, TreeDepthLimitExceeded, UserStorage
+from .database import (
+    MONGO_DETAILS,
+    TreeStorage,
+    TreeDepthLimitExceeded,
+    UserStorage,
+    WorkStorage,
+    NodeStorage,
+    setup_collections,
+    is_valid_parent_child,
+)
 from .models import (
     SubTree,
     RequestAddSchema,
@@ -42,6 +51,16 @@ from .models import (
     ResponseModel,
     UUID_PATTERN,
     NODE_NAME_MAX_LEN,
+    CreateWorkRequest,
+    UpdateWorkRequest,
+    WorkResponse,
+    CreateNodeRequest,
+    UpdateNodeRequest,
+    ReorderRequest,
+    NodeResponse,
+    AncestorsResponse,
+    WorkStatsResponse,
+    NodeType,
 )
 
 
@@ -141,6 +160,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.motor_client = motor_client
     oauth.set_client(motor_client)
+    await setup_collections(motor_client.fabulator)
     yield
     motor_client.close()
 
@@ -192,6 +212,14 @@ def get_user_storage(request: Request) -> UserStorage:
     return UserStorage(
         collection_name="user_collection", client=request.app.state.motor_client
     )
+
+
+def get_work_storage(request: Request) -> WorkStorage:
+    return WorkStorage(client=request.app.state.motor_client)
+
+
+def get_node_storage(request: Request) -> NodeStorage:
+    return NodeStorage(client=request.app.state.motor_client)
 
 
 # ------------------------
