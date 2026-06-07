@@ -19,6 +19,71 @@ This is the authoritative rulebook for all changes to Fabulator. Every pull requ
 
 ---
 
+## Coding Guidelines
+
+### Do
+- Use async/await for all I/O operations
+- Use Pydantic models for request/response validation
+
+### Don't
+- Don't use global state for tree data (load per-request)
+- Don't catch bare `Exception` - use specific exceptions
+- Don't create new DB clients per-method (use instance variable)
+- Don't hardcode CORS origins (use environment variables)
+
+## Testing Guidelines
+
+- Tests are integration tests requiring live MongoDB/Redis
+- Use fixtures for test data setup
+- Clean up created data after tests
+- Test both success and failure (401/403) scenarios
+- No `@pytest.mark.asyncio` needed (auto mode enabled)
+
+### Test Types
+
+**Isolation Tests (`test_isolation_*`):**
+- Verify User B cannot access User A's data
+- Expected response: 404 (data not found)
+- Use `return_isolation_token` fixture (full permissions, separate user)
+
+**Scope Tests (`test_scope_*`):**
+- Verify user with limited scopes cannot perform restricted operations on their OWN data
+- Expected response: 403 (insufficient permissions)
+- Use `return_scoped_token` fixture (parameterized with 6 scope values)
+- Tests `pytest.skip()` when the token has the required scope — only insufficient-permission cases run
+- 10 tests, each with ~5 passing parametrizations and ~1 skipped (the sufficient-scope case)
+
+## Git Workflow
+
+**IMPORTANT: Always use feature branches. Never commit directly to `main`.**
+
+Workflow for all changes:
+1. Create a feature branch: `git checkout -b feature/description` or `fix/issue-name`
+2. Make changes and commit to the feature branch
+3. Push the feature branch: `git push -u origin feature/description`
+4. Create a pull request for review
+
+Branch naming conventions:
+- `feature/` - New features
+- `fix/` - Bug fixes
+- `refactor/` - Code refactoring
+- `docs/` - Documentation updates
+
+## Commit Style
+
+```
+<action> <subject>
+
+<optional body>
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+Examples:
+- `Fix duplicate method definition in database.py`
+- `Add rate limiting to login endpoint`
+- `Update dependencies to latest versions (2024/2025)`
+
 ## Part I — Architectural Invariants
 
 These rules define what Fabulator fundamentally *is*. They MUST NOT be changed without a full architectural review.
