@@ -180,7 +180,7 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 20 | 56 |
+| Tasks complete | 21 | 56 |
 
 ---
 
