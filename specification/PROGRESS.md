@@ -180,11 +180,48 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 15 | 56 |
+| Tasks complete | 20 | 56 |
 
 ---
 
-## Acceptance Criteria (SPEC.md Part VII)
+## Session Handoff
+
+### Last Session: Phase 8 — Remove Old Endpoints & `treelib`
+- **T-31**: Removed prune, graft, `/saves`, `/loads` endpoints from `api.py`
+- **T-32**: Removed/retired `TreeStorage` from `database.py`
+- **T-33**: Removed `treelib==1.8.0` from `requirements.txt` and all imports
+- **T-34**: Removed/gutted `RoutesHelper` tree-loading methods
+- Commit: `f0129b3` "Phase 8: Remove old TreeStorage, RoutesHelper, and old endpoints from api.py"
+
+### This Session: Phase 9 — Known Issues Cleanup
+- **T-35**: Already fixed (replaced `print()` with `logger.debug()` in `update_password`), marked ✅
+- **T-36**: Already fixed (`self.x = param` pattern removed from RoutesHelper), marked ✅
+- **T-37**: Removed no-op `datetime.now(ZoneInfo(tzname[0]))` from `authentication.py:15`
+- **T-38**: Marked ✅ (unused `self._redis_conn = None` was already removed)
+- **T-39**: Created `UserDetailsSafe` model (excludes `password` field), updated `GET /users/me` endpoint to use it
+- Commit: `0b5720a` "Phase 9: Known issues cleanup"
+- Commit: `4a4c1d8` "docs: update PROGRESS.md Phase 8 and Phase 9 totals"
+
+### Current State
+- **Phase 8**: Completed (4/4 tasks)
+- **Phase 9**: T-35 to T-39 completed; T-40 remaining
+- **Total**: 20/56 tasks complete
+
+### Next Steps
+- **Phase 9**: T-40 — Add `None` guard in `saves_helper()` callers
+- **Phase 10**: Unit tests (T-41 through T-45)
+- **Phase 11**: Integration tests (T-46 through T-50)
+- **Phase 12**: Documentation updates (T-51 through T-53)
+- **Phase 13**: Verification & PR (T-54 through T-55)
+
+### Issues & Decisions
+- T-35, T-36, and T-38 were already completed in prior sessions/commits; tracked as ✅ to reflect actual state
+- T-39 fix: Created separate `UserDetailsSafe` model rather than using Pydantic's `Field(exclude=True)` approach, keeping the public API model clean
+- All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
+
+---
+
+### Acceptance Criteria (SPEC.md Part VII)
 
 - [ ] All EARS requirements in SPEC.md Parts III, V, VI implemented and verified by tests
 - [ ] `tree_collection` no longer written to by any route handler
