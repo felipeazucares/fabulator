@@ -19,7 +19,13 @@ This is the authoritative rulebook for all changes to Fabulator. Every pull requ
 
 ---
 
-## Coding Guidelines
+## Part 0 - Coding Guidelines
+
+### Agentoic Workflow
+- Think step-by-step
+- For each assigned item generate a to do
+- T-Shirt size likely effort
+- Use sub-agents to parallelise as much as possible 
 
 ### Do
 - Use async/await for all I/O operations

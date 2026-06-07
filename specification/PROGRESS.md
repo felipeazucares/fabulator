@@ -119,11 +119,11 @@
 
 | # | Task | Ref | Status | Est |
 |---|------|-----|--------|-----|
-| T-35 | Replace `print()` in `update_password` with `logger.debug()` | L7 | ⬜ | 5 min |
-| T-36 | Fix `self.x = param` pattern in remaining `RoutesHelper` methods | L6 | ⬜ | 10 min |
+| T-35 | Replace `print()` in `update_password` with `logger.debug()` | L7 | ✅ | 5 min |
+| T-36 | Fix `self.x = param` pattern in remaining `RoutesHelper` methods | L6 | ✅ | 10 min |
 | T-37 | Remove no-op line `authentication.py:15` | L9 | ⬜ | 5 min |
-| T-38 | Remove unused `self._redis_conn = None` in `authentication.py:31` | L10 | ⬜ | 5 min |
-| T-39 | Fix `GET /users/me` to exclude `password` hash from response | M6 | ⬜ | 15 min |
+| T-38 | Remove unused `self._redis_conn = None` in `authentication.py:31` | L10 | ✅ | 5 min |
+| T-39 | Fix `GET /users/me` to exclude `password` hash from response | M6 | ✅ | 15 min |
 | T-40 | Add `None` guard in `saves_helper()` callers | L11 | ⬜ | 10 min |
 
 *Note: M7 (20 routes missing `response_model`) is resolved by the refactor — all new routes have `response_model` from the start.*

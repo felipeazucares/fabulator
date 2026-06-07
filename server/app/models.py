@@ -176,6 +176,20 @@ class UserDetails(BaseModel):
     )
 
 
+class UserDetailsSafe(BaseModel):
+    name: Name
+    username: str
+    account_id: Optional[str] = None
+    email: EmailStr
+    disabled: Optional[bool] = False
+    user_role: str
+    user_type: UserType
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+
 class RetrievedUserDetails(BaseModel):
     id: str
     name: Name  # use nested model definition
