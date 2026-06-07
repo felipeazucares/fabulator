@@ -2,7 +2,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 import motor.motor_asyncio
-from treelib import Tree
+
 from fastapi.encoders import jsonable_encoder
 from app.helpers import get_logger
 from bson.objectid import ObjectId
@@ -19,8 +19,6 @@ from .models import (
     UpdateUserDetails,
     UpdateUserPassword,
     UpdateUserType,
-    TreeSaveSchema,
-    saves_helper,
     users_saves_helper,
 )
 

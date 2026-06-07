@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Annotated
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, StringConstraints
-from treelib import Tree
+
 from bson.objectid import ObjectId
 from enum import Enum
 

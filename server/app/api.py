@@ -4,7 +4,7 @@ from pydantic import ValidationError
 import app.config  # loads the load_env lib to access .env file
 from app.helpers import get_logger
 from app.authentication import Authentication
-from treelib import Tree
+
 from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path
 from typing import Optional
 import motor.motor_asyncio
