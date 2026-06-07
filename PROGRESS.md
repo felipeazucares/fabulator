@@ -29,10 +29,10 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-01 | Add Work schemas: `CreateWorkRequest`, `UpdateWorkRequest`, `WorkResponse` | ⬜ | 30 min | |
-| T-02 | Add Node schemas: `CreateNodeRequest`, `UpdateNodeRequest`, `ReorderRequest`, `NodeResponse` | ⬜ | 45 min | UUID pattern on IDs; `node_type` Enum; tag list cap 50 |
-| T-03 | Add `AncestorsResponse`, `WorkStatsResponse` | ⬜ | 15 min | |
-| T-04 | Remove unused `ResponseModel2`, `UserAccount` (Constitution XI L8) | ⬜ | 15 min | Verify no imports before removing |
+| T-01 | Add Work schemas: `CreateWorkRequest`, `UpdateWorkRequest`, `WorkResponse` | ✅ | 30 min | |
+| T-02 | Add Node schemas: `CreateNodeRequest`, `UpdateNodeRequest`, `ReorderRequest`, `NodeResponse` | ✅ | 45 min | UUID pattern on IDs; `node_type` Enum; tag list cap 50 |
+| T-03 | Add `AncestorsResponse`, `WorkStatsResponse` | ✅ | 15 min | |
+| T-04 | Remove unused `ResponseModel2`, `UserAccount` (Constitution XI L8) | ✅ | 15 min | Verified no imports before removing |
 
 ---
 
@@ -180,7 +180,7 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 1 | 56 |
+| Tasks complete | 5 | 56 |
 
 ---
 
