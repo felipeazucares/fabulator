@@ -40,11 +40,11 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-05 | `WorkStorage` class: `create`, `get`, `list`, `update`, `delete`, `cascade_author_to_nodes` | ⬜ | 2h | Author cascade = bulk `update_many` on `node_collection` by `work_id` |
-| T-06 | `NodeStorage` class (core): `create`, `get`, `list`, `update`, `delete_cascade` | ⬜ | 3h | BFS cascade delete; position management on create/delete |
-| T-07 | `NodeStorage` (navigation): `get_children`, `get_parent`, `get_ancestors`, `get_siblings`, `get_roots`, `get_leaves` | ⬜ | 1h 30m | Ancestors = iterative traversal up `parent_id` chain |
-| T-08 | `NodeStorage` (helpers): `get_stats`, `reorder_siblings`, `duplicate_shallow`, `duplicate_deep`, `is_descendant_of` | ⬜ | 2h | `is_descendant_of` is the cycle-detection guard for reparent |
-| T-09 | MongoDB collection setup: `work_collection` + `node_collection` with JSON Schema validators + all 7 indexes | ⬜ | 45 min | Runs in lifespan startup; idempotent |
+| T-05 | `WorkStorage` class: `create`, `get`, `list`, `update`, `delete`, `cascade_author_to_nodes` | ✅ | 2h | Author cascade = bulk `update_many` on `node_collection` by `work_id` |
+| T-06 | `NodeStorage` class (core): `create`, `get`, `list`, `update`, `delete_cascade` | ✅ | 3h | BFS cascade delete; position management on create/delete |
+| T-07 | `NodeStorage` (navigation): `get_children`, `get_parent`, `get_ancestors`, `get_siblings`, `get_roots`, `get_leaves` | ✅ | 1h 30m | Ancestors = iterative traversal up `parent_id` chain |
+| T-08 | `NodeStorage` (helpers): `get_stats`, `reorder_siblings`, `duplicate_shallow`, `duplicate_deep`, `would_create_cycle` | ✅ | 2h | cycle detection walks parent_id chain from proposed new parent up to root |
+| T-09 | MongoDB collection setup: `work_collection` + `node_collection` with JSON Schema validators + all 7 indexes | ✅ | 45 min | Runs in lifespan startup; idempotent |
 
 ---
 
@@ -180,7 +180,7 @@
 | Unit tests | 0 | 12 |
 | Integration tests | 0 | 109 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 5 | 56 |
+| Tasks complete | 10 | 56 |
 
 ---
 
