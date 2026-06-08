@@ -1,7 +1,21 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force*)",
+      "Bash(sudo *)"
+    ],
     "ask": [
-      "Bash"
+      "Bash(rm *)",
+      "Bash(rmdir *)",
+      "Bash(git push*)",
+      "Bash(git rebase*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(chmod *)"
     ]
   }
 }

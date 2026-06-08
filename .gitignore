@@ -7,4 +7,5 @@ __pycache__
 server/fab.log
 dump.txt
 venv/
+venv_old/
 .claude/context.md

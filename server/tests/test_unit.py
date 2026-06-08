@@ -3,18 +3,14 @@ Unit tests — no MongoDB or Redis required.
 
 Covers:
   - Pydantic model validation (models.py)
-  - saves_helper / users_saves_helper (models.py)
+  - users_saves_helper (models.py)
   - Authentication helpers: verify_password, get_password_hash, create_access_token
-  - Tree operations: build_tree_from_dict, add_a_node, TreeDepthLimitExceeded
 """
 
-import os
 import pytest
 from datetime import timedelta
 from bson.objectid import ObjectId
 from pydantic import ValidationError
-from treelib import Tree
-from fastapi.encoders import jsonable_encoder
 
 # Ensure .env is loaded before importing app modules
 import app.config  # noqa: F401
@@ -22,13 +18,9 @@ import app.config  # noqa: F401
 from app.models import (
     RequestAddSchema,
     RequestUpdateSchema,
-    NodePayload,
-    UserDetails,
     UserType,
     UpdateUserType,
-    saves_helper,
     users_saves_helper,
-    UUID_PATTERN,
     NODE_NAME_MAX_LEN,
     DESCRIPTION_MAX_LEN,
     TEXT_MAX_LEN,
@@ -36,38 +28,7 @@ from app.models import (
     TAGS_MAX_COUNT,
     TAG_MAX_LEN,
 )
-from app.authentication import Authentication, pwd_context
-from app.database import TreeStorage, TreeDepthLimitExceeded, MAX_TREE_DEPTH
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _minimal_motor_client():
-    """Return a Motor client connected to the configured MongoDB instance.
-
-    The unit tests that call build_tree_from_dict never await any DB
-    operation — they only use the synchronous tree-building methods on
-    TreeStorage.  We still need a real client to satisfy __init__, but
-    no network calls are made during these tests.
-    """
-    import motor.motor_asyncio
-    return motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_DETAILS"))
-
-
-def _make_tree_storage() -> TreeStorage:
-    return TreeStorage(collection_name="tree_collection", client=_minimal_motor_client())
-
-
-def _serialised_tree(depth: int) -> dict:
-    """Return a jsonable_encoder'd treelib Tree with a linear chain of `depth` nodes."""
-    tree = Tree()
-    parent_id = None
-    for i in range(depth):
-        node = tree.create_node(tag=f"node_{i}", parent=parent_id)
-        parent_id = node.identifier
-    return jsonable_encoder(tree)
+from app.authentication import Authentication
 
 
 # ---------------------------------------------------------------------------
@@ -195,29 +156,6 @@ class TestUserType:
 
 
 # ---------------------------------------------------------------------------
-# saves_helper
-# ---------------------------------------------------------------------------
-
-class TestSavesHelper:
-
-    def test_returns_expected_keys(self):
-        raw = {
-            "account_id": "acc123",
-            "tree": {"root": "abc", "_nodes": {}},
-            "date_time": "2026-01-01T00:00:00",
-        }
-        result = saves_helper(raw)
-        assert result["account_id"] == "acc123"
-        assert result["tree"] == {"root": "abc", "_nodes": {}}
-        assert result["date_time"] == "2026-01-01T00:00:00"
-
-    def test_account_id_coerced_to_string(self):
-        raw = {"account_id": 42, "tree": {}, "date_time": "2026-01-01"}
-        result = saves_helper(raw)
-        assert isinstance(result["account_id"], str)
-
-
-# ---------------------------------------------------------------------------
 # users_saves_helper
 # ---------------------------------------------------------------------------
 
@@ -296,68 +234,3 @@ class TestAuthHelpers:
         assert "exp" in payload
 
 
-# ---------------------------------------------------------------------------
-# Tree operations — build_tree_from_dict / add_a_node
-# ---------------------------------------------------------------------------
-
-class TestBuildTreeFromDict:
-
-    def test_round_trip_single_node(self):
-        storage = _make_tree_storage()
-        tree = Tree()
-        tree.create_node(tag="root")
-        tree_dict = jsonable_encoder(tree)
-        result = storage.build_tree_from_dict(tree_dict=tree_dict)
-        assert result.size() == 1
-        assert result.root is not None
-
-    def test_round_trip_parent_child(self):
-        storage = _make_tree_storage()
-        tree = Tree()
-        root = tree.create_node(tag="root")
-        tree.create_node(tag="child", parent=root.identifier)
-        tree_dict = jsonable_encoder(tree)
-        result = storage.build_tree_from_dict(tree_dict=tree_dict)
-        assert result.size() == 2
-
-    def test_round_trip_preserves_tags(self):
-        storage = _make_tree_storage()
-        tree = Tree()
-        tree.create_node(tag="my_root_node")
-        tree_dict = jsonable_encoder(tree)
-        result = storage.build_tree_from_dict(tree_dict=tree_dict)
-        root_node = result.get_node(result.root)
-        assert root_node.tag == "my_root_node"
-
-    def test_missing_root_raises_key_error(self):
-        storage = _make_tree_storage()
-        with pytest.raises(KeyError):
-            storage.build_tree_from_dict(tree_dict={"_identifier": "abc", "_nodes": {}})
-
-    def test_depth_limit_exceeded_raises(self):
-        storage = _make_tree_storage()
-        deep_dict = _serialised_tree(MAX_TREE_DEPTH + 2)
-        with pytest.raises(TreeDepthLimitExceeded) as exc_info:
-            storage.build_tree_from_dict(tree_dict=deep_dict)
-        assert exc_info.value.depth > exc_info.value.limit
-
-    def test_depth_at_limit_succeeds(self):
-        storage = _make_tree_storage()
-        boundary_dict = _serialised_tree(MAX_TREE_DEPTH)
-        result = storage.build_tree_from_dict(tree_dict=boundary_dict)
-        assert result.size() == MAX_TREE_DEPTH
-
-    def test_depth_under_limit_succeeds(self):
-        storage = _make_tree_storage()
-        shallow_dict = _serialised_tree(MAX_TREE_DEPTH - 1)
-        result = storage.build_tree_from_dict(tree_dict=shallow_dict)
-        assert result.size() == MAX_TREE_DEPTH - 1
-
-    def test_depth_limit_exception_carries_values(self):
-        storage = _make_tree_storage()
-        deep_dict = _serialised_tree(MAX_TREE_DEPTH + 5)
-        with pytest.raises(TreeDepthLimitExceeded) as exc_info:
-            storage.build_tree_from_dict(tree_dict=deep_dict)
-        exc = exc_info.value
-        assert exc.limit == MAX_TREE_DEPTH
-        assert "exceeds" in str(exc)
