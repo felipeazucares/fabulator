@@ -137,7 +137,7 @@
 | T-41 | Hierarchy validator — all valid + invalid parent-child pairs | T-UNIT-01, T-UNIT-02 | ✅ | 20 min |
 | T-42 | Cycle detection — direct + indirect | T-UNIT-03, T-UNIT-04 | ✅ | 25 min |
 | T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ✅ | 30 min | 5 tests in `TestReorderSiblings`; also covers single-node clamp and node-not-found edge cases |
-| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | ⬜ | 20 min | Beat guard committed in `database.py` (`duplicate_shallow` line 937, `duplicate_deep` line 992). Unit tests not yet written. |
+| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | ✅ | 20 min | 5 tests in `TestDuplicateNode`; covers shallow position/tag, Beat guard (shallow + deep), deep root copy |
 | T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ⬜ | 15 min |
 
 ---
@@ -177,45 +177,41 @@
 
 | Category | Done | Total |
 |----------|------|-------|
-| Unit tests | 3 | 5 |
+| Unit tests | 4 | 5 |
 | Integration tests | 0 | 5 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 24 | 55 |
+| Tasks complete | 25 | 55 |
 
 ---
 
 ## Session Handoff
 
-### Last Session: Phase 10 — T-43 Sibling Renumbering Unit Tests
+### Last Session: Phase 10 — T-43 + T-44 Unit Tests
 
-- **T-43** ✅ — Added `TestReorderSiblings` class to `test_phase10.py`. 5 tests covering T-UNIT-05 (insert-at-start), T-UNIT-06 (insert-at-end with clamping), T-UNIT-07 (remove-from-middle), plus single-node clamp-to-zero and node-not-found edge cases. All 28 tests pass.
-- **Treelib regression fixed** — commit `b66e3bf` had accidentally re-introduced `from treelib import Tree` into `models.py` and restored the full `TreeStorage` class into `database.py` (reverting the Phase 8 T-32/T-33 work). Re-removed: treelib import from `models.py`, `TreeStorage` class from `database.py`, unused `TreeSaveSchema` and `saves_helper` from `models.py`, dead `TreeDepthLimitExceeded` import from `api.py`.
+- **T-43** ✅ — Added `TestReorderSiblings` (5 tests): insert-at-start, insert-at-end with clamping, remove-from-middle, single-node clamp-to-zero, node-not-found.
+- **T-44** ✅ — Added `TestDuplicateNode` (5 tests): shallow position = original+1, shallow tag " (copy)" suffix, Beat guard on shallow (no writes), Beat guard on deep (no writes), deep root copy position and tag.
+- **Treelib regression fixed** — commit `b66e3bf` had accidentally re-introduced `from treelib import Tree` into `models.py` and restored the full `TreeStorage` class into `database.py`. Re-removed: treelib import from `models.py`, `TreeStorage` class from `database.py`, unused `TreeSaveSchema` and `saves_helper` from `models.py`, dead `TreeDepthLimitExceeded` import from `api.py`.
 - **No commits made this session** — working tree has uncommitted changes to: `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md`.
 
 ### Current State (verified 2026-06-08)
 
 - **Working tree is dirty** — changes to `database.py`, `models.py`, `api.py`, `tests/test_phase10.py` are uncommitted.
-- **Beat guard is committed** in `database.py`: `duplicate_shallow` (line 937) and `duplicate_deep` (line 992) both return `None` for Beat nodes.
-- **`test_phase10.py`** contains 28 passing tests across three classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5). Note: previous session recorded 29 — the correct count is 28.
-- **T-44 unit tests not written** — duplicate position/tag/Beat-guard tests do not yet exist.
-- **T-45 not started.**
+- **`test_phase10.py`** contains 33 passing tests across four classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5, `TestDuplicateNode` × 5).
+- **T-45 not started** — author propagation unit tests.
 
 ### Issues & Decisions
 - T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
 - All tests use mocked MongoDB via `AsyncMock` / `MagicMock` — no real DB required (per Constitution rule)
-- `test_chapter_to_scene_valid_recheck`: corrected from "invalid" to "valid" — it IS a valid pair per `_VALID_CHILD`
-- T-39 fix: Created separate `UserDetailsSafe` model rather than using Pydantic's `Field(exclude=True)` approach
 - `duplicate_shallow` returns `_strip_id(new_doc)` directly (in-memory dict) — no second `get_node` call at end; differs from `reorder_siblings` mock pattern
+- `duplicate_shallow` and `duplicate_deep` both tested via `storage.get_node = AsyncMock(return_value=...)` patched on the instance
 - All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
 
 ### Next Steps
 
-Phase 10 remaining work (in order):
-1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`
-2. **T-44** — Write duplicate unit tests: position = original+1, tag suffix " (copy)", Beat guard → `None` for both shallow and deep
-3. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
-
-Then proceed to Phase 4–7 endpoints before writing integration tests — no API endpoints exist yet, so integration tests cannot run until those are implemented first.
+1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `PROGRESS.md`
+2. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
+3. **Phases 4–7** — Work CRUD endpoints, Node CRUD endpoints, Navigation endpoints, Reorder + Duplicate endpoints (all DB methods complete; route handlers needed in `api.py`)
+4. **Phase 11** — Integration tests (blocked until Phase 4–7 endpoints exist)
 
 ---
 

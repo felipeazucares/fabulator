@@ -386,3 +386,153 @@ class TestReorderSiblings(unittest.TestCase):
             storage.node_collection.find.assert_not_called()
 
         asyncio.get_event_loop().run_until_complete(_test())
+
+
+# ===========================================================================
+# T-44: Duplicate - NodeStorage.duplicate_shallow / duplicate_deep
+# ===========================================================================
+
+
+class TestDuplicateNode(unittest.TestCase):
+    """Tests for NodeStorage.duplicate_shallow() and NodeStorage.duplicate_deep().
+
+    T-UNIT-08: shallow duplicate places copy at original.position + 1
+    T-UNIT-09: shallow duplicate appends ' (copy)' to the source tag
+    T-UNIT-10: Beat guard returns None for both shallow and deep without writing
+    """
+
+    def _mock_motor_client(self):
+        mongo_client = MagicMock()
+        db = MagicMock()
+        collection = MagicMock()
+        mongo_client.__getitem__ = lambda self, name: db
+        db.__getitem__ = lambda self, name: collection
+        return mongo_client, collection
+
+    def _make_node_storage(self):
+        mongo_client, collection = self._mock_motor_client()
+        storage = NodeStorage(client=mongo_client)
+        storage.node_collection = collection
+        return storage
+
+    def _make_node(self, node_id, node_type, position, tag,
+                   parent_id="parent-1", work_id="work-1"):
+        return {
+            "node_id": node_id,
+            "node_type": node_type,
+            "parent_id": parent_id,
+            "work_id": work_id,
+            "account_id": "acc1",
+            "position": position,
+            "tag": tag,
+            "author": None,
+            "description": None,
+            "text": None,
+            "previous": None,
+            "next": None,
+            "tags": [],
+        }
+
+    def _wire_find(self, storage, documents):
+        cursor = MagicMock()
+        cursor.to_list = AsyncMock(return_value=documents)
+        storage.node_collection.find = MagicMock(return_value=cursor)
+
+    def test_shallow_duplicate_position(self):
+        """T-UNIT-08: Copy is placed at original.position + 1."""
+        storage = self._make_node_storage()
+        source = self._make_node("node-A", "chapter", 2, "Chapter One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.duplicate_shallow(
+                node_id="node-A",
+                account_id="acc1",
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result["position"], 3)
+            storage.node_collection.update_many.assert_called_once()
+            storage.node_collection.insert_one.assert_called_once()
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_shallow_duplicate_tag_suffix(self):
+        """T-UNIT-09: Copy tag is '{source.tag} (copy)'; node_id is a fresh UUID."""
+        storage = self._make_node_storage()
+        source = self._make_node("node-A", "chapter", 0, "Chapter One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.duplicate_shallow(
+                node_id="node-A",
+                account_id="acc1",
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result["tag"], "Chapter One (copy)")
+            self.assertNotEqual(result["node_id"], "node-A")
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_beat_guard_shallow_returns_none(self):
+        """T-UNIT-10a: duplicate_shallow returns None for Beat; no writes occur."""
+        storage = self._make_node_storage()
+        source = self._make_node("node-B", "beat", 0, "Beat One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.duplicate_shallow(
+                node_id="node-B",
+                account_id="acc1",
+            )
+            self.assertIsNone(result)
+            storage.node_collection.update_many.assert_not_called()
+            storage.node_collection.insert_one.assert_not_called()
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_beat_guard_deep_returns_none(self):
+        """T-UNIT-10b: duplicate_deep returns None for Beat; no writes occur."""
+        storage = self._make_node_storage()
+        source = self._make_node("node-B", "beat", 0, "Beat One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.duplicate_deep(
+                node_id="node-B",
+                account_id="acc1",
+            )
+            self.assertIsNone(result)
+            storage.node_collection.update_many.assert_not_called()
+            storage.node_collection.insert_one.assert_not_called()
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_deep_duplicate_root_position_and_tag(self):
+        """T-UNIT-10c: duplicate_deep root copy is at original.position + 1
+        with ' (copy)' suffix; node_id is a fresh UUID."""
+        storage = self._make_node_storage()
+        source = self._make_node("node-P", "part", 1, "Part One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+        self._wire_find(storage, [])
+
+        async def _test():
+            result = await storage.duplicate_deep(
+                node_id="node-P",
+                account_id="acc1",
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result["position"], 2)
+            self.assertEqual(result["tag"], "Part One (copy)")
+            self.assertNotEqual(result["node_id"], "node-P")
+
+        asyncio.get_event_loop().run_until_complete(_test())
