@@ -10,8 +10,8 @@ Fabulator is a FastAPI-based backend for a collaborative tree-editing applicatio
 - **Database:** MongoDB via Motor (async driver)
 - **Cache/Sessions:** Redis (token blacklisting)
 - **Authentication:** JWT tokens with OAuth2, bcrypt password hashing
-- **Tree Structure:** treelib library
-- **Python Version:** 3.9+
+- **Data Model:** Normalised adjacency-list (WorkStorage, NodeStorage, UserStorage)
+- **Python Version:** 3.12+
 
 ## Project Structure
 
@@ -20,17 +20,19 @@ fabulator/
 ├── server/
 │   ├── app/
 │   │   ├── api.py           # Main FastAPI app, all routes
-│   │   ├── database.py      # MongoDB operations - TreeStorage, UserStorage classes
+│   │   ├── database.py      # MongoDB operations — WorkStorage, NodeStorage, UserStorage
 │   │   ├── authentication.py # JWT creation, password hashing, token blacklist
 │   │   ├── models.py        # Pydantic schemas for requests/responses
 │   │   ├── helpers.py       # get_logger() factory (Python logging module)
 │   │   └── config.py        # Environment loading (load_dotenv only)
 │   ├── tests/
 │   │   └── test_unit.py     # Unit tests (no live DB required)
+│   │   └── test_integration_normalised.py  # Integration tests (117 tests)
 │   ├── main.py              # Entry point (runs uvicorn)
-│   ├── test_api_integration.py  # Integration tests (1,900+ lines)
+│   ├── test_api_integration.py  # Legacy integration tests (treelib era)
 │   ├── pytest.ini           # pytest config (asyncio_mode = auto)
 │   └── requirements.txt     # Python dependencies
+├── specification/           # Design docs, PROGRESS, feature specs
 ├── README.md                # Setup, env vars, API reference
 ├── .env.example             # Environment template
 ├── CODEBASE_ASSESSMENT.md   # Known issues and work areas
@@ -41,10 +43,11 @@ fabulator/
 
 ### Tree Structure
 - Each user has an `account_id` (bcrypt hash of username)
-- Trees are stored as JSON documents in MongoDB `tree_collection`
-- Trees have nodes with: `_tag` (name), `_identifier` (UUID), `data` (payload)
-- Node payload contains: `description`, `text`, `previous`, `next`, `tags`
-- Trees are loaded from database per-request (no global state)
+- Trees are stored as normalised adjacency-list documents in MongoDB `work_collection` and `node_collection`
+- `work_collection`: one document per narrative work, contains metadata (title, author, tags)
+- `node_collection`: one document per node, contains `parent_id` to form the tree, plus content fields (description, text, tags)
+- Hierarchy is enforced: Part → Chapter → Scene → Beat (max 4 levels)
+- Nodes are loaded via per-request MongoDB queries (no global state)
 
 ### Authentication Flow
 1. User registers via `POST /users`
@@ -56,7 +59,9 @@ fabulator/
 ### Database Classes
 - `TreeStorage(collection_name, client)` - CRUD for tree documents
 - `UserStorage(collection_name, client)` - CRUD for user documents
-- Both receive a shared `AsyncIOMotorClient` injected via FastAPI `Depends()` — client created once in the lifespan context manager and stored on `app.state.motor_client`
+- `WorkStorage(client)` — CRUD for work documents in `work_collection`; author cascade updates all child nodes
+- `NodeStorage(client)` — CRUD for nodes in `node_collection`; BFS cascade delete, sibling renumbering, cycle detection, duplicate (shallow/deep)
+- All storage classes receive a shared `AsyncIOMotorClient` injected via FastAPI `Depends()` — client created once in the lifespan context manager and stored on `app.state.motor_client`
 
 ## Environment Variables
 
@@ -109,30 +114,39 @@ Set `LOGIN_RATE_LIMIT=1000/minute` in `.env` to avoid 429 errors during integrat
 - `GET /logout` - Blacklist current token
 - `POST /users` - Register new user
 
+### Works (require auth + tree scopes)
+- `GET /works` - List works for account
+- `GET /works/{work_id}` - Get single work
+- `POST /works` - Create a work
+- `PUT /works/{work_id}` - Update work (author change cascades to nodes)
+- `DELETE /works/{work_id}` - Delete work and all its nodes
+- `GET /works/{work_id}/stats` - Node counts by type + max depth
+
+### Nodes (require auth + tree scopes)
+- `GET /works/{work_id}/nodes` - List nodes (optional `?node_type=` filter)
+- `GET /works/{work_id}/nodes/root` - Get root (Part) nodes
+- `GET /works/{work_id}/nodes/leaves` - Get leaf (Beat) nodes
+- `POST /nodes` - Create node (hierarchy enforced)
+- `GET /nodes/{node_id}` - Get single node
+- `PUT /nodes/{node_id}` - Update node (supports reparenting)
+- `DELETE /nodes/{node_id}` - Delete node and descendants
+- `GET /nodes/{node_id}/children` - Get direct children
+- `GET /nodes/{node_id}/parent` - Get parent node (null for root)
+- `GET /nodes/{node_id}/ancestors` - Get root-to-parent path
+- `GET /nodes/{node_id}/siblings` - Get sibling nodes
+- `PUT /nodes/{node_id}/reorder` - Change position among siblings
+- `POST /nodes/{node_id}/duplicate` - Copy node (`?deep=true` for subtree)
+
 ### Users (require auth)
 - `GET /users/me` - Get current user
+- `GET /users` - Get user details
 - `PUT /users` - Update user details
 - `PUT /users/password` - Change password
 - `PUT /users/type` - Change user type (free/premium)
 - `DELETE /users` - Delete current user
 
-### Nodes (require auth + tree scopes)
-- `GET /nodes` - List all nodes (optional `filterval` query param)
-- `GET /nodes/{node_id}` - Get single node
-- `POST /nodes/{node_name}` - Create node (root if no parent in body)
-- `PUT /nodes/{node_id}` - Update node
-- `DELETE /nodes/{node_id}` - Delete node and children
-
-### Trees (require auth + tree scopes)
-- `GET /trees/root` - Get root node ID
-- `GET /trees/{node_id}` - Get subtree from node
-- `POST /trees/{parent_id}` - Graft subtree onto parent
-
-### Saves (require auth + tree scopes)
-- `GET /saves` - List all saves for account
-- `GET /loads` - Load latest save
-- `GET /loads/{save_id}` - Load specific save
-- `DELETE /saves` - Delete all saves
+### Meta
+- `GET /` - API version and username
 
 ## Code Patterns
 
@@ -147,6 +161,21 @@ async def endpoint_name(
     routes_helper = RoutesHelper(db_storage=db_storage, user_storage=user_storage)
     # ... operations
     return ResponseModel(data=result, message="Success")
+```
+
+### Normalised Model Route Pattern (Work/Node endpoints)
+```python
+@app.get("/works/{work_id}", response_model=WorkResponse)
+async def get_work(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    work = await work_storage.get_work(work_id=work_id, account_id=account_id)
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+    return work
 ```
 
 ### Database Pattern
@@ -164,6 +193,25 @@ class TreeStorage:
             logger.error("Description of operation that failed", exc_info=True)
             raise
         return result
+```
+
+### Normalised Model Database Pattern (WorkStorage / NodeStorage)
+```python
+class NodeStorage:
+    def __init__(self, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
+        self.database = self.client.fabulator
+        self.node_collection = self.database.get_collection("node_collection")
+
+    async def get_node(self, node_id: str, account_id: str) -> dict | None:
+        try:
+            doc = await self.node_collection.find_one(
+                {"node_id": node_id, "account_id": account_id}
+            )
+        except (ConnectionFailure, OperationFailure):
+            logger.error(f"Exception in get_node({node_id})", exc_info=True)
+            raise
+        return doc.pop("_id", None) or doc if doc else None
 ```
 
 ### Logging Pattern
@@ -207,7 +255,7 @@ All critical, high, and medium-priority issues are resolved. Remaining open item
 - **Tree depth limit M2** (2026-03-16): `MAX_TREE_DEPTH` env var; `TreeDepthLimitExceeded` exception; HTTP 422 on breach — PR #14
 - **Structured logging L3** (2026-03-16): `ConsoleDisplay` replaced with Python `logging` via `get_logger()` — PR #16
 - **Exception leaking M5** (2026-03-16): HTTPException details no longer embed raw `{e}` — PR #16
-- **Unit tests L4** (2026-03-16): `server/tests/test_unit.py` — 43 tests, no live DB required — PR #16
+- **Unit tests L4** (2026-03-16): `server/tests/test_unit.py` — 33 tests, no live DB required — PR #16
 - **README L2** (2026-03-16): `README.md` added at repo root — PR #16
 - **Self-assignment pattern 4.5** (2026-03-16): 71 `self.x = param` assignments removed from 22 methods; local variables used throughout — PR #17
 - **Motor pool observability 4.1** (2026-03-16): `MONGO_MAX_POOL_SIZE` env var (default 100) wired into `AsyncIOMotorClient`; `_PoolEventLogger` registered when `DEBUG=True`; 2 concurrent-request tests confirm pool reuse — PR #18
@@ -227,8 +275,8 @@ These are fundamental operations missing from basic CRUD:
 |----------|---------|
 | `DELETE /saves/{save_id}` | Delete a **specific** save (currently only delete-all) |
 | `GET /saves/{save_id}` | Get save **metadata** without loading full tree |
-| `POST /nodes/{id}/duplicate` | **Copy** a node with optional children |
-| `PUT /nodes/{id}/reorder` | Change **position among siblings** |
+| ~~`POST /nodes/{id}/duplicate`~~ | ~~**Copy** a node with optional children~~ ✅ Implemented |
+| ~~`PUT /nodes/{id}/reorder`~~ | ~~Change **position among siblings**~~ ✅ Implemented |
 
 ### Tier 2 - Tree Navigation (High Priority)
 
@@ -236,12 +284,12 @@ Essential for frontend tree visualization and navigation:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /nodes/{id}/children` | Get **direct children** of a node |
-| `GET /nodes/{id}/parent` | Get **parent** node |
-| `GET /nodes/{id}/siblings` | Get **sibling** nodes |
-| `GET /nodes/{id}/ancestors` | Get **path from root** to node |
-| `GET /trees/leaves` | Get all **leaf nodes** (story branch endpoints) |
-| `GET /trees/stats` | Tree **depth, node count**, branch statistics |
+| ~~`GET /nodes/{id}/children`~~ | ~~Get **direct children** of a node~~ ✅ Implemented |
+| ~~`GET /nodes/{id}/parent`~~ | ~~Get **parent** node~~ ✅ Implemented |
+| ~~`GET /nodes/{id}/siblings`~~ | ~~Get **sibling** nodes~~ ✅ Implemented |
+| ~~`GET /nodes/{id}/ancestors`~~ | ~~Get **path from root** to node~~ ✅ Implemented |
+| ~~`GET /trees/leaves`~~ | ~~Get all **leaf nodes** (story branch endpoints)~~ ✅ `/works/{id}/nodes/leaves` |
+| ~~`GET /trees/stats`~~ | ~~Tree **depth, node count**, branch statistics~~ ✅ `/works/{id}/stats` |
 
 ### Tier 3 - Search & Query (Medium Priority)
 
@@ -274,10 +322,11 @@ For finding content in large narrative structures:
 
 ### Implementation Notes
 
-**Quick Wins (use existing treelib methods):**
-- Navigation endpoints (children, parent, siblings) - treelib already has these methods
-- Tree stats - treelib provides depth, size methods
-- Node duplication - treelib has subtree methods
+**Quick Wins (all Tier 1 & 2 implemented):**
+- Navigation endpoints (children, parent, siblings) — use `NodeStorage` adjacency-list queries
+- Tree stats — aggregation pipeline + BFS depth calculation
+- Node duplication — recursive deep copy with fresh UUIDs
+- Reorder — position-based sibling renumbering with clamp
 
 **New MongoDB Collections Needed:**
 - `characters`, `comments`, `relationships`, `revisions`, `templates`
