@@ -10,6 +10,7 @@ from httpx import ASGITransport
 import app.api as api
 import app.database as database
 import hashlib
+import re
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from jose import jwt
@@ -2071,3 +2072,533 @@ def test_shared_pool_client_is_singleton(motor_client):
     assert tree_storage.client is motor_client
     assert user_storage.client is motor_client
     assert tree_storage.client is user_storage.client
+
+
+# ================================================================
+#  Work CRUD Integration Tests  (T-46)
+# ================================================================
+
+UUID4_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+
+
+@pytest.fixture
+async def work_fixture(return_token):
+    """Create a work for the main test user. Cleans up on teardown."""
+    headers = return_token
+    data = jsonable_encoder({
+        "title": "Integration Test Work",
+        "description": "Created by work_fixture",
+        "author": "Test Author",
+        "tags": ["test", "integration"],
+    })
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 201
+    work_id = response.json()["work_id"]
+    yield response.json()
+    do_cleanup = True
+    if do_cleanup:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+            await ac.delete(f"/works/{work_id}", headers=headers)
+
+
+@pytest.fixture
+async def work_fixture_isolation(return_isolation_token):
+    """Create a work for the isolation test user. Cleans up on teardown."""
+    headers = return_isolation_token
+    data = jsonable_encoder({
+        "title": "Isolation User Work",
+        "description": "Created by work_fixture_isolation",
+        "author": "Isolation Author",
+        "tags": ["isolation"],
+    })
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 201
+    work_id = response.json()["work_id"]
+    yield response.json()
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/works/{work_id}", headers=headers)
+
+
+# ── Requirement 1: Create Work ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_work_happy(return_token):
+    """T-WORK-01: POST /works with valid data returns 201 and WorkResponse without account_id."""
+    headers = return_token
+    data = jsonable_encoder({
+        "title": "My Novel",
+        "author": "Jane Doe",
+        "tags": ["fiction"],
+    })
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 201
+    body = response.json()
+    assert "work_id" in body
+    assert re.match(UUID4_PATTERN, body["work_id"])
+    assert body["title"] == "My Novel"
+    assert body["author"] == "Jane Doe"
+    assert body["tags"] == ["fiction"]
+    assert "created_at" in body
+    assert "updated_at" in body
+    assert "account_id" not in body
+    # Cleanup
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/works/{body['work_id']}", headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_create_work_whitespace_title(return_token):
+    """T-WORK-09: POST /works with whitespace-only title returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "   "})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+    assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_create_work_empty_title(return_token):
+    """T-WORK-10: POST /works with empty title returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": ""})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_work_too_many_tags(return_token):
+    """T-WORK-11: POST /works with 51 tags returns 422 with detail mentioning tags limit."""
+    headers = return_token
+    tags = [f"tag{i}" for i in range(51)]
+    data = jsonable_encoder({"title": "Tags Test", "tags": tags})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+    assert "tags" in str(response.json()["detail"]).lower() or "tags list" in str(response.json()["detail"]).lower()
+
+
+@pytest.mark.asyncio
+async def test_create_work_empty_tag(return_token):
+    """T-WORK-12: POST /works with empty-string tag returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "Empty Tag Test", "tags": ["valid", ""]})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_work_title_too_long(return_token):
+    """R8-AC1: POST /works with title >200 chars returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "x" * 201})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_work_author_too_long(return_token):
+    """R8-AC2: POST /works with author >200 chars returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "Author Test", "author": "x" * 201})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_work_description_too_long(return_token):
+    """R8-AC3: POST /works with description >2000 chars returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "Desc Test", "description": "x" * 2001})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_work_tag_too_long(return_token):
+    """R8-AC6: POST /works with tag >100 chars returns 422."""
+    headers = return_token
+    data = jsonable_encoder({"title": "Tag Len Test", "tags": ["x" * 101]})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+# ── Requirement 2: List Works ─────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_works_with_two(return_token):
+    """T-WORK-02: GET /works returns multiple works ordered by created_at desc."""
+    headers = return_token
+    # Create two works with known titles
+    w1_data = jsonable_encoder({"title": "Work AAAA", "author": "Author A"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        r1 = await ac.post("/works", json=w1_data, headers=headers)
+    assert r1.status_code == 201
+    w1_id = r1.json()["work_id"]
+    w2_data = jsonable_encoder({"title": "Work ZZZZ", "author": "Author Z"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        r2 = await ac.post("/works", json=w2_data, headers=headers)
+    assert r2.status_code == 201
+    w2_id = r2.json()["work_id"]
+    # List works
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works", headers=headers)
+    assert response.status_code == 200
+    works = response.json()
+    assert isinstance(works, list)
+    found_ids = [w["work_id"] for w in works]
+    assert w1_id in found_ids
+    assert w2_id in found_ids
+    # Verify ordering by created_at descending
+    for i in range(len(works) - 1):
+        assert works[i]["created_at"] >= works[i + 1]["created_at"]
+    # Verify no account_id in any response item
+    for w in works:
+        assert "account_id" not in w
+    # Cleanup
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/works/{w1_id}", headers=headers)
+        await ac.delete(f"/works/{w2_id}", headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_list_works_empty(return_token):
+    """T-WORK-03: GET /works with no works returns 200 and empty array."""
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works", headers=headers)
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_isolation_list_works(work_fixture, work_fixture_isolation, return_isolation_token):
+    """R2-AC3: Isolation user sees only their own works via GET /works."""
+    headers = return_isolation_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works", headers=headers)
+    assert response.status_code == 200
+    works = response.json()
+    assert isinstance(works, list)
+    # Isolation user should see only their own work
+    for w in works:
+        assert w["title"] == "Isolation User Work"
+    assert len(works) >= 1
+
+
+# ── Requirement 3: Get Single Work ────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_work_owned(work_fixture, return_token):
+    """T-WORK-04: GET /works/{owned_id} returns 200 with WorkResponse."""
+    headers = return_token
+    work_id = work_fixture["work_id"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/works/{work_id}", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["work_id"] == work_id
+    assert body["title"] == work_fixture["title"]
+    assert "account_id" not in body
+
+
+@pytest.mark.asyncio
+async def test_get_work_not_found(return_token):
+    """T-WORK-05: GET /works/{nonexistent} returns 404 'Work not found'."""
+    headers = return_token
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/works/{fake_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+@pytest.mark.asyncio
+async def test_get_work_invalid_uuid(return_token):
+    """T-WORK-06: GET /works/{invalid-uuid} returns 422."""
+    headers = return_token
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works/not-a-uuid", headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_isolation_get_work(work_fixture, return_isolation_token):
+    """R3-AC3: User B gets User A's work → 404 (not 403)."""
+    headers = return_isolation_token
+    work_id = work_fixture["work_id"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get(f"/works/{work_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+# ── Requirement 4: Update Work ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_update_work_title(work_fixture, return_token):
+    """T-WORK-07: PUT /works/{id} partial title update returns 200 with updated_at refreshed."""
+    headers = return_token
+    work_id = work_fixture["work_id"]
+    original_updated_at = work_fixture["updated_at"]
+    data = jsonable_encoder({"title": "Updated Title"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/works/{work_id}", json=data, headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Updated Title"
+    assert body["description"] == work_fixture["description"]
+    assert body["author"] == work_fixture["author"]
+    assert body["updated_at"] != original_updated_at
+    assert "account_id" not in body
+
+
+@pytest.mark.asyncio
+async def test_update_work_author_cascade(return_token):
+    """T-WORK-08: PUT /works/{id} author change cascades to all child nodes."""
+    headers = return_token
+    # Create work
+    work_data = jsonable_encoder({"title": "Cascade Test", "author": "Original Author"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        r = await ac.post("/works", json=work_data, headers=headers)
+    assert r.status_code == 201
+    work_id = r.json()["work_id"]
+    work = r.json()
+    assert work["author"] == "Original Author"
+    # Create 3 part nodes under this work via the API
+    node_ids = []
+    for i in range(3):
+        node_data = jsonable_encoder({
+            "work_id": work_id,
+            "node_type": "part",
+            "tag": f"Part {i + 1}",
+        })
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+            nr = await ac.post("/nodes", json=node_data, headers=headers)
+        assert nr.status_code == 201, f"Node creation failed: {nr.status_code} {nr.text}"
+        node_ids.append(nr.json()["node_id"])
+    # Update work author
+    update_data = jsonable_encoder({"author": "New Author"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        ur = await ac.put(f"/works/{work_id}", json=update_data, headers=headers)
+    assert ur.status_code == 200
+    assert ur.json()["author"] == "New Author"
+    # Verify all nodes have updated author
+    for node_id in node_ids:
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+            nr = await ac.get(f"/nodes/{node_id}", headers=headers)
+        assert nr.status_code == 200
+        assert nr.json()["author"] == "New Author"
+    # Cleanup
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        await ac.delete(f"/works/{work_id}", headers=headers)
+
+
+@pytest.mark.asyncio
+async def test_update_work_not_found(return_token):
+    """R4-AC3: PUT /works/{nonexistent} returns 404."""
+    headers = return_token
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    data = jsonable_encoder({"title": "Nope"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/works/{fake_id}", json=data, headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+@pytest.mark.asyncio
+async def test_update_work_empty_title(return_token, work_fixture):
+    """R4-AC4: PUT /works/{id} with empty title returns 422."""
+    headers = return_token
+    work_id = work_fixture["work_id"]
+    data = jsonable_encoder({"title": ""})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/works/{work_id}", json=data, headers=headers)
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_isolation_update_work(work_fixture, return_isolation_token):
+    """R7-AC2: User B updates User A's work → 404."""
+    headers = return_isolation_token
+    work_id = work_fixture["work_id"]
+    data = jsonable_encoder({"title": "Hacker Attempt"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put(f"/works/{work_id}", json=data, headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+# ── Requirement 5: Delete Work ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_delete_work_with_nodes(return_token):
+    """T-WORK-23: DELETE /works/{id} with child nodes returns node count."""
+    headers = return_token
+    # Create work
+    work_data = jsonable_encoder({"title": "Delete With Nodes Test", "author": "Author"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        r = await ac.post("/works", json=work_data, headers=headers)
+    assert r.status_code == 201
+    work_id = r.json()["work_id"]
+    # Create 3 part nodes
+    for i in range(3):
+        node_data = jsonable_encoder({"work_id": work_id, "node_type": "part", "tag": f"Node {i}"})
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+            nr = await ac.post("/nodes", json=node_data, headers=headers)
+        assert nr.status_code == 201
+    # Delete work
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        dr = await ac.delete(f"/works/{work_id}", headers=headers)
+    assert dr.status_code == 200
+    assert dr.json()["detail"] == "Work deleted. 3 node(s) removed."
+    # Verify work is gone
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        gr = await ac.get(f"/works/{work_id}", headers=headers)
+    assert gr.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_work_empty(return_token):
+    """T-WORK-24: DELETE /works/{id} with no nodes returns 0 removed."""
+    headers = return_token
+    work_data = jsonable_encoder({"title": "Delete Empty Test"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        r = await ac.post("/works", json=work_data, headers=headers)
+    assert r.status_code == 201
+    work_id = r.json()["work_id"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        dr = await ac.delete(f"/works/{work_id}", headers=headers)
+    assert dr.status_code == 200
+    assert dr.json()["detail"] == "Work deleted. 0 node(s) removed."
+
+
+@pytest.mark.asyncio
+async def test_delete_work_not_found(return_token):
+    """R5-AC3: DELETE /works/{nonexistent} returns 404."""
+    headers = return_token
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/works/{fake_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+@pytest.mark.asyncio
+async def test_isolation_delete_work(work_fixture, return_isolation_token):
+    """R7-AC3: User B deletes User A's work → 404."""
+    headers = return_isolation_token
+    work_id = work_fixture["work_id"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.delete(f"/works/{work_id}", headers=headers)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Work not found"
+
+
+# ── Authentication and Scope ────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_no_auth_create_work(return_token):
+    """R6-AC1: No auth on POST /works returns 401."""
+    data = jsonable_encoder({"title": "No Auth"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data)
+    assert response.status_code == 401
+    assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_no_auth_list_works(return_token):
+    """R6-AC1: No auth on GET /works returns 401."""
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_no_auth_get_work(return_token):
+    """R6-AC1: No auth on GET /works/{id} returns 401."""
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works/00000000-0000-0000-0000-000000000000")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_scope_create_work(return_scoped_token):
+    """T-WORK-14: POST /works without tree:writer returns 403."""
+    scopes = return_scoped_token["scopes"]
+    if "tree:writer" in scopes:
+        pytest.skip("Has sufficient scope — not testing insufficient permissions")
+    headers = return_scoped_token["token"]
+    data = jsonable_encoder({"title": "Scope Test"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.post("/works", json=data, headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions to complete action"
+
+
+@pytest.mark.asyncio
+async def test_scope_list_works(return_scoped_token):
+    """T-WORK-17: GET /works without tree:reader returns 403."""
+    scopes = return_scoped_token["scopes"]
+    if "tree:reader" in scopes:
+        pytest.skip("Has sufficient scope — not testing insufficient permissions")
+    headers = return_scoped_token["token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions to complete action"
+
+
+@pytest.mark.asyncio
+async def test_scope_get_work(return_scoped_token):
+    """GET /works/{id} without tree:reader returns 403."""
+    scopes = return_scoped_token["scopes"]
+    if "tree:reader" in scopes:
+        pytest.skip("Has sufficient scope — not testing insufficient permissions")
+    headers = return_scoped_token["token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.get("/works/00000000-0000-0000-0000-000000000000", headers=headers)
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_scope_update_work(return_scoped_token):
+    """T-WORK-SCOPE-01: PUT /works/{id} without tree:writer returns 403."""
+    scopes = return_scoped_token["scopes"]
+    if "tree:writer" in scopes:
+        pytest.skip("Has sufficient scope — not testing insufficient permissions")
+    headers = return_scoped_token["token"]
+    data = jsonable_encoder({"title": "Scope Update"})
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.put("/works/00000000-0000-0000-0000-000000000000", json=data, headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions to complete action"
+
+
+@pytest.mark.asyncio
+async def test_scope_delete_work(return_scoped_token):
+    """T-WORK-SCOPE-02: DELETE /works/{id} without tree:writer returns 403."""
+    scopes = return_scoped_token["scopes"]
+    if "tree:writer" in scopes:
+        pytest.skip("Has sufficient scope — not testing insufficient permissions")
+    headers = return_scoped_token["token"]
+    async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://localhost:8000") as ac:
+        response = await ac.delete("/works/00000000-0000-0000-0000-000000000000", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions to complete action"

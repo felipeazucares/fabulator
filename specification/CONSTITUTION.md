@@ -19,9 +19,17 @@ This is the authoritative rulebook for all changes to Fabulator. Every pull requ
 
 ---
 
+### How to Use the documents in the specifciation directory
+
+The CONSTITUTION.md is the overulling rulebook for how to complete work.
+The DESIGN.md outlines the archtecture and design decisions for the project.
+The REQUIREMENTS.md defines what the project will do.
+The sub folders within specification folder refer to an indvidual feature of requirement (where the name of the folder is the name of the feature)
+The FEATURE.md doc within a requirement sub folder details the specs for that feature, including requirements, how it should be implemented as well as acceptence criteria.
+
 ## Part 0 - Coding Guidelines
 
-### Agentoic Workflow
+### Agentic Workflow
 - Think step-by-step
 - For each assigned item generate a to do
 - T-Shirt size likely effort
