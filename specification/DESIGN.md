@@ -72,7 +72,7 @@ No local database containers. MongoDB Atlas and Redis Cloud are always external.
 |  - user_document_exists()                                    |
 +--------------------------------------------------------------+
 |  Domain Layer  (database.py, authentication.py)              |
-|  - TreeStorage: tree CRUD + reconstruction                   |
+|  - WorkStorage: Work CRUD (work_collection); NodeStorage: node CRUD (node_collection) |
 |  - UserStorage: user CRUD                                    |
 |  - Authentication: JWT, bcrypt, Redis blacklist              |
 +--------------------------------------------------------------+
@@ -96,13 +96,16 @@ Request arrives
   -> FastAPI resolves Security(get_current_active_user_account, scopes=[...])
        -> decodes JWT, checks Redis blacklist, verifies scopes
        -> returns account_id: str
-  -> FastAPI resolves Depends(get_tree_storage)
-       -> calls TreeStorage(TREE_COLLECTION, app.state.motor_client)
-       -> returns db_storage: TreeStorage
+  -> FastAPI resolves Depends(get_work_storage)
+       -> calls WorkStorage(app.state.motor_client)
+       -> returns work_storage: WorkStorage
+  -> FastAPI resolves Depends(get_node_storage)
+       -> calls NodeStorage(app.state.motor_client)
+       -> returns node_storage: NodeStorage
   -> FastAPI resolves Depends(get_user_storage)
        -> calls UserStorage(USER_COLLECTION, app.state.motor_client)
        -> returns user_storage: UserStorage
-  -> Route handler executes with (account_id, db_storage, user_storage)
+  -> Route handler executes with (account_id, work_storage, node_storage, user_storage)
 ```
 
 `app.state.motor_client` is the single shared `AsyncIOMotorClient` created once in the lifespan context manager. All storage instances share the same underlying connection pool.
@@ -128,13 +131,13 @@ On shutdown (lifespan exit), the Motor client is closed.
 
 ## Part III — Component Specifications
 
-### III.1 — TreeStorage (`database.py`)
+### III.1 — WorkStorage (`database.py`)
 
-**Responsibility:** All CRUD operations for tree documents in `tree_collection`. Tree reconstruction from MongoDB documents.
+**Responsibility:** CRUD for narrative Work documents in `work_collection`. Author propagation to child nodes.
 
 **Constructor:**
 ```python
-TreeStorage(collection_name: str, client: AsyncIOMotorClient)
+WorkStorage(client: AsyncIOMotorClient)
 ```
 The client is injected — never created internally.
 
@@ -142,38 +145,58 @@ The client is injected — never created internally.
 
 | Method | Signature | Behaviour |
 |--------|-----------|-----------|
-| `get_tree_for_account` | `(account_id) -> Tree` | Loads latest save; returns empty `Tree()` if no saves exist |
-| `save_tree_for_account` | `(account_id, tree) -> InsertOneResult` | Inserts new document (append-only) |
-| `build_tree_from_dict` | `(tree_dict) -> Tree` | Reconstructs treelib Tree from stored dict |
-| `add_a_node` | `(tree, node_dict, parent_id, depth) -> None` | Recursive depth-first node insertion; raises `TreeDepthLimitExceeded` if `depth > MAX_TREE_DEPTH` |
-| `number_of_saves_for_account` | `(account_id) -> int` | Count of save documents for the account |
-| `get_saves_for_account` | `(account_id) -> list[dict]` | Metadata for all saves (without full tree payload) |
-| `check_if_document_exists` | `(document_id, account_id) -> bool` | Ownership-verified document lookup |
+| `create_work` | `(account_id, data) -> dict` | Inserts a new Work document; auto-generates UUID work_id and timestamps |
+| `get_work` | `(work_id, account_id) -> dict\|None` | Returns Work by UUID; returns None for wrong account |
+| `list_works` | `(account_id) -> list[dict]` | All Works for account, ordered by created_at descending |
+| `update_work` | `(work_id, account_id, updates) -> dict\|None` | Partial update; cascades author change to all child nodes via `update_many` on `node_collection` |
+| `delete_work` | `(work_id, account_id) -> (bool, int)` | Deletes Work document + bulk-deletes all child nodes; returns (found, nodes_deleted) |
 
-**Tree Reconstruction Algorithm:**
+### III.1b — NodeStorage (`database.py`)
 
+**Responsibility:** CRUD for individual node documents in `node_collection`. Navigation, reorder, duplicate, cycle detection.
+
+**Constructor:**
+```python
+NodeStorage(client: AsyncIOMotorClient)
 ```
-build_tree_from_dict(tree_dict):
-  1. Extract root node id from tree_dict["root"]
-  2. Create new treelib.Tree with stored "_identifier"
-  3. Call add_a_node(tree, root_node_dict, parent=None, depth=0)
+The client is injected — never created internally.
 
-add_a_node(tree, node_dict, parent_id, depth):
-  1. If depth > MAX_TREE_DEPTH: raise TreeDepthLimitExceeded(depth, MAX_TREE_DEPTH)
-  2. Read _tag, _identifier, data from node_dict
-  3. Create NodePayload from data dict
-  4. tree.create_node(tag, identifier, parent=parent_id, data=payload)
-  5. For each child_id in node_dict["_successors"]:
-       add_a_node(tree, tree_dict[child_id], parent_id=identifier, depth=depth+1)
-```
+**Key methods — Core CRUD:**
 
-All parameters and intermediates are local variables — never assigned to `self`.
+| Method | Signature | Behaviour |
+|--------|-----------|-----------|
+| `create_node` | `(account_id, work_doc, data) -> dict` | Inserts node; copies author from Work; auto-assigns position (max sibling + 1) |
+| `get_node` | `(node_id, account_id) -> dict\|None` | Returns node by UUID; None if wrong account |
+| `list_nodes` | `(work_id, account_id, node_type?) -> list[dict]` | All nodes for a Work, optionally filtered by type |
+| `update_node` | `(node_id, account_id, updates) -> dict\|None` | Partial update; auto-assigns end position on reparent |
+| `delete_node_cascade` | `(node_id, account_id) -> (bool, int)` | BFS cascade delete; returns (found, descendants_deleted) |
+
+**Key methods — Navigation:**
+
+| Method | Signature | Behaviour |
+|--------|-----------|-----------|
+| `get_children` | `(node_id, account_id) -> list[dict]` | Direct children ordered by position ascending |
+| `get_parent` | `(node_id, account_id) -> dict\|None` | Parent node; None for Part roots |
+| `get_ancestors` | `(node_id, account_id) -> list[dict]` | Ancestors root-to-parent; empty for roots |
+| `get_siblings` | `(node_id, account_id) -> list[dict]` | Siblings (same parent_id, excluding self) |
+| `get_roots` | `(work_id, account_id) -> list[dict]` | All Part nodes for a Work |
+| `get_leaves` | `(work_id, account_id) -> list[dict]` | All Beat nodes for a Work |
+
+**Key methods — Operations:**
+
+| Method | Signature | Behaviour |
+|--------|-----------|-----------|
+| `get_stats` | `(work_id, account_id) -> dict` | Counts by node_type + max depth (BFS) |
+| `would_create_cycle` | `(node_id, new_parent_id, account_id) -> bool` | Walks parent_id chain from new_parent; True if node_id encountered |
+| `reorder_siblings` | `(node_id, account_id, new_position) -> dict\|None` | Clamps position; renumbers all siblings to zero-based contiguous sequence |
+| `duplicate_shallow` | `(node_id, account_id) -> dict\|None` | Copies node (no children); tag gets " (copy)" suffix; placed after original |
+| `duplicate_deep` | `(node_id, account_id) -> dict\|None` | Recursive subtree copy with fresh UUIDs; tag "(copy)" suffix on root only |
 
 ### III.2 — UserStorage (`database.py`)
 
 **Responsibility:** CRUD for user documents in `user_collection`.
 
-**Constructor:** Same pattern as TreeStorage — client injected, never created internally.
+**Constructor:** Same pattern as WorkStorage/NodeStorage — client injected, never created internally.
 
 **Key methods:**
 
