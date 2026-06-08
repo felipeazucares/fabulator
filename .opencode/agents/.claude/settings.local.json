@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /code status)",
+      "Bash(git -C /code diff --staged)",
+      "Bash(git -C /code log --oneline -5)",
+      "Bash(git *)",
+      "Bash(rm -f /code/.claude/current-task.md /code/.claude/task-history.md /code/.claude/current-bug.md)",
+      "Bash(echo \"normal\")"
+    ]
+  }
+}
