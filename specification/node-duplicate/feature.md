@@ -1,13 +1,11 @@
 # Feature Specification: Node Duplicate
 
-**Implementation status:** PARTIALLY COMPLETE. `NodeStorage.duplicate_shallow` and `NodeStorage.duplicate_deep` are committed in database.py (lines 1232–1376). Both include a Beat guard that returns `None` for Beat nodes. **The API endpoints do NOT yet exist in api.py.** This spec describes exactly what to add.
+**Implementation status:** COMPLETE — `duplicate_shallow` and `duplicate_deep` in database.py and the `POST /nodes/{node_id}/duplicate` endpoint in api.py are committed on branch `refactor/normalised-node-model`. This document is authoritative for verification, test authoring, and corrective changes.
 
-**Files to modify:**
-- `server/app/api.py` — add 1 new route handler function that handles both shallow and deep duplication via a query parameter
-
-**Files NOT to modify:**
-- `server/app/database.py` — `duplicate_shallow` and `duplicate_deep` are complete; do not touch
-- `server/app/models.py` — all necessary models exist; do not touch
+**Files in scope:**
+- `server/app/database.py` — `NodeStorage.duplicate_shallow` (line 937), `NodeStorage.duplicate_deep` (line 992)
+- `server/app/api.py` — `duplicate_node` handler (line 965)
+- `server/app/models.py` — all necessary models exist
 
 ---
 

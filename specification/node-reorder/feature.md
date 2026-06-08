@@ -1,13 +1,11 @@
 # Feature Specification: Node Reorder
 
-**Implementation status:** PARTIALLY COMPLETE. `NodeStorage.reorder_siblings` is committed in database.py (lines 1192–1230). **The API endpoint `PUT /nodes/{node_id}/reorder` does NOT yet exist in api.py.** This spec describes exactly what to add.
+**Implementation status:** COMPLETE — `reorder_siblings` in database.py and the `PUT /nodes/{node_id}/reorder` endpoint in api.py are committed on branch `refactor/normalised-node-model`. This document is authoritative for verification, test authoring, and corrective changes.
 
-**Files to modify:**
-- `server/app/api.py` — add 1 new route handler function
-
-**Files NOT to modify:**
-- `server/app/database.py` — `NodeStorage.reorder_siblings` is complete; do not touch
-- `server/app/models.py` — `ReorderRequest` is complete; do not touch
+**Files in scope:**
+- `server/app/database.py` — `NodeStorage.reorder_siblings` (line 897)
+- `server/app/api.py` — `reorder_node` handler (line 929)
+- `server/app/models.py` — `ReorderRequest`
 
 ---
 

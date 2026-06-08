@@ -1,13 +1,11 @@
 # Feature Specification: Node Navigation
 
-**Implementation status:** PARTIALLY COMPLETE. All `NodeStorage` navigation methods (`get_children`, `get_parent`, `get_ancestors`, `get_siblings`, `get_roots`, `get_leaves`, `get_stats`) are committed in database.py (lines 1001–1164). **The 7 API endpoint functions do NOT yet exist in api.py.** This spec describes exactly what to add.
+**Implementation status:** COMPLETE — all 7 navigation endpoints and all `NodeStorage` navigation methods are committed on branch `refactor/normalised-node-model`. This document is authoritative for verification, test authoring, and corrective changes.
 
-**Files to modify:**
-- `server/app/api.py` — add 7 new route handler functions (INSERT ABOVE the existing `get_normalised_node` function at line 466)
-
-**Files NOT to modify:**
-- `server/app/database.py` — `NodeStorage` navigation methods are complete; do not touch
-- `server/app/models.py` — `NodeResponse`, `AncestorsResponse`, `WorkStatsResponse` are complete; do not touch
+**Files in scope:**
+- `server/app/database.py` — `NodeStorage` methods: `get_children` (line 710), `get_parent` (line 725), `get_ancestors` (line 740), `get_siblings` (line 770), `get_roots` (line 792), `get_leaves` (line 807), `get_stats` (line 826)
+- `server/app/api.py` — 7 navigation route handlers (lines 530–765)
+- `server/app/models.py` — `NodeResponse`, `AncestorsResponse`, `WorkStatsResponse`
 
 ---
 
