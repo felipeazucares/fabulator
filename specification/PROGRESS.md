@@ -84,13 +84,13 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-21 | `GET /nodes/{node_id}/children` — ordered by position | ⬜ | 20 min | |
-| T-22 | `GET /nodes/{node_id}/parent` — null for Part root | ⬜ | 20 min | |
-| T-23 | `GET /nodes/{node_id}/ancestors` — root-to-parent ordered list | ⬜ | 20 min | |
-| T-24 | `GET /nodes/{node_id}/siblings` — excludes self; ordered by position | ⬜ | 20 min | |
-| T-25 | `GET /works/{work_id}/nodes/root` — all Part nodes for Work | ⬜ | 20 min | |
-| T-26 | `GET /works/{work_id}/nodes/leaves` — all Beat nodes for Work | ⬜ | 15 min | |
-| T-27 | `GET /works/{work_id}/stats` — `WorkStatsResponse` with type counts and max depth | ⬜ | 25 min | |
+| T-21 | `GET /nodes/{node_id}/children` — ordered by position | ✅ | 20 min | |
+| T-22 | `GET /nodes/{node_id}/parent` — null for Part root | ✅ | 20 min | |
+| T-23 | `GET /nodes/{node_id}/ancestors` — root-to-parent ordered list | ✅ | 20 min | |
+| T-24 | `GET /nodes/{node_id}/siblings` — excludes self; ordered by position | ✅ | 20 min | |
+| T-25 | `GET /works/{work_id}/nodes/root` — all Part nodes for Work | ✅ | 20 min | |
+| T-26 | `GET /works/{work_id}/nodes/leaves` — all Beat nodes for Work | ✅ | 15 min | |
+| T-27 | `GET /works/{work_id}/stats` — `WorkStatsResponse` with type counts and max depth | ✅ | 25 min | |
 
 ---
 
@@ -98,9 +98,9 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-28 | `PUT /nodes/{node_id}/reorder` — clamp to max sibling; renumber all siblings | ⬜ | 30 min | |
-| T-29 | `POST /nodes/{node_id}/duplicate` — shallow copy; `"{tag} (copy)"`; position `original + 1` | ⬜ | 30 min | |
-| T-30 | `POST /nodes/{node_id}/duplicate?deep=true` — recursive subtree copy; new UUIDs; Beat guard → 400 | ⬜ | 45 min | |
+| T-28 | `PUT /nodes/{node_id}/reorder` — clamp to max sibling; renumber all siblings | ✅ | 30 min | |
+| T-29 | `POST /nodes/{node_id}/duplicate` — shallow copy; `"{tag} (copy)"`; position `original + 1` | ✅ | 30 min | |
+| T-30 | `POST /nodes/{node_id}/duplicate?deep=true` — recursive subtree copy; new UUIDs; Beat guard → 400 | ✅ | 45 min | |
 
 ---
 
@@ -138,7 +138,7 @@
 | T-42 | Cycle detection — direct + indirect | T-UNIT-03, T-UNIT-04 | ✅ | 25 min |
 | T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ✅ | 30 min | 5 tests in `TestReorderSiblings`; also covers single-node clamp and node-not-found edge cases |
 | T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | ✅ | 20 min | 5 tests in `TestDuplicateNode`; covers shallow position/tag, Beat guard (shallow + deep), deep root copy |
-| T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ⬜ | 15 min |
+| T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ✅ | 15 min |
 
 ---
 
@@ -177,10 +177,10 @@
 
 | Category | Done | Total |
 |----------|------|-------|
-| Unit tests | 4 | 5 |
+| Unit tests | 5 | 5 |
 | Integration tests | 0 | 5 |
 | SPEC.md acceptance criteria | 5 | 11 |
-| Tasks complete | 35 | 55 |
+| Tasks complete | 46 | 55 |
 
 ---
 
@@ -206,25 +206,25 @@
 ### Current State (verified 2026-06-08)
 
 - **Working tree is dirty** — changes to `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md` are uncommitted.
-- **`test_phase10.py`** contains 33 passing tests across four classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5, `TestDuplicateNode` × 5).
-- **T-45 not started** — author propagation unit tests.
-- **Phases 6 and 7** (Navigation, Reorder, Duplicate endpoints) — DB methods are complete, but route handlers are NOT yet implemented in `api.py`.
-- **Phase 11** (Integration tests) — blocked until Phases 6 and 7 endpoints exist.
-- **35 of 55 tasks complete** — Phases 0–5, 8–9, and 10 (partial) done.
+- **`test_phase10.py`** contains 36 passing tests across five classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5, `TestDuplicateNode` × 5, `TestAuthorPropagation` × 3).
+- **Phase 6 complete** — All 7 node navigation endpoints implemented in `api.py`: T-21 (children), T-22 (parent), T-23 (ancestors), T-24 (siblings), T-25 (root nodes), T-26 (leaf nodes), T-27 (stats).
+- **Phase 7 complete** — T-28 (reorder), T-29 (shallow duplicate), T-30 (deep duplicate) implemented in `api.py`.
+- **Phase 11** (Integration tests) — all Phase 6 and 7 endpoints now exist; integration tests can begin.
+- **46 of 55 tasks complete** — Phases 0–10 full, Phase 11–13 remaining.
 
 ### Issues & Decisions
-- T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
-- All tests use mocked MongoDB via `AsyncMock` / `MagicMock` — no real DB required (per Constitution rule)
-- `duplicate_shallow` returns `_strip_id(new_doc)` directly (in-memory dict) — no second `get_node` call at end; differs from `reorder_siblings` mock pattern
-- `duplicate_shallow` and `duplicate_deep` both tested via `storage.get_node = AsyncMock(return_value=...)` patched on the instance
+- T-28 inserted after `delete_normalised_node` and before auth helpers
+- T-29/T-30 uses a single `POST /nodes/{node_id}/duplicate` handler with `?deep=true` query param, per spec
+- Beat guard fires BEFORE calling DB methods (returns HTTP 400, not 404)
+- All 36 Phase 10 unit tests pass
+- Pre-existing indentation bugs in `api.py` fixed via programmatic rounding to nearest 4-space boundary
 - All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
 
 ### Next Steps
 
-1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md`
-2. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
-3. **Phases 6–7** — Navigation endpoints (T-21 to T-27), Reorder (T-28), Duplicate (T-29, T-30) — all DB methods complete; route handlers needed in `api.py`
-4. **Phase 11** — Integration tests (blocked until Phase 6–7 endpoints exist)
+1. **Phase 11** — Integration tests (T-46 to T-50) in `test_api_integration.py`
+2. **Phase 12** — Documentation updates (T-51 to T-53)
+3. **Phase 13** — Verification & PR (T-54, T-55)
 
 ---
 
@@ -238,6 +238,6 @@
 - [x] All new endpoints have `response_model`, `summary`, `description`, and `tags`
 - [ ] Isolation tests exist for every new endpoint
 - [ ] Scope tests exist for every new endpoint
-- [ ] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade (T-45 author cascade still pending)
+- [x] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade
 - [ ] `CONSTITUTION.md` Part I.2 and Part IV updated to reflect new model
 - [ ] `DESIGN.md` Part IV.1, Part III.1, DD-01 updated to reflect new model

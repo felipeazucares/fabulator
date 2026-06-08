@@ -6,6 +6,7 @@ dependencies to be satisfied.
 """
 
 import asyncio
+import re
 import unittest
 from unittest.mock import MagicMock, AsyncMock, call
 
@@ -534,5 +535,99 @@ class TestDuplicateNode(unittest.TestCase):
             self.assertEqual(result["position"], 2)
             self.assertEqual(result["tag"], "Part One (copy)")
             self.assertNotEqual(result["node_id"], "node-P")
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+
+# ===========================================================================
+# T-45: Author propagation - NodeStorage.create_node author handling
+# ===========================================================================
+
+
+class TestAuthorPropagation(unittest.TestCase):
+    """Tests for NodeStorage.create_node() author propagation.
+
+    T-UNIT-11: Non-null author from Work document is copied to node
+    T-UNIT-12: Null/missing author on Work results in node author None
+    """
+
+    def _mock_motor_client(self):
+        mongo_client = MagicMock()
+        db = MagicMock()
+        collection = MagicMock()
+        mongo_client.__getitem__ = lambda self, name: db
+        db.__getitem__ = lambda self, name: collection
+        return mongo_client, collection
+
+    def _make_node_storage(self):
+        mongo_client, collection = self._mock_motor_client()
+        storage = NodeStorage(client=mongo_client)
+        storage.node_collection = collection
+        return storage
+
+    def _minimal_data(self) -> dict:
+        return {
+            "work_id":   "550e8400-e29b-41d4-a716-446655440000",
+            "node_type": "part",
+            "tag":       "Part One",
+        }
+
+    def test_non_null_author_propagates_to_node(self):
+        """T-UNIT-11: work_doc has author='Alice' → node author is 'Alice'."""
+        storage = self._make_node_storage()
+        storage.node_collection.find_one = AsyncMock(return_value=None)
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.create_node(
+                account_id="acc1",
+                work_doc={"author": "Alice"},
+                data=self._minimal_data(),
+            )
+            self.assertIsNotNone(result)
+            self.assertEqual(result["author"], "Alice")
+            storage.node_collection.insert_one.assert_called_once()
+            inserted = storage.node_collection.insert_one.call_args[0][0]
+            self.assertEqual(inserted["author"], "Alice")
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_null_author_handled(self):
+        """T-UNIT-12: work_doc has no author → node author is None."""
+        storage = self._make_node_storage()
+        storage.node_collection.find_one = AsyncMock(return_value=None)
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.create_node(
+                account_id="acc1",
+                work_doc={},
+                data=self._minimal_data(),
+            )
+            self.assertIsNotNone(result)
+            self.assertIsNone(result["author"])
+            storage.node_collection.insert_one.assert_called_once()
+            inserted = storage.node_collection.insert_one.call_args[0][0]
+            self.assertIsNone(inserted["author"])
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_null_author_explicit_handled(self):
+        """T-UNIT-12b: work_doc has author=None → node author is None."""
+        storage = self._make_node_storage()
+        storage.node_collection.find_one = AsyncMock(return_value=None)
+        storage.node_collection.insert_one = AsyncMock()
+
+        async def _test():
+            result = await storage.create_node(
+                account_id="acc1",
+                work_doc={"author": None},
+                data=self._minimal_data(),
+            )
+            self.assertIsNotNone(result)
+            self.assertIsNone(result["author"])
+            storage.node_collection.insert_one.assert_called_once()
+            inserted = storage.node_collection.insert_one.call_args[0][0]
+            self.assertIsNone(inserted["author"])
 
         asyncio.get_event_loop().run_until_complete(_test())
