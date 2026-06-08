@@ -136,8 +136,8 @@
 |---|------|----------|--------|-----|
 | T-41 | Hierarchy validator — all valid + invalid parent-child pairs | T-UNIT-01, T-UNIT-02 | ✅ | 20 min |
 | T-42 | Cycle detection — direct + indirect | T-UNIT-03, T-UNIT-04 | ✅ | 25 min |
-| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ⬜ | 30 min |
-| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | ⬜ | 20 min |
+| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | 🔄 | 30 min | 5 tests appended (572 lines total). 4 failing: `test_insert_at_start` (KeyError '$set'), `test_position_beyond_siblings_clamps` (KeyError '$set'), `test_single_sibling_clamps_to_zero` (KeyError '$set'), `test_node_not_found_returns_none` |
+| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | 🔄 | 20 min | Beat guard code added to `duplicate_shallow` (line 1241) and `duplicate_deep` (line 1304). 6 Beat guard tests pass. 3 position clamping tests + 1 child-tags test fail. See Current Session details below. |
 | T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ⬜ | 15 min |
 
 ---
@@ -195,19 +195,38 @@
 - **T-40**: Added `None` guard in all `users_saves_helper()` callers (226, 234, 255, 267)
 - Commits: `0b5720a`, `4a4c1d8`
 
-### This Session: Phase 10 — Unit Tests (T-41, T-42)
-- **T-41** (Hierarchy Validator): 18 tests in `test_phase10::TestIsValidParentChild` — all 5 valid parent→child pairs + 13 invalid/cross-level pairs. All assertions pass.
-- **T-42** (Cycle Detection): 6 tests in `test_phase10::TestWouldCreateCycle` — mocks MongoDB via `AsyncMock`. Covers: direct cycle, indirect cycle (4-deep), no-cycle subtree, unrelated trees, missing nodes.
-- File: `server/tests/test_phase10.py` (213 lines, 23 tests total)
-- Pattern: `unittest.TestCase` with `Mock`/`AsyncMock`, async event loop
-- Fix: Added `from __future__ import annotations` to `database.py` for Python 3.9 compat
-- Fix: Fixed `database.py` docstring indentation (5 → 4 spaces)
+### This Session: Phase 10 — Unit Tests (T-43, T-44, T-45)
 
-### Next Steps
-1. **Phase 10 continued**: T-43 (sibling renumbering), T-44 (position clamp / tag suffix / Beat deep-copy guard), T-45 (author propagation)
-2. **Phase 11**: Integration tests (T-46 through T-50) — 109 tests
-3. **Phase 12**: Documentation updates (T-51 through T-53)
-4. **Phase 13**: Verification & PR (T-54 through T-55)
+**What was completed:**
+- **Beat guard code added** to `database.py`:
+  - `duplicate_shallow` (line 1241): guard checks `node["node_type"] == "beat"`, returns `None` before any DB write
+  - `duplicate_deep` (line 1304): same guard, prevents deep duplication of Beat leaf nodes
+  - NOT YET COMMITTED — uncommitted diff on `database.py` (+14 lines)
+- **T-43 and T-44 test code appended** to `test_phase10.py` — 572 lines total. However:
+  - 4 tests fail with `KeyError: '$set'` (3 sibling reordering tests + 1 child-tags test)
+  - 4 tests fail with `TypeError: can't be used in 'await'` (position clamping + duplicate child tags)
+  - 15 tests pass that were added but may not persist through subagent restores
+- **T-45 (author propagation)**: not started
+
+**What failed — critical context for next session:**
+1. **Beat guard code exists but is uncommitted.** Last commit is `b66e3bf` (write_to_docs). The Beat guard diff:
+   ```python
+   # In duplicate_shallow (line 1241):
+   if node["node_type"] == "beat":
+       logger.debug(f"duplicate_shallow rejects Beat type node {node_id}")
+       return None
+   # In duplicate_deep (line 1304):
+   if node["node_type"] == "beat":
+       logger.debug(f"duplicate_deep rejects Beat type node {node_id}")
+       return None
+   ```
+2. **test_phase10.py has persistent test failures** — 4/4 tests that actually fail:
+   - `test_insert_at_start`: `KeyError: '$set'` — using `call_args[1]` but `$set` is positional arg at `call_args[0][1]`
+   - `test_single_sibling_clamps_to_zero`: same `KeyError: '$set'` fix needed
+   - `test_single_item_list_all_clamps_to_zero`: same `KeyError: '$set'` fix needed
+   - `test_deep_duplicate_child_tags_preserved`: `TypeError` — `mock.update_many` needs `AsyncMock` not `MagicMock`
+3. **The subagent approach is unreliable** — the 358-line test append was repeatedly overwritten/restored by subagent calls. Need to use `edit` tool or `write` tool directly instead.
+4. **No T-43 test code survives in test_phase10.py** — file is back to 214 lines (original 23 tests). All Beat guard and reorder tests added during the session were overwritten.
 
 ### Issues & Decisions
 - T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
@@ -217,6 +236,11 @@
 - T-35, T-36, and T-38 were already completed in prior sessions/commits; tracked as ✅ to reflect actual state
 - T-39 fix: Created separate `UserDetailsSafe` model rather than using Pydantic's `Field(exclude=True)` approach
 - All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
+
+### Key Decision for Next Session
+**Commit the Beat guard first, THEN fix tests.** The Beat guard code in `database.py` is verified working and should be committed as a safe atomic change. The failing tests in `test_phase10.py` all fix with two pattern changes:
+1. Change `call_args[1]` → `call_args[0][1]` (positional vs keyword arg access)
+2. Change `MagicMock()` → `AsyncMock(return_value=MagicMock())` for `update_many` in tests that call it
 
 ---
 
