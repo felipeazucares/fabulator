@@ -10,3 +10,5 @@ Before writing any changes to progress docs:
 
 Rules:
 - write progress in plain engllish
+- Ensure anything vital for the continuity for the next session is committed to the documentation
+- Outline any failing tests

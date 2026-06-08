@@ -1238,6 +1238,13 @@ class NodeStorage:
         if node is None:
             return None
 
+        # Beat nodes are leaves and must not be duplicated
+        if node["node_type"] == "beat":
+            logger.debug(
+                f"duplicate_shallow rejects Beat type node {node_id}"
+            )
+            return None
+
         try:
             await self.node_collection.update_many(
                 {
@@ -1292,6 +1299,13 @@ class NodeStorage:
         logger.debug(f"duplicate_deep({node_id}) called")
         node = await self.get_node(node_id, account_id)
         if node is None:
+            return None
+
+        # Beat nodes are leaves and must not be duplicated
+        if node["node_type"] == "beat":
+            logger.debug(
+                f"duplicate_deep rejects Beat type node {node_id}"
+             )
             return None
 
         if _is_root_call:
