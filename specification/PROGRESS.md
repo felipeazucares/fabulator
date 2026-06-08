@@ -136,8 +136,8 @@
 |---|------|----------|--------|-----|
 | T-41 | Hierarchy validator — all valid + invalid parent-child pairs | T-UNIT-01, T-UNIT-02 | ✅ | 20 min |
 | T-42 | Cycle detection — direct + indirect | T-UNIT-03, T-UNIT-04 | ✅ | 25 min |
-| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | 🔄 | 30 min | 5 tests appended (572 lines total). 4 failing: `test_insert_at_start` (KeyError '$set'), `test_position_beyond_siblings_clamps` (KeyError '$set'), `test_single_sibling_clamps_to_zero` (KeyError '$set'), `test_node_not_found_returns_none` |
-| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | 🔄 | 20 min | Beat guard code added to `duplicate_shallow` (line 1241) and `duplicate_deep` (line 1304). 6 Beat guard tests pass. 3 position clamping tests + 1 child-tags test fail. See Current Session details below. |
+| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ⬜ | 30 min | |
+| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | 🔄 | 20 min | Beat guard committed in `database.py` (`duplicate_shallow` line 1241, `duplicate_deep` line 1304). Unit tests not yet written. |
 | T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ⬜ | 15 min |
 
 ---
@@ -195,38 +195,14 @@
 - **T-40**: Added `None` guard in all `users_saves_helper()` callers (226, 234, 255, 267)
 - Commits: `0b5720a`, `4a4c1d8`
 
-### This Session: Phase 10 — Unit Tests (T-43, T-44, T-45)
+### Current State (verified 2026-06-08)
 
-**What was completed:**
-- **Beat guard code added** to `database.py`:
-  - `duplicate_shallow` (line 1241): guard checks `node["node_type"] == "beat"`, returns `None` before any DB write
-  - `duplicate_deep` (line 1304): same guard, prevents deep duplication of Beat leaf nodes
-  - NOT YET COMMITTED — uncommitted diff on `database.py` (+14 lines)
-- **T-43 and T-44 test code appended** to `test_phase10.py` — 572 lines total. However:
-  - 4 tests fail with `KeyError: '$set'` (3 sibling reordering tests + 1 child-tags test)
-  - 4 tests fail with `TypeError: can't be used in 'await'` (position clamping + duplicate child tags)
-  - 15 tests pass that were added but may not persist through subagent restores
-- **T-45 (author propagation)**: not started
-
-**What failed — critical context for next session:**
-1. **Beat guard code exists but is uncommitted.** Last commit is `b66e3bf` (write_to_docs). The Beat guard diff:
-   ```python
-   # In duplicate_shallow (line 1241):
-   if node["node_type"] == "beat":
-       logger.debug(f"duplicate_shallow rejects Beat type node {node_id}")
-       return None
-   # In duplicate_deep (line 1304):
-   if node["node_type"] == "beat":
-       logger.debug(f"duplicate_deep rejects Beat type node {node_id}")
-       return None
-   ```
-2. **test_phase10.py has persistent test failures** — 4/4 tests that actually fail:
-   - `test_insert_at_start`: `KeyError: '$set'` — using `call_args[1]` but `$set` is positional arg at `call_args[0][1]`
-   - `test_single_sibling_clamps_to_zero`: same `KeyError: '$set'` fix needed
-   - `test_single_item_list_all_clamps_to_zero`: same `KeyError: '$set'` fix needed
-   - `test_deep_duplicate_child_tags_preserved`: `TypeError` — `mock.update_many` needs `AsyncMock` not `MagicMock`
-3. **The subagent approach is unreliable** — the 358-line test append was repeatedly overwritten/restored by subagent calls. Need to use `edit` tool or `write` tool directly instead.
-4. **No T-43 test code survives in test_phase10.py** — file is back to 214 lines (original 23 tests). All Beat guard and reorder tests added during the session were overwritten.
+- **Working tree is clean** — no uncommitted changes.
+- **Beat guard is committed** in `database.py`: `duplicate_shallow` (line 1241) and `duplicate_deep` (line 1304) both return `None` for Beat nodes. Previous session notes claiming it was uncommitted were stale.
+- **`test_phase10.py`** contains 29 passing tests across two classes (`TestIsValidParentChild`, `TestWouldCreateCycle`). No failing tests. Previous notes about `KeyError: '$set'` failures referred to test code that was never committed — the file reverted to its committed state.
+- **T-43 unit tests not written** — sibling renumbering tests do not exist in the file.
+- **T-44 unit tests not written** — Beat guard unit tests do not exist in the file (DB-layer guard is committed; tests remain to be written).
+- **T-45 not started.**
 
 ### Issues & Decisions
 - T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
@@ -237,10 +213,14 @@
 - T-39 fix: Created separate `UserDetailsSafe` model rather than using Pydantic's `Field(exclude=True)` approach
 - All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
 
-### Key Decision for Next Session
-**Commit the Beat guard first, THEN fix tests.** The Beat guard code in `database.py` is verified working and should be committed as a safe atomic change. The failing tests in `test_phase10.py` all fix with two pattern changes:
-1. Change `call_args[1]` → `call_args[0][1]` (positional vs keyword arg access)
-2. Change `MagicMock()` → `AsyncMock(return_value=MagicMock())` for `update_many` in tests that call it
+### Next Steps
+
+Phase 10 remaining work (in order):
+1. **T-43** — Write sibling renumbering unit tests (insert-at-start, insert-at-end, remove-from-middle, clamp-to-max, node-not-found)
+2. **T-44** — Write Beat guard + duplicate unit tests (position clamping, tag suffix, Beat guard → `None`, deep copy child tags preserved)
+3. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
+
+Then proceed to Phase 11 (integration tests) — no API endpoints exist yet for Phases 4–7, so integration tests cannot run until those are implemented first. Consider implementing Phase 4–7 endpoints before writing integration tests.
 
 ---
 
