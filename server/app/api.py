@@ -27,7 +27,6 @@ from fastapi.security import (
 
 from .database import (
     MONGO_DETAILS,
-    TreeDepthLimitExceeded,
     UserStorage,
     WorkStorage,
     NodeStorage,

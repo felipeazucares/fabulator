@@ -136,8 +136,8 @@
 |---|------|----------|--------|-----|
 | T-41 | Hierarchy validator — all valid + invalid parent-child pairs | T-UNIT-01, T-UNIT-02 | ✅ | 20 min |
 | T-42 | Cycle detection — direct + indirect | T-UNIT-03, T-UNIT-04 | ✅ | 25 min |
-| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ⬜ | 30 min | |
-| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | 🔄 | 20 min | Beat guard committed in `database.py` (`duplicate_shallow` line 1241, `duplicate_deep` line 1304). Unit tests not yet written. |
+| T-43 | Sibling renumbering — insert-at-start, insert-at-end, remove-from-middle | T-UNIT-05, T-UNIT-06, T-UNIT-07 | ✅ | 30 min | 5 tests in `TestReorderSiblings`; also covers single-node clamp and node-not-found edge cases |
+| T-44 | Position clamping, tag suffix on duplicate, Beat deep-copy guard | T-UNIT-08, T-UNIT-09, T-UNIT-10 | ⬜ | 20 min | Beat guard committed in `database.py` (`duplicate_shallow` line 937, `duplicate_deep` line 992). Unit tests not yet written. |
 | T-45 | Author propagation — non-null + null | T-UNIT-11, T-UNIT-12 | ⬜ | 15 min |
 
 ---
@@ -177,50 +177,45 @@
 
 | Category | Done | Total |
 |----------|------|-------|
-| Unit tests | 2 | 5 |
+| Unit tests | 3 | 5 |
 | Integration tests | 0 | 5 |
 | SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 23 | 55 |
+| Tasks complete | 24 | 55 |
 
 ---
 
 ## Session Handoff
 
-### Last Session: Phase 9 — Known Issues Cleanup
-- **T-35**: Already fixed (replaced `print()` with `logger.debug()` in `update_password`), marked ✅
-- **T-36**: Already fixed (`self.x = param` pattern removed from RoutesHelper), marked ✅
-- **T-37**: Removed no-op `datetime.now(ZoneInfo(tzname[0]))` from `authentication.py:15`
-- **T-38**: Marked ✅ (unused `self._redis_conn = None` was already removed)
-- **T-39**: Created `UserDetailsSafe` model (excludes `password` field), updated `GET /users/me` endpoint to use it
-- **T-40**: Added `None` guard in all `users_saves_helper()` callers (226, 234, 255, 267)
-- Commits: `0b5720a`, `4a4c1d8`
+### Last Session: Phase 10 — T-43 Sibling Renumbering Unit Tests
+
+- **T-43** ✅ — Added `TestReorderSiblings` class to `test_phase10.py`. 5 tests covering T-UNIT-05 (insert-at-start), T-UNIT-06 (insert-at-end with clamping), T-UNIT-07 (remove-from-middle), plus single-node clamp-to-zero and node-not-found edge cases. All 28 tests pass.
+- **Treelib regression fixed** — commit `b66e3bf` had accidentally re-introduced `from treelib import Tree` into `models.py` and restored the full `TreeStorage` class into `database.py` (reverting the Phase 8 T-32/T-33 work). Re-removed: treelib import from `models.py`, `TreeStorage` class from `database.py`, unused `TreeSaveSchema` and `saves_helper` from `models.py`, dead `TreeDepthLimitExceeded` import from `api.py`.
+- **No commits made this session** — working tree has uncommitted changes to: `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md`.
 
 ### Current State (verified 2026-06-08)
 
-- **Working tree is clean** — no uncommitted changes.
-- **Beat guard is committed** in `database.py`: `duplicate_shallow` (line 1241) and `duplicate_deep` (line 1304) both return `None` for Beat nodes. Previous session notes claiming it was uncommitted were stale.
-- **`test_phase10.py`** contains 29 passing tests across two classes (`TestIsValidParentChild`, `TestWouldCreateCycle`). No failing tests. Previous notes about `KeyError: '$set'` failures referred to test code that was never committed — the file reverted to its committed state.
-- **T-43 unit tests not written** — sibling renumbering tests do not exist in the file.
-- **T-44 unit tests not written** — Beat guard unit tests do not exist in the file (DB-layer guard is committed; tests remain to be written).
+- **Working tree is dirty** — changes to `database.py`, `models.py`, `api.py`, `tests/test_phase10.py` are uncommitted.
+- **Beat guard is committed** in `database.py`: `duplicate_shallow` (line 937) and `duplicate_deep` (line 992) both return `None` for Beat nodes.
+- **`test_phase10.py`** contains 28 passing tests across three classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5). Note: previous session recorded 29 — the correct count is 28.
+- **T-44 unit tests not written** — duplicate position/tag/Beat-guard tests do not yet exist.
 - **T-45 not started.**
 
 ### Issues & Decisions
 - T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
-- All cycle detection tests use mocked MongoDB via `AsyncMock` — no real DB required (per Constitution rule)
+- All tests use mocked MongoDB via `AsyncMock` / `MagicMock` — no real DB required (per Constitution rule)
 - `test_chapter_to_scene_valid_recheck`: corrected from "invalid" to "valid" — it IS a valid pair per `_VALID_CHILD`
-- `test_no_cycle_unrelated_subtree`: added as new test since the original "self_ancestor_not_present" was actually a cycle in practice
-- T-35, T-36, and T-38 were already completed in prior sessions/commits; tracked as ✅ to reflect actual state
 - T-39 fix: Created separate `UserDetailsSafe` model rather than using Pydantic's `Field(exclude=True)` approach
+- `duplicate_shallow` returns `_strip_id(new_doc)` directly (in-memory dict) — no second `get_node` call at end; differs from `reorder_siblings` mock pattern
 - All completed Phase 8 and Phase 9 changes have been committed and pushed to `origin/refactor/normalised-node-model`
 
 ### Next Steps
 
 Phase 10 remaining work (in order):
-1. **T-43** — Write sibling renumbering unit tests (insert-at-start, insert-at-end, remove-from-middle, clamp-to-max, node-not-found)
-2. **T-44** — Write Beat guard + duplicate unit tests (position clamping, tag suffix, Beat guard → `None`, deep copy child tags preserved)
+1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`
+2. **T-44** — Write duplicate unit tests: position = original+1, tag suffix " (copy)", Beat guard → `None` for both shallow and deep
 3. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
 
-Then proceed to Phase 11 (integration tests) — no API endpoints exist yet for Phases 4–7, so integration tests cannot run until those are implemented first. Consider implementing Phase 4–7 endpoints before writing integration tests.
+Then proceed to Phase 4–7 endpoints before writing integration tests — no API endpoints exist yet, so integration tests cannot run until those are implemented first.
 
 ---
 

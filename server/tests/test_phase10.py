@@ -7,7 +7,7 @@ dependencies to be satisfied.
 
 import asyncio
 import unittest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, call
 
 from app.database import (
     is_valid_parent_child,
@@ -210,5 +210,179 @@ class TestWouldCreateCycle(unittest.TestCase):
                 account_id="acc1",
             )
             self.assertEqual(result, False)
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+
+# ===========================================================================
+# T-43: Sibling renumbering - NodeStorage.reorder_siblings
+# ===========================================================================
+
+
+class TestReorderSiblings(unittest.TestCase):
+    """Tests for NodeStorage.reorder_siblings().
+
+    T-UNIT-05: insert at start — move last sibling to position 0
+    T-UNIT-06: insert at end — position clamped when request exceeds max
+    T-UNIT-07: remove from middle — move middle sibling to last position
+    T-UNIT-08: single-node group clamped to position 0
+    T-UNIT-09: node not found returns None without touching collection
+    """
+
+    def _mock_motor_client(self):
+        mongo_client = MagicMock()
+        db = MagicMock()
+        collection = MagicMock()
+        mongo_client.__getitem__ = lambda self, name: db
+        db.__getitem__ = lambda self, name: collection
+        return mongo_client, collection
+
+    def _make_node_storage(self):
+        mongo_client, collection = self._mock_motor_client()
+        storage = NodeStorage(client=mongo_client)
+        storage.node_collection = collection
+        return storage
+
+    def _make_node(self, node_id, position, parent_id="parent-1", work_id="work-1"):
+        return {
+            "node_id": node_id,
+            "parent_id": parent_id,
+            "work_id": work_id,
+            "account_id": "acc1",
+            "position": position,
+        }
+
+    def _wire_find(self, storage, siblings):
+        cursor = MagicMock()
+        cursor.to_list = AsyncMock(return_value=siblings)
+        storage.node_collection.find = MagicMock(return_value=cursor)
+
+    def test_insert_at_start(self):
+        """T-UNIT-05: Move last sibling (position 2) to position 0.
+        Expected order after reorder: [C, A, B] → positions 0, 1, 2."""
+        storage = self._make_node_storage()
+        node_a = self._make_node("node-A", 0)
+        node_b = self._make_node("node-B", 1)
+        node_c = self._make_node("node-C", 2)
+        siblings = [node_a, node_b, node_c]
+
+        storage.get_node = AsyncMock(side_effect=[node_c, {**node_c, "position": 0}])
+        self._wire_find(storage, siblings)
+        storage.node_collection.update_one = AsyncMock()
+
+        async def _test():
+            result = await storage.reorder_siblings(
+                node_id="node-C",
+                account_id="acc1",
+                new_position=0,
+            )
+            self.assertEqual(storage.node_collection.update_one.call_count, 3)
+            self.assertEqual(storage.node_collection.update_one.call_args_list, [
+                call({"node_id": "node-C"}, {"$set": {"position": 0}}),
+                call({"node_id": "node-A"}, {"$set": {"position": 1}}),
+                call({"node_id": "node-B"}, {"$set": {"position": 2}}),
+            ])
+            self.assertEqual(result["position"], 0)
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_insert_at_end_clamped(self):
+        """T-UNIT-06: Move first sibling (position 0) to position 99.
+        Expected: clamped to 2 → order [B, C, A] → positions 0, 1, 2."""
+        storage = self._make_node_storage()
+        node_a = self._make_node("node-A", 0)
+        node_b = self._make_node("node-B", 1)
+        node_c = self._make_node("node-C", 2)
+        siblings = [node_a, node_b, node_c]
+
+        storage.get_node = AsyncMock(side_effect=[node_a, {**node_a, "position": 2}])
+        self._wire_find(storage, siblings)
+        storage.node_collection.update_one = AsyncMock()
+
+        async def _test():
+            result = await storage.reorder_siblings(
+                node_id="node-A",
+                account_id="acc1",
+                new_position=99,
+            )
+            self.assertEqual(storage.node_collection.update_one.call_count, 3)
+            self.assertEqual(storage.node_collection.update_one.call_args_list, [
+                call({"node_id": "node-B"}, {"$set": {"position": 0}}),
+                call({"node_id": "node-C"}, {"$set": {"position": 1}}),
+                call({"node_id": "node-A"}, {"$set": {"position": 2}}),
+            ])
+            self.assertEqual(result["position"], 2)
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_remove_from_middle(self):
+        """T-UNIT-07: Move middle sibling (position 1) to last position (3).
+        Expected: order [A, C, D, B] → positions 0, 1, 2, 3."""
+        storage = self._make_node_storage()
+        node_a = self._make_node("node-A", 0)
+        node_b = self._make_node("node-B", 1)
+        node_c = self._make_node("node-C", 2)
+        node_d = self._make_node("node-D", 3)
+        siblings = [node_a, node_b, node_c, node_d]
+
+        storage.get_node = AsyncMock(side_effect=[node_b, {**node_b, "position": 3}])
+        self._wire_find(storage, siblings)
+        storage.node_collection.update_one = AsyncMock()
+
+        async def _test():
+            result = await storage.reorder_siblings(
+                node_id="node-B",
+                account_id="acc1",
+                new_position=3,
+            )
+            self.assertEqual(storage.node_collection.update_one.call_count, 4)
+            self.assertEqual(storage.node_collection.update_one.call_args_list, [
+                call({"node_id": "node-A"}, {"$set": {"position": 0}}),
+                call({"node_id": "node-C"}, {"$set": {"position": 1}}),
+                call({"node_id": "node-D"}, {"$set": {"position": 2}}),
+                call({"node_id": "node-B"}, {"$set": {"position": 3}}),
+            ])
+            self.assertEqual(result["position"], 3)
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_single_node_clamped_to_zero(self):
+        """T-UNIT-08: Single-sibling group; request position 5 clamped to 0."""
+        storage = self._make_node_storage()
+        node_a = self._make_node("node-A", 0)
+
+        storage.get_node = AsyncMock(side_effect=[node_a, {**node_a, "position": 0}])
+        self._wire_find(storage, [node_a])
+        storage.node_collection.update_one = AsyncMock()
+
+        async def _test():
+            result = await storage.reorder_siblings(
+                node_id="node-A",
+                account_id="acc1",
+                new_position=5,
+            )
+            self.assertEqual(storage.node_collection.update_one.call_count, 1)
+            self.assertEqual(storage.node_collection.update_one.call_args_list, [
+                call({"node_id": "node-A"}, {"$set": {"position": 0}}),
+            ])
+            self.assertEqual(result["position"], 0)
+
+        asyncio.get_event_loop().run_until_complete(_test())
+
+    def test_node_not_found_returns_none(self):
+        """T-UNIT-09: get_node returns None → method returns None immediately;
+        node_collection.find is never called."""
+        storage = self._make_node_storage()
+        storage.get_node = AsyncMock(return_value=None)
+        storage.node_collection.find = MagicMock()
+
+        async def _test():
+            result = await storage.reorder_siblings(
+                node_id="missing-node",
+                account_id="acc1",
+                new_position=0,
+            )
+            self.assertIsNone(result)
+            storage.node_collection.find.assert_not_called()
 
         asyncio.get_event_loop().run_until_complete(_test())

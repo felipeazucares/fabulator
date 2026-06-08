@@ -3,8 +3,6 @@ from typing import Optional, Annotated
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, StringConstraints
 from bson.objectid import ObjectId
 from enum import Enum
-from treelib import Tree
-
 # ------------------------------------------
 #   Input validation limits
 # ------------------------------------------
@@ -261,21 +259,6 @@ class TokenData(BaseModel):
 # -------------------------------------
 #   Classes for mongo db storage
 # -------------------------------------
-
-
-class TreeSaveSchema():
-    def __init__(self, account_id: str, tree: Tree):
-        self.account_id = account_id
-        self.tree = tree
-        self.date_time = datetime.now(timezone.utc)
-
-
-def saves_helper(save) -> dict:
-    return {
-        "account_id": str(save["account_id"]),
-        "tree": dict(save["tree"]),
-        "date_time": str(save["date_time"])
-    }
 
 
 def users_saves_helper(result) -> dict:
