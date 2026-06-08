@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from typing import Optional, Annotated
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, StringConstraints
-
 from bson.objectid import ObjectId
 from enum import Enum
+from treelib import Tree
 
 # ------------------------------------------
 #   Input validation limits
