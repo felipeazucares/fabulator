@@ -60,11 +60,11 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-11 | `GET /works` — list all Works for account, ordered by `created_at` desc | ⬜ | 30 min | |
-| T-12 | `GET /works/{work_id}` — single Work; 404 on wrong account | ⬜ | 20 min | |
-| T-13 | `POST /works` — create; whitespace title → 422; HTTP 201 | ⬜ | 30 min | |
-| T-14 | `PUT /works/{work_id}` — update; author change triggers node cascade | ⬜ | 30 min | |
-| T-15 | `DELETE /works/{work_id}` — delete Work + all nodes; return count in detail | ⬜ | 30 min | |
+| T-11 | `GET /works` — list all Works for account, ordered by `created_at` desc | ✅ | 30 min | Returns 200 with `list[WorkResponse]`; empty array `[]` if no works; account isolation via `account_id` filter in DB query |
+| T-12 | `GET /works/{work_id}` — single Work; 404 on wrong account | ✅ | 20 min | `work_id` validated via `Path(pattern=UUID_PATTERN)`; 404 with `detail: "Work not found"` on wrong account or missing doc |
+| T-13 | `POST /works` — create; whitespace title → 422; HTTP 201 | ✅ | 30 min | Returns 201 with `WorkResponse`; whitespace title caught by `CreateWorkRequest` (`TitleStr`: `strip_whitespace=True` + `min_length=1`) |
+| T-14 | `PUT /works/{work_id}` — update; author change triggers node cascade | ✅ | 30 min | Uses `request.model_dump(exclude_unset=True)` for partial updates; author change calls `work_storage.update_work` which triggers `cascade_author_to_nodes` (`update_many` on `node_collection`) |
+| T-15 | `DELETE /works/{work_id}` — delete Work + all nodes; return count in detail | ✅ | 30 min | Calls `work_storage.delete_work` which deletes from `work_collection` + bulk `delete_many` on `node_collection`; returns `{"detail": "Work deleted. {N} node(s) removed."}` |
 
 ---
 
@@ -72,11 +72,11 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-16 | `GET /works/{work_id}/nodes` — list with optional `?node_type=` filter; 422 on invalid type | ⬜ | 30 min | |
-| T-17 | `GET /nodes/{node_id}` — single node; 404 on wrong account | ⬜ | 20 min | |
-| T-18 | `POST /nodes` — hierarchy validation (HIER-01/02/03); position assignment (NODE-05); author copy from Work | ⬜ | 45 min | |
-| T-19 | `PUT /nodes/{node_id}` — content update + reparent; hierarchy re-validation; cycle detection (UPDATE-03) | ⬜ | 45 min | |
-| T-20 | `DELETE /nodes/{node_id}` — cascade delete; return descendant count | ⬜ | 30 min | |
+| T-16 | `GET /works/{work_id}/nodes` — list with optional `?node_type=` filter; 422 on invalid type | ✅ | 30 min | `node_type` param uses `Optional[NodeType]` enum — invalid values rejected by Pydantic as 422; verifies work ownership first → 404 |
+| T-17 | `GET /nodes/{node_id}` — single node; 404 on wrong account | ✅ | 20 min | `node_id` validated via UUID_PATTERN; `node_storage.get_node` filters by `account_id` — 404 on wrong account or missing |
+| T-18 | `POST /nodes` — hierarchy validation (HIER-01/02/03); position assignment (NODE-05); author copy from Work | ✅ | 45 min | Hierarchy enforced via `is_valid_parent_child` before DB write; no-parent check for non-Part nodes → 422; position auto-assigned as count of siblings; author copied from `work_doc["author"]` |
+| T-19 | `PUT /nodes/{node_id}` — content update + reparent; hierarchy re-validation; cycle detection (UPDATE-03) | ✅ | 45 min | Partial update via `exclude_unset=True`; reparent validates parent exists → hierarchy (`is_valid_parent_child`) → cycle (`would_create_cycle`); hierarchy check fires before cycle check |
+| T-20 | `DELETE /nodes/{node_id}` — cascade delete; return descendant count | ✅ | 30 min | BFS cascade via `node_storage.delete_node_cascade`; returns `{"detail": "Node deleted. {N} descendant(s) removed."}`; 404 on wrong account |
 
 ---
 
@@ -179,25 +179,38 @@
 |----------|------|-------|
 | Unit tests | 4 | 5 |
 | Integration tests | 0 | 5 |
-| SPEC.md acceptance criteria | 0 | 11 |
-| Tasks complete | 25 | 55 |
+| SPEC.md acceptance criteria | 5 | 11 |
+| Tasks complete | 35 | 55 |
 
 ---
 
 ## Session Handoff
 
-### Last Session: Phase 10 — T-43 + T-44 Unit Tests
+### Last Session: Phases 4 + 5 — Work + Node Core CRUD Endpoints
 
-- **T-43** ✅ — Added `TestReorderSiblings` (5 tests): insert-at-start, insert-at-end with clamping, remove-from-middle, single-node clamp-to-zero, node-not-found.
-- **T-44** ✅ — Added `TestDuplicateNode` (5 tests): shallow position = original+1, shallow tag " (copy)" suffix, Beat guard on shallow (no writes), Beat guard on deep (no writes), deep root copy position and tag.
-- **Treelib regression fixed** — commit `b66e3bf` had accidentally re-introduced `from treelib import Tree` into `models.py` and restored the full `TreeStorage` class into `database.py`. Re-removed: treelib import from `models.py`, `TreeStorage` class from `database.py`, unused `TreeSaveSchema` and `saves_helper` from `models.py`, dead `TreeDepthLimitExceeded` import from `api.py`.
+- **Phase 4 (T-11 to T-15)** ✅ — All five Work endpoints implemented in `api.py`:
+  - `POST /works` (line 214) — 201, `WorkResponse`, title validation, author used from request.
+  - `GET /works` (line 243) — 200, `list[WorkResponse]`, ordered by `created_at` desc.
+  - `GET /works/{work_id}` (line 266) — 200, `WorkResponse`, UUID path validation, 404 on wrong account.
+  - `PUT /works/{work_id}` (line 292) — 200, `WorkResponse`, partial update via `exclude_unset=True`, author cascade to nodes.
+  - `DELETE /works/{work_id}` (line 325) — 200, returns descendant count, cascade delete on `node_collection`.
+- **Phase 5 (T-16 to T-20)** ✅ — All five Node core CRUD endpoints implemented in `api.py`:
+  - `POST /nodes` (line 357) — 201, `NodeResponse`, hierarchy validation via `is_valid_parent_child`, no-parent guard, author copied from Work, position auto-assigned.
+  - `GET /works/{work_id}/nodes` (line 423) — 200, `list[NodeResponse]`, optional `?node_type=` filter via `Optional[NodeType]` enum, work ownership check.
+  - `GET /nodes/{node_id}` (line 465) — 200, `NodeResponse`, UUID path validation, 404 on wrong account.
+  - `PUT /nodes/{node_id}` (line 491) — 200, `NodeResponse`, reparenting with hierarchy check + cycle detection (`would_create_cycle`), hierarchy checked before cycle.
+  - `DELETE /nodes/{node_id}` (line 583) — 200, returns descendant count, BFS cascade delete.
+- **All endpoints have**: `response_model`, `summary`, `description`, `tags`, proper `response_model` types, `Security()` with scope enforcement, and database error → HTTP 503 with sanitised `"Database error"` message.
 - **No commits made this session** — working tree has uncommitted changes to: `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md`.
 
 ### Current State (verified 2026-06-08)
 
-- **Working tree is dirty** — changes to `database.py`, `models.py`, `api.py`, `tests/test_phase10.py` are uncommitted.
+- **Working tree is dirty** — changes to `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md` are uncommitted.
 - **`test_phase10.py`** contains 33 passing tests across four classes (`TestIsValidParentChild` × 18, `TestWouldCreateCycle` × 5, `TestReorderSiblings` × 5, `TestDuplicateNode` × 5).
 - **T-45 not started** — author propagation unit tests.
+- **Phases 6 and 7** (Navigation, Reorder, Duplicate endpoints) — DB methods are complete, but route handlers are NOT yet implemented in `api.py`.
+- **Phase 11** (Integration tests) — blocked until Phases 6 and 7 endpoints exist.
+- **35 of 55 tasks complete** — Phases 0–5, 8–9, and 10 (partial) done.
 
 ### Issues & Decisions
 - T-41 & T-42 written in a standalone `test_phase10` module to avoid dependency chain issues in `test_unit.py`
@@ -208,23 +221,23 @@
 
 ### Next Steps
 
-1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `PROGRESS.md`
+1. **Commit current uncommitted changes** — `database.py`, `models.py`, `api.py`, `tests/test_phase10.py`, `specification/PROGRESS.md`
 2. **T-45** — Write author propagation unit tests (non-null author propagates; null author handled)
-3. **Phases 4–7** — Work CRUD endpoints, Node CRUD endpoints, Navigation endpoints, Reorder + Duplicate endpoints (all DB methods complete; route handlers needed in `api.py`)
-4. **Phase 11** — Integration tests (blocked until Phase 4–7 endpoints exist)
+3. **Phases 6–7** — Navigation endpoints (T-21 to T-27), Reorder (T-28), Duplicate (T-29, T-30) — all DB methods complete; route handlers needed in `api.py`
+4. **Phase 11** — Integration tests (blocked until Phase 6–7 endpoints exist)
 
 ---
 
 ### Acceptance Criteria (SPEC.md Part VII)
 
-- [ ] All EARS requirements in SPEC.md Parts III, V, VI implemented and verified by tests
-- [ ] `tree_collection` no longer written to by any route handler
-- [ ] `treelib` removed from `requirements.txt`
-- [ ] `work_collection` created with JSON Schema validator and indexes
-- [ ] `node_collection` created with JSON Schema validator and indexes
-- [ ] All new endpoints have `response_model`, `summary`, `description`, and `tags`
+- [ ] All EARS requirements in SPEC.md Parts III, V, VI implemented and verified by tests (Work CRUD + Node CRUD done; Navigation, Reorder, Duplicate pending)
+- [x] `tree_collection` no longer written to by any route handler
+- [x] `treelib` removed from `requirements.txt`
+- [x] `work_collection` created with JSON Schema validator and indexes
+- [x] `node_collection` created with JSON Schema validator and indexes
+- [x] All new endpoints have `response_model`, `summary`, `description`, and `tags`
 - [ ] Isolation tests exist for every new endpoint
 - [ ] Scope tests exist for every new endpoint
-- [ ] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade
+- [ ] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade (T-45 author cascade still pending)
 - [ ] `CONSTITUTION.md` Part I.2 and Part IV updated to reflect new model
 - [ ] `DESIGN.md` Part IV.1, Part III.1, DD-01 updated to reflect new model
