@@ -231,3 +231,23 @@
 - [x] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade
 - [x] `CONSTITUTION.md` Part I.2 and Part IV updated to reflect new model
 - [x] `DESIGN.md` Part IV.1, Part III.1, DD-01 updated to reflect new model
+
+---
+
+## Session History
+
+### 2026-06-08 — Final cleanup + test infrastructure fix
+
+**Done:**
+- Removed treelib imports from `tests/test_unit.py` (deleted 17 obsolete tests)
+- Deleted `tests/test_would_create_cycle.py` (imported deleted `TreeStorage`)
+- Updated `CLAUDE.md` (no treelib refs; 29-route API table; normalised DB patterns)
+- Updated `specification/DESIGN.md` Part III.1 (TreeStorage → WorkStorage + NodeStorage)
+- Updated `specification/PROGRESS.md` (T-33/T-54/T-55 ✅; totals 55/55)
+- Fixed integration test infrastructure:
+  - `asyncio_default_fixture_loop_scope` → `function`; `motor_client` → async fixture
+  - Added `base_url="http://test"` to all 130 httpx.AsyncClient instances
+  - Fixed 4 tests using httpx client after `async with` block exited
+- All 33 unit + 142 integration tests pass (10 skipped)
+
+**Branch:** `refactor/normalised-node-model`
