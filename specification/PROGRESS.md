@@ -174,6 +174,18 @@
 
 ---
 
+## Phase 14 — Tier 3: Search & Query (`search-query/feature.md`)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| T-56 | Add `TextQueryStr`, `MatchType` enum, `NodeSearchResponse` to models.py | ✅ | 10 min | |
+| T-57 | Extend `setup_collections()` with `node_text_idx` + `node_tags_idx` indexes | ✅ | 15 min | Idempotent; text index on `description`+`text`, multikey on `{account_id, tags}` |
+| T-58 | Add `SearchStorage` class: `search_nodes()`, `find_nodes_by_tags()` | ✅ | 30 min | `$text` search with `textScore`; tag query with `$in`/`$all`; both account-scoped |
+| T-59 | Add `GET /nodes/search` endpoint — full-text search over description/text | ✅ | 20 min | `query` (required), `work_id`, `node_type`, `limit` params; strips transient `score` field |
+| T-60 | Add `GET /nodes/by-tag` endpoint — tag-based query with `match=any/all` | ✅ | 20 min | `tags` (required, repeated), `match`, `work_id`, `node_type` params |
+
+---
+
 ## Running Totals
 
 | Category | Done | Total |
@@ -181,7 +193,7 @@
 | Unit tests | 5 | 5 |
 | Integration tests | 5 | 5 |
 | SPEC.md acceptance criteria | 11 | 11 |
-| Tasks complete | 55 | 55 |
+| Tasks complete | 60 | 60 |
 
 ---
 
@@ -254,4 +266,17 @@
   - Fixed 4 tests using httpx client after `async with` block exited
 - All 33 unit + 142 integration tests pass (10 skipped)
 
-**Branch:** `refactor/normalised-node-model`
+**Branch:** `main`
+
+### 2026-06-09 — Tier 3: Search & Query implementation
+
+**Done:**
+- Added `TextQueryStr`, `MatchType` enum, `NodeSearchResponse` to `models.py`
+- Extended `setup_collections()` with `node_text_idx` (text on `description`+`text`) and `node_tags_idx` (multikey on `{account_id, tags}`)
+- Added `SearchStorage` class with `search_nodes()` ($text search with textScore) and `find_nodes_by_tags()` ($in/$all tag matching)
+- Added `GET /nodes/search` endpoint — query (required), work_id, node_type, limit params; strips transient score field
+- Added `GET /nodes/by-tag` endpoint — tags (required, repeated), match=any/all, work_id, node_type params
+- All 3 files pass Python AST syntax validation
+- Committed as `d261a3e`
+
+**Branch:** `main`
