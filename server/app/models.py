@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Any
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, StringConstraints
 from bson.objectid import ObjectId
 from enum import Enum
@@ -505,3 +505,28 @@ class WorkStatsResponse(BaseModel):
             }
         }
     )
+
+
+class DeleteResponse(BaseModel):
+    detail: str
+
+
+class LogoutResult(BaseModel):
+    result: bool
+
+
+class VersionInfo(BaseModel):
+    version: str
+    username: str
+
+
+class VersionResponse(BaseModel):
+    data: VersionInfo
+    code: int = 200
+    message: str
+
+
+class GenericResult(BaseModel):
+    data: Any = None
+    code: int = 200
+    message: str

@@ -53,6 +53,10 @@ from .models import (
     AncestorsResponse,
     WorkStatsResponse,
     NodeType,
+    DeleteResponse,
+    LogoutResult,
+    VersionResponse,
+    GenericResult,
 )
 
 
@@ -397,6 +401,7 @@ async def update_work(
 
 @app.delete(
     "/works/{work_id}",
+    response_model=DeleteResponse,
     summary="Delete a work",
     description=(
         "Permanently delete a work and all of its nodes. "
@@ -885,6 +890,7 @@ async def update_normalised_node(
 
 @app.delete(
     "/nodes/{node_id}",
+    response_model=DeleteResponse,
     summary="Delete a node",
     description=(
         "Permanently delete the specified node and all of its descendants. "
@@ -1032,6 +1038,7 @@ async def get_current_user_token(token: str = Depends(oauth2_scheme)):
 
 @app.get(
     "/logout",
+    response_model=LogoutResult,
     summary="Logout",
     description=(
         "Blacklist the current bearer token. The token will be rejected on all subsequent "
@@ -1062,6 +1069,7 @@ async def read_users_me(current_user: UserDetails = Depends(get_current_active_u
 
 @app.get(
     "/",
+    response_model=VersionResponse,
     summary="API version",
     description="Return the API version and the authenticated user's username.",
     tags=["Meta"],
@@ -1085,6 +1093,7 @@ async def get(
 
 @app.post(
     "/users",
+    response_model=GenericResult,
     summary="Register a user",
     description=(
         "Create a new user account. Password and username are hashed before storage. "
@@ -1112,6 +1121,7 @@ async def save_user(
 
 @app.get(
     "/users",
+    response_model=GenericResult,
     summary="Get user details",
     description="Return the profile of the currently authenticated user from the user collection.",
     tags=["Users"],
@@ -1138,6 +1148,7 @@ async def get_user(
 
 @app.put(
     "/users",
+    response_model=GenericResult,
     summary="Update user details",
     description="Update the display name (first name, surname) and email address of the current user.",
     tags=["Users"],
@@ -1165,6 +1176,7 @@ async def update_user(
 
 @app.put(
     "/users/password",
+    response_model=GenericResult,
     summary="Change password",
     description="Update the password for the current user. The new password is hashed before storage.",
     tags=["Users"],
@@ -1194,6 +1206,7 @@ async def update_password(
 
 @app.put(
     "/users/type",
+    response_model=GenericResult,
     summary="Change user type",
     description=(
         "Update the subscription type for the current user (`free` or `premium`). "
@@ -1227,6 +1240,7 @@ async def update_type(
 
 @app.delete(
     "/users",
+    response_model=GenericResult,
     summary="Delete account",
     description="Permanently delete the current user's account and all associated tree saves.",
     tags=["Users"],

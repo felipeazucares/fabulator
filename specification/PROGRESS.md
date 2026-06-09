@@ -208,13 +208,16 @@
 
 - **2 integration test failures:** `test_t_work_06` and `test_t_work_09` — no-auth tests use relative URLs without `base_url`, triggering httpx cookie-parse bug.
 - **150 `Event loop is closed` errors:** Pre-existing asyncio fixture-scoping issue in integration tests.
-- **10 routes missing `response_model`:** `DELETE /works/{work_id}`, `DELETE /nodes/{node_id}`, `GET /logout`, `GET /`, all 6 User endpoints.
 - **`DESIGN.md` Part III.1:** Still references old `TreeStorage` — flagged for cleanup (partially addressed this session).
 
 ### Next Steps
 
-1. **Polish:** Fix 2 no-auth test failures + add `response_model` to 10 routes
+1. **Polish:** Fix 2 no-auth test failures (already fixed in code — `base_url="http://test"` present on both failing tests)
 2. **New features (Tier 3+):** Search endpoints, cross-node relationships, export, bulk ops
+
+### Recently Completed
+
+- **2026-06-09:** Added `response_model` to all 10 routes that were missing it — `DeleteResponse` (DELETE work/node), `LogoutResult` (GET /logout), `VersionResponse` (GET /), `GenericResult` (6 User endpoints). New Pydantic models in `models.py:509-532`.
 
 ---
 
