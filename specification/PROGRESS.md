@@ -186,6 +186,19 @@
 
 ---
 
+## Phase 15 — Pagination Enforcement on List Endpoints (P-01)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| T-61 | Add `PaginatedNodeResponse`, `PaginatedWorkResponse` to models.py | ✅ | 10 min | Wraps results with `count` and `next_cursor` |
+| T-62 | Add `limit`+`cursor` params to `WorkStorage.list_works` — `_id`-desc cursor pagination | ✅ | 15 min | Sort by `_id` descending (most recent first); cursor filter `{"_id": {"$lt": cursor}}` |
+| T-63 | Add `limit`+`cursor` params to `NodeStorage.list_nodes` — `_id`-asc cursor pagination | ✅ | 15 min | Sort by `_id` ascending; cursor filter `{"_id": {"$gt": cursor}}` |
+| T-64 | Add `limit`+`cursor` params to `NodeStorage.get_roots` / `get_leaves` — position+`_id` sort | ✅ | 15 min | Sort by `[("position", 1), ("_id", 1)]`; cursor filter `{"_id": {"$gt": cursor}}` |
+| T-65 | Update 4 route handlers in api.py with `limit`/`cursor` query params + paginated response models | ✅ | 20 min | `list_works`, `list_normalised_nodes`, `get_work_root_nodes`, `get_work_leaf_nodes` |
+| T-66 | Add `limit` to `GET /nodes/by-tag` endpoint and `SearchStorage.find_nodes_by_tags` | ✅ | 10 min | Default 50, max 200; matches existing pattern on `GET /nodes/search` |
+
+---
+
 ## Running Totals
 
 | Category | Done | Total |
@@ -193,7 +206,7 @@
 | Unit tests | 5 | 5 |
 | Integration tests | 5 | 5 |
 | SPEC.md acceptance criteria | 11 | 11 |
-| Tasks complete | 60 | 60 |
+| Tasks complete | 66 | 66 |
 
 ---
 
@@ -213,9 +226,9 @@
 
 - **All 55 tasks across Phases 0–13 are ✅ complete.**
 - **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes. Committed as `d261a3e`.
+- **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination. 6 new tasks (T-61 to T-66), 66 total.
 - **Implementation:** 31 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 1 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB `work_collection` + `node_collection` with JSON Schema validators and 9 indexes.
-- **Tests:** 33 unit tests (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
-- **Working tree:** clean, committed on `main`.
+- **Tests:** 33 unit tests pass (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
 
 ### Remaining Known Issues (not blocking)
 
@@ -224,13 +237,13 @@
 
 ### Next Steps
 
-1. **P-01: Pagination enforcement on list endpoints** (High severity debt per CONSTITUTION XI.3) — add `limit` (default 50, max 200) + cursor pagination to `GET /works`, `GET /works/{work_id}/nodes`, `GET /works/{work_id}/nodes/root`, `GET /works/{work_id}/nodes/leaves`
-2. **P-02: `/metrics` endpoint** (Medium severity debt per CONSTITUTION IX.4)
-3. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
+1. **P-02: `/metrics` endpoint** (Medium severity debt per CONSTITUTION IX.4)
+2. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
 
 ### Recently Completed
 
 - **2026-06-09:** Added `response_model` to all 10 routes that were missing it — `DeleteResponse` (DELETE work/node), `LogoutResult` (GET /logout), `VersionResponse` (GET /), `GenericResult` (6 User endpoints). New Pydantic models in `models.py:509-532`.
+- **2026-06-09:** Phase 15 (P-01) Pagination enforcement — all 4 list endpoints (`GET /works`, `GET /works/{work_id}/nodes`, `GET /works/{work_id}/nodes/root`, `GET /works/{work_id}/nodes/leaves`) enforce `limit` (default 50, max 200) with cursor pagination via `_id`. Added `limit` enforcement to `GET /nodes/by-tag` (was unbounded). Committed as part of P-01.
 
 ---
 
@@ -280,3 +293,15 @@
 - Committed as `d261a3e`
 
 **Branch:** `main`
+
+### 2026-06-09 (Session 2) — P-01: Pagination enforcement
+
+**Done:**
+- Added `PaginatedNodeResponse` and `PaginatedWorkResponse` models to `models.py` (`results`/`count`/`next_cursor` envelope)
+- Added `limit`/`cursor` params to `WorkStorage.list_works`, `NodeStorage.list_nodes`, `NodeStorage.get_roots`, `NodeStorage.get_leaves`
+- Cursor pagination via `_id`: `list_works` sorts `_id` descending (most recent first), the rest sort `_id` ascending (or `position`+`_id` for roots/leaves)
+- All 4 route handlers updated to accept `limit` (default 50, max 200) and `cursor` query params, return paginated response
+- Added `limit` enforcement to `GET /nodes/by-tag` and `SearchStorage.find_nodes_by_tags`
+- 33 unit tests pass; no regressions
+
+**Branch:** `refactor/normalised-node-model`

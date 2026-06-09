@@ -60,6 +60,8 @@ from .models import (
     GenericResult,
     NodeSearchResponse,
     MatchType,
+    PaginatedNodeResponse,
+    PaginatedWorkResponse,
 )
 
 
@@ -326,25 +328,31 @@ async def create_work(
 
 @app.get(
     "/works",
-    response_model=list[WorkResponse],
+    response_model=PaginatedWorkResponse,
     summary="List works",
     description=(
-        "Return all works belonging to the authenticated user, ordered by creation date "
-        "descending (most recent first)."
+        "Return works belonging to the authenticated user with cursor pagination, "
+        "ordered by creation date descending (most recent first). "
+        "Use `limit` (default 50, max 200) and `cursor` (the `next_cursor` from a previous "
+        "response) to page through results."
     ),
     tags=["Works"],
 )
 async def list_works(
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"list_works({account_id}) called")
     try:
-        works = await work_storage.list_works(account_id=account_id)
+        works, next_cursor = await work_storage.list_works(
+            account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error("Database error in list_works", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return works
+    return {"results": works, "count": len(works), "next_cursor": next_cursor}
 
 
 @app.get(
@@ -541,21 +549,25 @@ async def create_normalised_node(
 
 @app.get(
     "/works/{work_id}/nodes/root",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="Get root nodes for a work",
     description=(
-        "Return all Part (root) nodes for the specified Work, ordered by position ascending. "
+        "Return Part (root) nodes for the specified Work with cursor pagination, "
+        "ordered by position ascending. "
         "A Work may have multiple root Part nodes. "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
 )
 async def get_work_root_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"get_work_root_nodes({work_id}) called")
     try:
         work = await work_storage.get_work(work_id=work_id, account_id=account_id)
@@ -565,30 +577,36 @@ async def get_work_root_nodes(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
     try:
-        roots = await node_storage.get_roots(work_id=work_id, account_id=account_id)
+        roots, next_cursor = await node_storage.get_roots(
+            work_id=work_id, account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error fetching roots for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return roots
+    return {"results": roots, "count": len(roots), "next_cursor": next_cursor}
 
 
 @app.get(
     "/works/{work_id}/nodes/leaves",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="Get leaf nodes for a work",
     description=(
-        "Return all Beat (leaf) nodes for the specified Work, ordered by position ascending. "
+        "Return Beat (leaf) nodes for the specified Work with cursor pagination, "
+        "ordered by position ascending. "
         "Beats are the terminal narrative units and have no children. "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
 )
 async def get_work_leaf_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"get_work_leaf_nodes({work_id}) called")
     try:
         work = await work_storage.get_work(work_id=work_id, account_id=account_id)
@@ -598,21 +616,24 @@ async def get_work_leaf_nodes(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
     try:
-        leaves = await node_storage.get_leaves(work_id=work_id, account_id=account_id)
+        leaves, next_cursor = await node_storage.get_leaves(
+            work_id=work_id, account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error fetching leaves for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return leaves
+    return {"results": leaves, "count": len(leaves), "next_cursor": next_cursor}
 
 
 @app.get(
     "/works/{work_id}/nodes",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="List nodes for a work",
     description=(
-        "Return all nodes belonging to the specified work. "
+        "Return nodes belonging to the specified work with cursor pagination. "
         "Pass `node_type` as a query parameter to filter by type "
         "(one of: `part`, `chapter`, `scene`, `beat`). "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
@@ -620,10 +641,12 @@ async def get_work_leaf_nodes(
 async def list_normalised_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
     node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"list_normalised_nodes({work_id}, node_type={node_type}) called")
 
     # Confirm the work exists and belongs to this account before listing its nodes.
@@ -636,15 +659,17 @@ async def list_normalised_nodes(
         raise HTTPException(status_code=404, detail="Work not found")
 
     try:
-        nodes = await node_storage.list_nodes(
+        nodes, next_cursor = await node_storage.list_nodes(
             work_id=work_id,
             account_id=account_id,
             node_type=node_type.value if node_type is not None else None,
+            limit=limit,
+            cursor=cursor,
         )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error listing nodes for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return nodes
+    return {"results": nodes, "count": len(nodes), "next_cursor": next_cursor}
 
 
 @app.get(
@@ -1057,10 +1082,11 @@ async def search_nodes(
     response_model=NodeSearchResponse,
     summary="Query nodes by tag(s)",
     description=(
-        "Return all nodes carrying one or more specified tags. "
+        "Return nodes carrying one or more specified tags. "
         "Use `match=any` (default) to find nodes with at least one matching tag, "
         "or `match=all` to require all tags. "
         "Optionally narrow results by `work_id` and/or `node_type`. "
+        "Use `limit` (default 50, max 200) to cap results. "
         "Returns 404 if the node does not exist or belongs to a different account."
     ),
     tags=["Search"],
@@ -1070,6 +1096,7 @@ async def nodes_by_tag(
     match: MatchType = MatchType.any,
     work_id: Optional[str] = Query(None, pattern=UUID_PATTERN),
     node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     search_storage: SearchStorage = Depends(get_search_storage),
 ) -> dict:
@@ -1081,6 +1108,7 @@ async def nodes_by_tag(
             match=match.value,
             work_id=work_id,
             node_type=node_type.value if node_type else None,
+            limit=limit,
         )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error in nodes_by_tag for tags {tags!r}", exc_info=True)

@@ -469,19 +469,36 @@ class WorkStorage:
             raise
         return _strip_id(doc) if doc else None
 
-    async def list_works(self, account_id: str) -> list[dict]:
-        """Return all Works for account ordered by created_at descending."""
+    async def list_works(
+        self, account_id: str, limit: int = 50, cursor: str | None = None
+    ) -> tuple[list[dict], str | None]:
+        """Return Works for account with cursor pagination, newest first.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"list_works({account_id}) called")
+        query: dict = {"account_id": account_id}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$lt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         works: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.work_collection.find(
-                {"account_id": account_id}, sort=[("created_at", -1)]
-            ):
-                works.append(_strip_id(doc))
+                query, sort=[("_id", -1)]
+            ).limit(limit + 1):
+                works.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error("Exception occurred listing works for account", exc_info=True)
             raise
-        return works
+        if len(works) > limit:
+            works.pop()
+            next_cursor = str(works[-1]["_id"])
+        for doc in works:
+            doc.pop("_id", None)
+        return works, next_cursor
 
     async def update_work(
         self, work_id: str, account_id: str, updates: dict
@@ -626,21 +643,38 @@ class NodeStorage:
         return _strip_id(doc) if doc else None
 
     async def list_nodes(
-        self, work_id: str, account_id: str, node_type: str | None = None
-    ) -> list[dict]:
-        """Return all nodes for a Work, optionally filtered by node_type."""
+        self, work_id: str, account_id: str, node_type: str | None = None,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return nodes for a Work with cursor pagination, optionally filtered by node_type.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"list_nodes({work_id}) called")
         query: dict = {"work_id": work_id, "account_id": account_id}
         if node_type is not None:
             query["node_type"] = node_type
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         nodes: list[dict] = []
+        next_cursor: str | None = None
         try:
-            async for doc in self.node_collection.find(query):
-                nodes.append(_strip_id(doc))
+            async for doc in self.node_collection.find(
+                query, sort=[("_id", 1)]
+            ).limit(limit + 1):
+                nodes.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred listing nodes for work {work_id}", exc_info=True)
             raise
-        return nodes
+        if len(nodes) > limit:
+            nodes.pop()
+            next_cursor = str(nodes[-1]["_id"])
+        for doc in nodes:
+            doc.pop("_id", None)
+        return nodes, next_cursor
 
     async def update_node(
         self, node_id: str, account_id: str, updates: dict
@@ -799,35 +833,69 @@ class NodeStorage:
             raise
         return siblings
 
-    async def get_roots(self, work_id: str, account_id: str) -> list[dict]:
-        """Return all Part nodes (parent_id == None) for a Work, ordered by position."""
+    async def get_roots(
+        self, work_id: str, account_id: str,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return Part (root) nodes for a Work with cursor pagination, ordered by position.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"get_roots({work_id}) called")
+        query: dict = {"work_id": work_id, "account_id": account_id, "parent_id": None}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         roots: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.node_collection.find(
-                {"work_id": work_id, "account_id": account_id, "parent_id": None},
-                sort=[("position", 1)],
-            ):
-                roots.append(_strip_id(doc))
+                query, sort=[("position", 1), ("_id", 1)]
+            ).limit(limit + 1):
+                roots.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred getting roots for work {work_id}", exc_info=True)
             raise
-        return roots
+        if len(roots) > limit:
+            roots.pop()
+            next_cursor = str(roots[-1]["_id"])
+        for doc in roots:
+            doc.pop("_id", None)
+        return roots, next_cursor
 
-    async def get_leaves(self, work_id: str, account_id: str) -> list[dict]:
-        """Return all Beat nodes for a Work, ordered by position."""
+    async def get_leaves(
+        self, work_id: str, account_id: str,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return Beat (leaf) nodes for a Work with cursor pagination, ordered by position.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"get_leaves({work_id}) called")
+        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "beat"}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         leaves: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.node_collection.find(
-                {"work_id": work_id, "account_id": account_id, "node_type": "beat"},
-                sort=[("position", 1)],
-            ):
-                leaves.append(_strip_id(doc))
+                query, sort=[("position", 1), ("_id", 1)]
+            ).limit(limit + 1):
+                leaves.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred getting leaves for work {work_id}", exc_info=True)
             raise
-        return leaves
+        if len(leaves) > limit:
+            leaves.pop()
+            next_cursor = str(leaves[-1]["_id"])
+        for doc in leaves:
+            doc.pop("_id", None)
+        return leaves, next_cursor
 
     # ----------------------------------------------------------
     # Stats and operation helpers  (T-08)
@@ -1143,6 +1211,7 @@ class SearchStorage:
         match: str = "any",
         work_id: str | None = None,
         node_type: str | None = None,
+        limit: int = 50,
     ) -> list[dict]:
         """Query nodes by tag(s).
 
@@ -1164,7 +1233,7 @@ class SearchStorage:
         try:
             async for doc in self.node_collection.find(filter_doc).sort(
                 [("created_at", -1)]
-            ):
+            ).limit(limit):
                 _strip_id(doc)
                 results.append(doc)
         except (ConnectionFailure, OperationFailure):

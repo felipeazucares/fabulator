@@ -556,3 +556,39 @@ class NodeSearchResponse(BaseModel):
             }
         }
     )
+
+
+# -----------------------------------------------
+#   Pagination schemas  (P-01)
+# -----------------------------------------------
+
+class PaginatedNodeResponse(BaseModel):
+    results: list[NodeResponse]
+    count: int
+    next_cursor: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0,
+                "next_cursor": None
+            }
+        }
+    )
+
+
+class PaginatedWorkResponse(BaseModel):
+    results: list[WorkResponse]
+    count: int
+    next_cursor: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0,
+                "next_cursor": None
+            }
+        }
+    )
