@@ -530,3 +530,29 @@ class GenericResult(BaseModel):
     data: Any = None
     code: int = 200
     message: str
+
+
+# -----------------------------------------------
+#   Tier 3 — Search & Query schemas
+# -----------------------------------------------
+
+TextQueryStr = Annotated[str, StringConstraints(min_length=1, max_length=200, strip_whitespace=True)]
+
+
+class MatchType(str, Enum):
+    any = "any"
+    all = "all"
+
+
+class NodeSearchResponse(BaseModel):
+    results: list[NodeResponse]
+    count: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0
+            }
+        }
+    )

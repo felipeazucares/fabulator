@@ -4,7 +4,7 @@ from pydantic import ValidationError
 import app.config   # loads the load_env lib to access .env file
 from app.helpers import get_logger
 from app.authentication import Authentication
-from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path
+from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path, Query
 from typing import Optional
 import motor.motor_asyncio
 from fastapi.encoders import jsonable_encoder
@@ -30,6 +30,7 @@ from .database import (
     UserStorage,
     WorkStorage,
     NodeStorage,
+    SearchStorage,
     setup_collections,
     is_valid_parent_child,
 )
@@ -57,6 +58,8 @@ from .models import (
     LogoutResult,
     VersionResponse,
     GenericResult,
+    NodeSearchResponse,
+    MatchType,
 )
 
 
@@ -210,6 +213,10 @@ def get_work_storage(request: Request) -> WorkStorage:
 
 def get_node_storage(request: Request) -> NodeStorage:
     return NodeStorage(client=request.app.state.motor_client)
+
+
+def get_search_storage(request: Request) -> SearchStorage:
+    return SearchStorage(client=request.app.state.motor_client)
 
 
 # ----------------------------
@@ -1001,8 +1008,87 @@ async def duplicate_node(
     return result
 
 
+# ── Node endpoints — search (Tier 3) ────────────────────────────
+
+
+@app.get(
+    "/nodes/search",
+    response_model=NodeSearchResponse,
+    summary="Full-text search across nodes",
+    description=(
+        "Search node `description` and `text` fields for the given query term. "
+        "Results are ordered by descending relevance score. "
+        "Optionally narrow results by `work_id` and/or `node_type`. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Search"],
+)
+async def search_nodes(
+    query: str = Query(..., min_length=1, max_length=200, strip_whitespace=True),
+    work_id: Optional[str] = Query(None, pattern=UUID_PATTERN),
+    node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    search_storage: SearchStorage = Depends(get_search_storage),
+) -> dict:
+    logger.debug(f"search_nodes({query!r}) called")
+    try:
+        results = await search_storage.search_nodes(
+            account_id=account_id,
+            query=query,
+            work_id=work_id,
+            node_type=node_type.value if node_type else None,
+            limit=limit,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in search_nodes for query {query!r}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+
+    # Strip the transient `score` field from each result before returning.
+    clean_results = []
+    for r in results:
+        r.pop("score", None)
+        clean_results.append(r)
+    return {"results": clean_results, "count": len(clean_results)}
+
+
+@app.get(
+    "/nodes/by-tag",
+    response_model=NodeSearchResponse,
+    summary="Query nodes by tag(s)",
+    description=(
+        "Return all nodes carrying one or more specified tags. "
+        "Use `match=any` (default) to find nodes with at least one matching tag, "
+        "or `match=all` to require all tags. "
+        "Optionally narrow results by `work_id` and/or `node_type`. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Search"],
+)
+async def nodes_by_tag(
+    tags: list[str] = Query(..., min_items=1),
+    match: MatchType = MatchType.any,
+    work_id: Optional[str] = Query(None, pattern=UUID_PATTERN),
+    node_type: Optional[NodeType] = None,
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    search_storage: SearchStorage = Depends(get_search_storage),
+) -> dict:
+    logger.debug(f"nodes_by_tag(tags={tags!r}, match={match}) called")
+    try:
+        results = await search_storage.find_nodes_by_tags(
+            account_id=account_id,
+            tags=tags,
+            match=match.value,
+            work_id=work_id,
+            node_type=node_type.value if node_type else None,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in nodes_by_tag for tags {tags!r}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return {"results": results, "count": len(results)}
+
+
 @app.post(
-    "/get_token",
     response_model=Token,
     summary="Login",
     description=(

@@ -412,6 +412,16 @@ async def setup_collections(db) -> None:
     await node_col.create_index([("account_id", 1), ("node_type", 1)])
     await node_col.create_index([("account_id", 1), ("node_id", 1)])
 
+    # Tier 3 — Search indexes
+    await node_col.create_index(
+        [("description", "text"), ("text", "text")],
+        name="node_text_idx",
+    )
+    await node_col.create_index(
+        [("account_id", 1), ("tags", 1)],
+        name="node_tags_idx",
+    )
+
     logger.debug("setup_collections() complete")
 
 
@@ -1079,3 +1089,88 @@ class NodeStorage:
             )
 
         return _strip_id(new_doc)
+
+
+# ================================================================
+#  SearchStorage  (Tier 3 — search-query/feature.md)
+# ================================================================
+
+class SearchStorage:
+    def __init__(self, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
+        self.database = self.client.fabulator
+        self.node_collection = self.database.get_collection("node_collection")
+
+    async def search_nodes(
+        self,
+        account_id: str,
+        query: str,
+        work_id: str | None = None,
+        node_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Full-text search over description and text fields.
+
+        Returns a list of node dicts (with _id stripped) ordered by descending textScore.
+        """
+        logger.debug(f"search_nodes(account_id={account_id}, query={query!r}) called")
+        filter_doc: dict = {"account_id": account_id, "$text": {"$search": query}}
+        if work_id is not None:
+            filter_doc["work_id"] = work_id
+        if node_type is not None:
+            filter_doc["node_type"] = node_type
+
+        results: list[dict] = []
+        try:
+            async for doc in self.node_collection.find(
+                filter_doc,
+                {"score": {"$meta": "textScore"}},
+            ).sort([("score", {"$meta": "textScore"})]).limit(limit):
+                _strip_id(doc)
+                results.append(doc)
+        except (ConnectionFailure, OperationFailure):
+            logger.error(
+                f"Exception occurred during text search for query {query!r}",
+                exc_info=True,
+            )
+            raise
+        return results
+
+    async def find_nodes_by_tags(
+        self,
+        account_id: str,
+        tags: list[str],
+        match: str = "any",
+        work_id: str | None = None,
+        node_type: str | None = None,
+    ) -> list[dict]:
+        """Query nodes by tag(s).
+
+        *match* == 'any' → $in; *match* == 'all' → $all.
+        Returns a list of node dicts (with _id stripped) ordered by created_at descending.
+        """
+        logger.debug(f"find_nodes_by_tags(account_id={account_id}, tags={tags!r}) called")
+        filter_doc: dict = {"account_id": account_id}
+        if match == "any":
+            filter_doc["tags"] = {"$in": tags}
+        else:
+            filter_doc["tags"] = {"$all": tags}
+        if work_id is not None:
+            filter_doc["work_id"] = work_id
+        if node_type is not None:
+            filter_doc["node_type"] = node_type
+
+        results: list[dict] = []
+        try:
+            async for doc in self.node_collection.find(filter_doc).sort(
+                [("created_at", -1)]
+            ):
+                _strip_id(doc)
+                results.append(doc)
+        except (ConnectionFailure, OperationFailure):
+            logger.error(
+                f"Exception occurred during tag query for tags {tags!r}",
+                exc_info=True,
+            )
+            raise
+        return results
