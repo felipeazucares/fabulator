@@ -203,7 +203,7 @@
 |---|------|--------|-----|-------|
 | T-67 | Add `HealthResponse` + `MetricsResponse` models | ✅ | 10 min | `status`/`database`/`cache` for health; `uptime_seconds`/`max_pool_size`/`total_requests` for metrics |
 | T-68 | Add `GET /health` — MongoDB ping + Redis ping, 200/503 | ✅ | 20 min | No auth; checks both DB and cache; 503 when either is down |
-| T-69 | Add `GET /metrics` + request-counting middleware — uptime, pool size, count | ✅ | 25 min | `@app.middleware("http")` increments counter; lifespan sets `start_time` and `request_count` |
+| T-69 | Add `GET /metrics` + request-counting middleware — uptime, pool size, count | ✅ | 25 min | `@fix app.middleware("http")` increments counter; lifespan sets `start_time` and `request_count` |
 
 ---
 
