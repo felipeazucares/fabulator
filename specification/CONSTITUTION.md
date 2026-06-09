@@ -452,7 +452,7 @@ All pre-refactor debt items (M7, M6, L6, L7, L8, L9, L10, L11) from the treelib 
 |-----|-----------|----------|----------------|--------|
 | 4.3 | No performance/load tests | High | v1.3 | Open |
 | P-01 | Pagination not yet enforced on list endpoints | High | v1.2 | Resolved |
-| P-02 | `/metrics` endpoint not yet implemented | Medium | v1.3 | Open |
+| P-02 | `/metrics` endpoint not yet implemented | Medium | v1.3 | Resolved |
 
 ---
 

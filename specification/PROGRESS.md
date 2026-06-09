@@ -197,6 +197,14 @@
 | T-65 | Update 4 route handlers in api.py with `limit`/`cursor` query params + paginated response models | ✅ | 20 min | `list_works`, `list_normalised_nodes`, `get_work_root_nodes`, `get_work_leaf_nodes` |
 | T-66 | Add `limit` to `GET /nodes/by-tag` endpoint and `SearchStorage.find_nodes_by_tags` | ✅ | 10 min | Default 50, max 200; matches existing pattern on `GET /nodes/search` |
 
+## Phase 16 — Health & Metrics Endpoints (P-02)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| T-67 | Add `HealthResponse` + `MetricsResponse` models | ✅ | 10 min | `status`/`database`/`cache` for health; `uptime_seconds`/`max_pool_size`/`total_requests` for metrics |
+| T-68 | Add `GET /health` — MongoDB ping + Redis ping, 200/503 | ✅ | 20 min | No auth; checks both DB and cache; 503 when either is down |
+| T-69 | Add `GET /metrics` + request-counting middleware — uptime, pool size, count | ✅ | 25 min | `@app.middleware("http")` increments counter; lifespan sets `start_time` and `request_count` |
+
 ---
 
 ## Running Totals
@@ -206,7 +214,7 @@
 | Unit tests | 5 | 5 |
 | Integration tests | 5 | 5 |
 | SPEC.md acceptance criteria | 11 | 11 |
-| Tasks complete | 66 | 66 |
+| Tasks complete | 69 | 69 |
 
 ---
 
@@ -225,9 +233,10 @@
 ### Current State (2026-06-09)
 
 - **All 55 tasks across Phases 0–13 are ✅ complete.**
-- **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes. Committed as `d261a3e`.
-- **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination. 6 new tasks (T-61 to T-66), 66 total.
-- **Implementation:** 31 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 1 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB `work_collection` + `node_collection` with JSON Schema validators and 9 indexes.
+- **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes.
+- **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination.
+- **Phase 16 (P-02) Health & Metrics is ✅ complete** — `GET /health` (MongoDB + Redis ping, 200/503), `GET /metrics` (uptime, pool size, request count), request-counting middleware.
+- **Implementation:** 33 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 3 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB collections with JSON Schema validators and 9 indexes.
 - **Tests:** 33 unit tests pass (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
 
 ### Remaining Known Issues (not blocking)
@@ -237,8 +246,7 @@
 
 ### Next Steps
 
-1. **P-02: `/metrics` endpoint** (Medium severity debt per CONSTITUTION IX.4)
-2. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
+1. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
 
 ### Recently Completed
 
@@ -302,6 +310,18 @@
 - Cursor pagination via `_id`: `list_works` sorts `_id` descending (most recent first), the rest sort `_id` ascending (or `position`+`_id` for roots/leaves)
 - All 4 route handlers updated to accept `limit` (default 50, max 200) and `cursor` query params, return paginated response
 - Added `limit` enforcement to `GET /nodes/by-tag` and `SearchStorage.find_nodes_by_tags`
+- 33 unit tests pass; no regressions
+
+**Branch:** `refactor/normalised-node-model`
+
+### 2026-06-09 (Session 3) — P-02: Health & Metrics endpoints
+
+**Done:**
+- Added `HealthResponse` and `MetricsResponse` models to `models.py`
+- Added `GET /health` — no auth, pings MongoDB (`admin.command("ping")`) and Redis (short-lived connection); returns `{"status": "ok"}` 200 when both reachable, 503 with `"degraded"` otherwise
+- Added `GET /metrics` — unauthenticated, returns uptime, max_pool_size, total_requests
+- Added `@app.middleware("http")` request-counting middleware
+- Set `app.state.start_time` and `app.state.request_count` in lifespan
 - 33 unit tests pass; no regressions
 
 **Branch:** `refactor/normalised-node-model`

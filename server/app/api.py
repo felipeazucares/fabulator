@@ -18,6 +18,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
+from starlette.responses import JSONResponse
+import redis.asyncio as aioredis
 from passlib.context import CryptContext
 from fastapi.security import (
     OAuth2PasswordBearer,
@@ -62,6 +64,8 @@ from .models import (
     MatchType,
     PaginatedNodeResponse,
     PaginatedWorkResponse,
+    HealthResponse,
+    MetricsResponse,
 )
 
 
@@ -160,6 +164,8 @@ async def lifespan(app: FastAPI):
         maxPoolSize=MONGO_MAX_POOL_SIZE,
     )
     app.state.motor_client = motor_client
+    app.state.start_time = datetime.now(timezone.utc)
+    app.state.request_count = 0
     oauth.set_client(motor_client)
     await setup_collections(motor_client.fabulator)
     yield
@@ -185,6 +191,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def count_requests(request: Request, call_next):
+    app.state.request_count += 1
+    response = await call_next(request)
+    return response
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/get_token",
@@ -1198,6 +1213,67 @@ async def get(
     return ResponseModel(
         data={"version": version, "username": current_user.username}, message="Success"
     )
+
+
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+    description=(
+        "Return server health status. Pings MongoDB and Redis to verify connectivity. "
+        "Returns HTTP 200 when both are reachable, HTTP 503 if either is down. "
+        "No authentication required — used by Docker HEALTHCHECK."
+    ),
+    tags=["Meta"],
+)
+async def health_check(request: Request) -> dict:
+    logger.debug("health_check() called")
+    db_status = "disconnected"
+    cache_status = "disconnected"
+
+    try:
+        await request.app.state.motor_client.admin.command("ping")
+        db_status = "connected"
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Health check: MongoDB ping failed", exc_info=True)
+
+    try:
+        conn = aioredis.from_url(
+            REDISHOST, encoding="utf-8", decode_responses=True
+        )
+        await conn.ping()
+        await conn.aclose()
+        cache_status = "connected"
+    except Exception:
+        logger.error("Health check: Redis ping failed", exc_info=True)
+
+    is_healthy = db_status == "connected" and cache_status == "connected"
+    status_code = 200 if is_healthy else 503
+    return JSONResponse(
+        content={"status": "ok" if is_healthy else "degraded",
+                 "database": db_status, "cache": cache_status},
+        status_code=status_code,
+    )
+
+
+@app.get(
+    "/metrics",
+    response_model=MetricsResponse,
+    summary="Application metrics",
+    description=(
+        "Return application runtime metrics: uptime, MongoDB connection pool "
+        "size, and total requests handled since server start."
+    ),
+    tags=["Meta"],
+)
+async def metrics(request: Request) -> dict:
+    logger.debug("metrics() called")
+    uptime = (datetime.now(timezone.utc) - request.app.state.start_time).total_seconds()
+    return {
+        "uptime_seconds": uptime,
+        "max_pool_size": MONGO_MAX_POOL_SIZE,
+        "total_requests": request.app.state.request_count,
+    }
 
 
 # ------------------------

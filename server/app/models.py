@@ -592,3 +592,39 @@ class PaginatedWorkResponse(BaseModel):
             }
         }
     )
+
+
+# -----------------------------------------------
+#   Health / Metrics schemas  (P-02)
+# -----------------------------------------------
+
+class HealthResponse(BaseModel):
+    status: str
+    database: str
+    cache: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "ok",
+                "database": "connected",
+                "cache": "connected",
+            }
+        }
+    )
+
+
+class MetricsResponse(BaseModel):
+    uptime_seconds: float
+    max_pool_size: int
+    total_requests: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uptime_seconds": 3600.0,
+                "max_pool_size": 100,
+                "total_requests": 42,
+            }
+        }
+    )
