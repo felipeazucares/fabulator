@@ -197,23 +197,24 @@
 - **PROGRESS.md, CLAUDE.md, DESIGN.md freshened:** Stale treelib/TreeStorage references removed from all docs.
 - **All 55 tasks complete.** The refactor is done.
 
-### Current State (2026-06-08)
+### Current State (2026-06-09)
 
 - **All 55 tasks across Phases 0–13 are ✅ complete.**
-- **Implementation:** 29 route handlers (6 Works + 15 Nodes + 3 Auth + 1 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage` classes, MongoDB `work_collection` + `node_collection` with JSON Schema validators and 7 indexes.
+- **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes. Committed as `d261a3e`.
+- **Implementation:** 31 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 1 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB `work_collection` + `node_collection` with JSON Schema validators and 9 indexes.
 - **Tests:** 33 unit tests (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
-- **Working tree:** clean, committed on `refactor/normalised-node-model`, branch merged to `main`.
+- **Working tree:** clean, committed on `main`.
 
 ### Remaining Known Issues (not blocking)
 
 - **2 integration test failures:** `test_t_work_06` and `test_t_work_09` — no-auth tests use relative URLs without `base_url`, triggering httpx cookie-parse bug.
 - **150 `Event loop is closed` errors:** Pre-existing asyncio fixture-scoping issue in integration tests.
-- **`DESIGN.md` Part III.1:** Still references old `TreeStorage` — flagged for cleanup (partially addressed this session).
 
 ### Next Steps
 
-1. **Polish:** Fix 2 no-auth test failures (already fixed in code — `base_url="http://test"` present on both failing tests)
-2. **New features (Tier 3+):** Search endpoints, cross-node relationships, export, bulk ops
+1. **P-01: Pagination enforcement on list endpoints** (High severity debt per CONSTITUTION XI.3) — add `limit` (default 50, max 200) + cursor pagination to `GET /works`, `GET /works/{work_id}/nodes`, `GET /works/{work_id}/nodes/root`, `GET /works/{work_id}/nodes/leaves`
+2. **P-02: `/metrics` endpoint** (Medium severity debt per CONSTITUTION IX.4)
+3. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
 
 ### Recently Completed
 
