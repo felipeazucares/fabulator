@@ -33,6 +33,7 @@ from .database import (
     WorkStorage,
     NodeStorage,
     SearchStorage,
+    DemoStorage,
     setup_collections,
     is_valid_parent_child,
 )
@@ -66,6 +67,7 @@ from .models import (
     PaginatedWorkResponse,
     HealthResponse,
     MetricsResponse,
+    DemoSeedResponse,
 )
 
 
@@ -232,8 +234,8 @@ def get_node_storage(request: Request) -> NodeStorage:
     return NodeStorage(client=request.app.state.motor_client)
 
 
-def get_search_storage(request: Request) -> SearchStorage:
-    return SearchStorage(client=request.app.state.motor_client)
+def get_demo_storage(request: Request) -> DemoStorage:
+    return DemoStorage(client=request.app.state.motor_client)
 
 
 # ----------------------------
@@ -1306,6 +1308,54 @@ async def save_user(
         logger.error("Error occured saving user details", exc_info=True)
         raise
     result = ResponseModel(save_result, "new user added")
+    return result
+
+
+@app.post(
+    "/demo/seed",
+    response_model=DemoSeedResponse,
+    status_code=201,
+    summary="Seed demo content",
+    description=(
+        "Load a ready-made demo Work and node tree into the authenticated user's account. "
+        "The demo contains a complete narrative structure with part/chapter/scene/beat nodes. "
+        "Returns HTTP 201 on success."
+    ),
+    tags=["Demo"],
+)
+async def seed_demo(
+    reset: bool = Query(False, description="If true, delete existing demo works before seeding"),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    demo_storage: DemoStorage = Depends(get_demo_storage),
+) -> dict:
+    """Seed a demo Work and tree into the authenticated user's account."""
+    logger.debug(f"seed_demo({account_id}, reset={reset}) called")
+    
+    # Get the current user's details to extract author name
+    try:
+        user = await oauth.get_user_by_account_id(account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in seed_demo", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    
+    # Use the username as the author name for demo content
+    author = user.username
+    
+    try:
+        # Seed the demo content using the DemoStorage class
+        result = await demo_storage.seed_demo(
+            account_id=account_id,
+            author=author,
+            reset=reset,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in seed_demo", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    except Exception as e:
+        # Log the exception but return a generic error message to avoid leaking information
+        logger.error(f"Unexpected error in seed_demo: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    
     return result
 
 

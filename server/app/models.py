@@ -628,3 +628,25 @@ class MetricsResponse(BaseModel):
             }
         }
     )
+
+
+# -----------------------------------------------
+#   Demo seeding schemas
+# -----------------------------------------------
+
+class DemoSeedResponse(BaseModel):
+    work_id: str
+    title: str
+    total_nodes: int
+    by_type: dict[str, int]
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "work_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+                "title": "Demo: The Lighthouse at the End of the World",
+                "total_nodes": 11,
+                "by_type": { "part": 1, "chapter": 2, "scene": 4, "beat": 4 }
+            }
+        }
+    )

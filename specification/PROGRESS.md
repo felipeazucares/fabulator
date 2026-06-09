@@ -250,7 +250,7 @@
 - **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes.
 - **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination.
 - **Phase 16 (P-02) Health & Metrics is ✅ complete** — `GET /health` (MongoDB + Redis ping, 200/503), `GET /metrics` (uptime, pool size, request count), request-counting middleware.
-- **Phase 17 (Demo Tree Seeding) is ⬜ specced and queued — this is the next deliverable.** Spec: `demo-seed/feature.md`. `POST /demo/seed` loads a representative demo Work + adjacency tree for the authenticated account, written through `create_work`/`create_node` inside a transaction so demo data is indistinguishable from user data. Tasks T-70–T-76.
+- **Phase 17 (Demo Tree Seeding) is ✅ complete** — `POST /demo/seed` endpoint, `DemoStorage` class, `build_demo_tree` function, session parameter support in storage methods, unit tests. Tasks T-70–T-76.
 - **Implementation:** 33 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 3 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB collections with JSON Schema validators and 9 indexes.
 - **Tests:** 33 unit tests pass (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
 

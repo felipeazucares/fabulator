@@ -27,6 +27,7 @@ from app.models import (
     LINK_FIELD_MAX_LEN,
     TAGS_MAX_COUNT,
     TAG_MAX_LEN,
+    DemoSeedResponse,
 )
 from app.authentication import Authentication
 
@@ -232,5 +233,50 @@ class TestAuthHelpers:
         )
         payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         assert "exp" in payload
+
+
+# ---------------------------------------------------------------------------
+# Demo seeding tests
+# ---------------------------------------------------------------------------
+
+class TestDemoSeedResponse:
+    def test_demo_seed_response_model(self):
+        """Test that DemoSeedResponse model accepts correct data structure"""
+        response = DemoSeedResponse(
+            work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+            title="Demo: The Lighthouse at the End of the World",
+            total_nodes=11,
+            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+        )
+        assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        assert response.title == "Demo: The Lighthouse at the End of the World"
+        assert response.total_nodes == 11
+        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+
+
+class TestBuildDemoTree:
+    def test_build_demo_tree_returns_correct_structure(self):
+        """Test that build_demo_tree function returns correct structure"""
+        from app.demo import build_demo_tree
+        
+        # Test with a mock account_id and author
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        # Should return a tuple of (work_data, list_of_nodes)
+        assert isinstance(work_data, CreateWorkRequest)
+        assert isinstance(node_list, list)
+        assert len(node_list) > 0
+        
+        # Check that first node has expected structure
+        first_node = node_list[0]
+        assert "work_id" in first_node
+        assert "node_type" in first_node
+        assert "parent_id" in first_node
+        assert "tag" in first_node
+        assert "description" in first_node
+        assert "text" in first_node
+        assert "previous" in first_node
+        assert "next" in first_node
+        assert "tags" in first_node
 
 

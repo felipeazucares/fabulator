@@ -436,7 +436,7 @@ class WorkStorage:
         self.work_collection = self.database.get_collection("work_collection")
         self.node_collection = self.database.get_collection("node_collection")
 
-    async def create_work(self, account_id: str, data: dict) -> dict:
+    async def create_work(self, account_id: str, data: dict, session=None) -> dict:
         """Insert a new Work document and return it."""
         logger.debug(f"create_work({account_id}) called")
         now = datetime.now(timezone.utc)
@@ -451,7 +451,7 @@ class WorkStorage:
             "updated_at":  now,
         }
         try:
-            await self.work_collection.insert_one(doc)
+            await self.work_collection.insert_one(doc, session=session)
         except (DuplicateKeyError, ConnectionFailure, OperationFailure):
             logger.error("Exception occurred inserting work document", exc_info=True)
             raise
@@ -501,7 +501,7 @@ class WorkStorage:
         return works, next_cursor
 
     async def update_work(
-        self, work_id: str, account_id: str, updates: dict
+        self, work_id: str, account_id: str, updates: dict, session=None
     ) -> dict | None:
         """Apply field updates to a Work; cascade author to all child nodes if changed.
         Returns the updated document or None if not found."""
@@ -512,6 +512,7 @@ class WorkStorage:
                 {"work_id": work_id, "account_id": account_id},
                 {"$set": updates},
                 return_document=ReturnDocument.AFTER,
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred updating work {work_id}", exc_info=True)
@@ -523,11 +524,12 @@ class WorkStorage:
                 work_id=work_id,
                 account_id=account_id,
                 author=updates["author"],
+                session=session,
             )
         return _strip_id(result)
 
     async def cascade_author_to_nodes(
-        self, work_id: str, account_id: str, author: str | None
+        self, work_id: str, account_id: str, author: str | None, session=None
     ) -> int:
         """Bulk-update author on every node belonging to this Work. Returns count updated."""
         logger.debug(f"cascade_author_to_nodes({work_id}) called")
@@ -535,6 +537,7 @@ class WorkStorage:
             result = await self.node_collection.update_many(
                 {"work_id": work_id, "account_id": account_id},
                 {"$set": {"author": author}},
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(
@@ -584,7 +587,7 @@ class NodeStorage:
     # Core CRUD  (T-06)
     # ----------------------------------------------------------
 
-    async def create_node(self, account_id: str, work_doc: dict, data: dict) -> dict:
+    async def create_node(self, account_id: str, work_doc: dict, data: dict, session=None) -> dict:
         """Insert a new node; copies author from Work; auto-assigns position.
         Returns the inserted document."""
         logger.debug(f"create_node({account_id}) called")
@@ -624,7 +627,7 @@ class NodeStorage:
             "updated_at":  now,
         }
         try:
-            await self.node_collection.insert_one(doc)
+            await self.node_collection.insert_one(doc, session=session)
         except (DuplicateKeyError, ConnectionFailure, OperationFailure):
             logger.error("Exception occurred inserting node document", exc_info=True)
             raise
@@ -1243,3 +1246,119 @@ class SearchStorage:
             )
             raise
         return results
+
+
+# ================================================================
+#  DemoStorage  (Phase 17)
+# ================================================================
+
+class DemoStorage:
+    def __init__(self, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
+        self.database = self.client.fabulator
+        self.work_collection = self.database.get_collection("work_collection")
+        self.node_collection = self.database.get_collection("node_collection")
+        self.node_storage = NodeStorage(client)  # Reuse existing NodeStorage for create operations
+        self.work_storage = WorkStorage(client)  # Reuse existing WorkStorage for create operations
+
+    async def delete_demo_works(self, account_id: str, session=None) -> int:
+        """Delete all demo-tagged Works and their nodes for the given account.
+        
+        Returns count of works deleted.
+        """
+        logger.debug(f"delete_demo_works({account_id}) called")
+        try:
+            # Find all demo works
+            demo_works = await self.work_collection.find(
+                {"account_id": account_id, "tags": {"$in": ["demo"]}},
+                {"work_id": 1}
+            ).to_list(None)
+            
+            work_ids = [work["work_id"] for work in demo_works]
+            
+            if not work_ids:
+                return 0
+                
+            # Delete all nodes for these works
+            await self.node_collection.delete_many(
+                {"work_id": {"$in": work_ids}, "account_id": account_id},
+                session=session
+            )
+            
+            # Delete the works themselves
+            result = await self.work_collection.delete_many(
+                {"work_id": {"$in": work_ids}, "account_id": account_id},
+                session=session
+            )
+            
+            return result.deleted_count
+            
+        except (ConnectionFailure, OperationFailure) as e:
+            logger.error(f"Exception occurred deleting demo works for account {account_id}", exc_info=True)
+            raise
+
+    async def seed_demo(
+        self, 
+        account_id: str, 
+        author: str, 
+        reset: bool = False,
+        session=None
+    ) -> dict:
+        """Seed a demo Work and tree into the database within a transaction.
+        
+        Args:
+            account_id: The user's account ID
+            author: Author attribution for the demo work
+            reset: If True, delete existing demo works before seeding
+            session: Optional MongoDB session for transaction
+            
+        Returns:
+            dict with demo work details including work_id, title, total_nodes, and by_type
+            
+        Raises:
+            Exception: Propagated from underlying storage operations
+        """
+        logger.debug(f"seed_demo({account_id}, reset={reset}) called")
+        
+        # If reset is requested, delete existing demo works first
+        if reset:
+            await self.delete_demo_works(account_id, session=session)
+            
+        # Generate the demo content using build_demo_tree function
+        from app.demo import build_demo_tree
+        work_data, node_list = build_demo_tree(account_id, author)
+        
+        # Create the demo work
+        work_doc = await self.work_storage.create_work(account_id, work_data.model_dump())
+        
+        # Add the demo tag to the work
+        work_doc["tags"].append("demo")
+        
+        # Update the work with the demo tag
+        await self.work_collection.update_one(
+            {"work_id": work_doc["work_id"], "account_id": account_id},
+            {"$push": {"tags": "demo"}},
+            session=session
+        )
+        
+        # Create all nodes for the demo tree
+        created_nodes = []
+        for node_data in node_list:
+            # Add account_id to node data
+            node_data["account_id"] = account_id
+            
+            # Create the node using existing storage method
+            node_doc = await self.node_storage.create_node(account_id, work_doc, node_data)
+            created_nodes.append(node_doc)
+            
+        # Return summary of what was created
+        by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+        for node in created_nodes:
+            by_type[node["node_type"]] += 1
+            
+        return {
+            "work_id": work_doc["work_id"],
+            "title": work_data.title,
+            "total_nodes": len(created_nodes),
+            "by_type": by_type
+        }
