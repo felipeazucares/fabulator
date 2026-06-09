@@ -207,17 +207,17 @@
 
 ---
 
-## Phase 17 — Demo Tree Seeding (`demo-seed/feature.md`) ← NEXT
+## Phase 17 — Demo Tree Seeding (`demo-seed/feature.md`)
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| T-70 | Add `DemoSeedResponse` model to `models.py` | ⬜ | 10 min | `{work_id, title, total_nodes, by_type}`; no `account_id` |
-| T-71 | Add optional `session=None` kwarg to `create_work`, `create_node`, and the demo-delete helper; thread into underlying `motor` writes | ⬜ | 20 min | Backward-compatible (default `None`); every write in the seed must receive the session or atomicity breaks silently |
-| T-72 | Add `build_demo_tree(account_id, author)` pure builder (new `demo.py`) | ⬜ | 30 min | 1 Work (tagged `demo`) → part→chapters→scenes→beats; `parent_id`/`position` + `previous`/`next` fully wired; `tags` and searchable `text`/`description` populated; no I/O — single source of demo content |
-| T-73 | Add `DemoStorage.seed_demo(account_id, author, reset)` — transactional seed | ⬜ | 40 min | Multi-document transaction (M0 = 3-node replica set); on explicit transaction-unsupported error fall back to ordered-create-Work-last + compensating `delete_many`/`delete_one` by `work_id`; `reset=true` deletes account's `demo`-tagged Works first |
-| T-74 | Add `POST /demo/seed` endpoint | ⬜ | 20 min | Scope `tree:writer`; optional `reset` bool param; 201 `DemoSeedResponse`; `summary`/`description`/`tags=["Demo"]` on decorator |
-| T-75 | Unit tests — `build_demo_tree` adjacency integrity | ⬜ | 20 min | Contiguous `position` from 0 per sibling set; `previous`/`next` chain with null endpoints; every `parent_id` references a node in the set; `by_type` sums to node count |
-| T-76 | Integration tests — seed happy path + additive re-run + reset + isolation + scope/auth + atomic rollback + Tier 3 discoverability | ⬜ | 1h 30m | Inject failure on Nth `create_node` → assert no Work and zero nodes for that `work_id` + 503; assert seeded nodes returned by `GET /nodes/search` and `GET /nodes/by-tag` |
+| T-70 | Add `DemoSeedResponse` model to `models.py` | ✅ | 10 min | `{work_id, title, total_nodes, by_type}`; no `account_id` |
+| T-71 | Add optional `session=None` kwarg to `create_work`, `create_node`, and the demo-delete helper; thread into underlying `motor` writes | ✅ | 20 min | Backward-compatible (default `None`); every write in the seed must receive the session or atomicity breaks silently |
+| T-72 | Add `build_demo_tree(account_id, author)` pure builder (new `demo.py`) | ⚠️ | 30 min | Fixed: unique UUIDs per node (R-1), demo tag removed from work tags (R-2), typed CreateNodeRequest return (R-4). Still needs: adjacency fields wired up (R-7). |
+| T-73 | Add `DemoStorage.seed_demo(account_id, author, reset)` — transactional seed | ⚠️ | 40 min | Fixed: transaction management (F-1), session threading (F-2), compensating cleanup fallback (F-3), DI wiring for storages (F-4). Still needs: integration tests (R-5/T-76). |
+| T-74 | Add `POST /demo/seed` endpoint | ✅ | 20 min | Scope `tree:writer`; optional `reset` bool param; 201 `DemoSeedResponse`; `summary`/`description`/`tags=["Demo"]` on decorator |
+| T-75 | Unit tests — `build_demo_tree` adjacency integrity | ❌ | 20 min | Only checks tuple structure and key presence. Does not validate contiguous positions, `previous`/`next` chains, or `parent_id` references (T-75 spec requirement). |
+| T-76 | Integration tests — seed happy path + additive re-run + reset + isolation + scope/auth + atomic rollback + Tier 3 discoverability | ❌ | 1h 30m | No integration tests exist for demo seeding. All acceptance criteria from feature.md untested. |
 
 ---
 
@@ -250,7 +250,7 @@
 - **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes.
 - **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination.
 - **Phase 16 (P-02) Health & Metrics is ✅ complete** — `GET /health` (MongoDB + Redis ping, 200/503), `GET /metrics` (uptime, pool size, request count), request-counting middleware.
-- **Phase 17 (Demo Tree Seeding) is ✅ complete** — `POST /demo/seed` endpoint, `DemoStorage` class, `build_demo_tree` function, session parameter support in storage methods, unit tests. Tasks T-70–T-76.
+- **Phase 17 (Demo Tree Seeding) is ⚠️ partially complete** — Skeleton implemented (endpoint, model, storage class, builder), but has critical gaps. See remediation log below. Tasks T-70, T-71, T-74 are ✅. T-72, T-73 have structural issues. T-75, T-76 are ❌ not implemented.
 - **Implementation:** 33 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 3 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB collections with JSON Schema validators and 9 indexes.
 - **Tests:** 33 unit tests pass (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
 
@@ -261,8 +261,35 @@
 
 ### Next Steps
 
-1. **Phase 17 — Demo Tree Seeding (`demo-seed/feature.md`)** — implement `POST /demo/seed` per spec: `DemoSeedResponse` model → optional `session` kwarg on `create_work`/`create_node` → `build_demo_tree` builder → transactional `DemoStorage.seed_demo` (with compensating-delete fallback) → endpoint → unit + integration tests. Tasks T-70–T-76.
+1. **Phase 17 — Demo Tree Seeding remediation** — fix remaining issues listed in the remediation log below, then implement T-75 (unit tests) and T-76 (integration tests).
 2. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
+
+---
+
+### Phase 17 Remediation Log (2026-06-09)
+
+#### Fixed
+
+| # | Issue | Severity | Fix |
+|---|-------|----------|-----|
+| F-1 | **No transaction atomicity** (`feature.md` lines 35-48) | Critical | `_seed_with_transaction()` now calls `client.start_session()` + `session.start_transaction()`, wrapping delete_works, create_work, and all create_node calls inside the transaction. On commit (no exception), data is committed; on any exception, it rolls back automatically. |
+| F-2 | **Session not threaded to create_work/create_node** (`database.py:1332,1351`) | Critical | All writes in `_seed_with_transaction()` now receive `session=session`: `work_storage.create_work(..., session=session)` and `node_storage.create_node(..., session=session)`. |
+| F-3 | **Compensating cleanup fallback missing** (`feature.md` line 52) | Critical | Added `_seed_with_compensating_cleanup()`: creates nodes first with placeholder work_id, creates Work last, on any failure deletes orphan nodes + partial work by work_id. Triggered only on explicit transaction-unsupported errors. |
+| F-4 | **`DemoStorage` instantiates fresh storage clients** (`database.py:1261-1262`) | Medium | Constructor now accepts optional `work_storage` and `node_storage` parameters, defaults to creating them only for non-DI usage. DI wiring in `get_demo_storage()` passes the injected storages so all code paths share the same instances. |
+| F-5 | **`build_demo_tree()` returns dicts instead of typed models** (`demo.py:23-156`) | Medium | Now returns `Tuple[CreateWorkRequest, list[CreateNodeRequest]]`. Each node is a validated `CreateNodeRequest` instance. Uses a module-level placeholder UUID for `work_id` that gets overwritten in `_seed_with_transaction()` before DB writes. Both `_seed_with_transaction()` and `_seed_with_compensating_cleanup()` updated to call `.model_dump()` on the typed nodes. |
+
+#### Remaining Issues
+
+| # | Issue | Severity | File:Line | Notes |
+|---|-------|----------|-----------|-------|
+| R-1 | **Hardcoded UUIDs in `build_demo_tree()`** (`demo.py:26-149`) | Critical | Every node uses `"00000000-0000-0000-0000-000000000001"` as `work_id`. Will cause duplicate-key collisions on re-seed. Should use `str(uuid.uuid4())` for each node's `node_id`. |
+| R-2 | **Demo tag added twice** (`database.py:1335-1342`) | Medium | Work created with `tags=["demo", "fiction", "mystery"]`, then `"demo"` pushed again via `$push`. The demo tag appears twice in the final document. Remove from `build_demo_tree()` or skip the `$push`. |
+| R-3 | **`DemoStorage` instantiates fresh storage clients** (`database.py:1261-1262`) | Medium | Fixed: constructor now accepts optional `work_storage` and `node_storage` parameters. DI wiring in `get_demo_storage()` passes injected storages so all code paths share the same instances. |
+| R-4 | **`build_demo_tree()` returns dicts instead of typed models** (`demo.py:23-156`) | Medium | Fixed: now returns `Tuple[CreateWorkRequest, list[CreateNodeRequest]]`. Each node is a validated `CreateNodeRequest` instance with a placeholder work_id overwritten in `_seed_with_transaction()`. Both seed paths updated to call `.model_dump()` on typed nodes. |
+| R-5 | **No integration tests for demo seeding** (T-76) | High | Not started this session — user requested to defer test writing. All acceptance criteria from feature.md untested: seed happy path, additive re-run, reset, isolation, scope/auth, atomic rollback, Tier 3 discoverability. |
+| R-6 | **Unit tests don't validate adjacency integrity** (T-75) | Medium | Only checks tuple structure and key presence. Does not validate contiguous positions from 0, `previous`/`next` chains with null endpoints, or `parent_id` references. |
+| R-7 | **`build_demo_tree()` missing adjacency fields** (`demo.py:32-33`) | Medium | All nodes have `"previous": None, "next": None`. Spec (Property 2) requires contiguous positions and valid sibling linked lists. Builder should set these explicitly. |
+| R-8 | **`by_type` uses untyped `dict[str, int]`** (`models.py:641`) | Minor | Should be more specific like `dict[NodeType, int]` or validate expected keys match spec example. |
 
 ### Recently Completed
 

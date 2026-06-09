@@ -610,7 +610,7 @@ class NodeStorage:
 
         now = datetime.now(timezone.utc)
         doc = {
-            "node_id":     str(uuid.uuid4()),
+            "node_id":     data.get("node_id") or str(uuid.uuid4()),
             "work_id":     data["work_id"],
             "account_id":  account_id,
             "author":      work_doc.get("author"),
@@ -1253,13 +1253,27 @@ class SearchStorage:
 # ================================================================
 
 class DemoStorage:
-    def __init__(self, client: motor.motor_asyncio.AsyncIOMotorClient):
+    def __init__(
+        self,
+        client: motor.motor_asyncio.AsyncIOMotorClient,
+        work_storage: WorkStorage | None = None,
+        node_storage: NodeStorage | None = None,
+    ):
         self.client = client
         self.database = self.client.fabulator
         self.work_collection = self.database.get_collection("work_collection")
         self.node_collection = self.database.get_collection("node_collection")
-        self.node_storage = NodeStorage(client)  # Reuse existing NodeStorage for create operations
-        self.work_storage = WorkStorage(client)  # Reuse existing WorkStorage for create operations
+        # Use provided storage instances or create defaults (for non-DI usage)
+        self._work_storage = work_storage or WorkStorage(client)
+        self._node_storage = node_storage or NodeStorage(client)
+
+    @property
+    def work_storage(self) -> WorkStorage:
+        return self._work_storage
+
+    @property
+    def node_storage(self) -> NodeStorage:
+        return self._node_storage
 
     async def delete_demo_works(self, account_id: str, session=None) -> int:
         """Delete all demo-tagged Works and their nodes for the given account.
@@ -1306,6 +1320,10 @@ class DemoStorage:
     ) -> dict:
         """Seed a demo Work and tree into the database within a transaction.
         
+        Uses a multi-document transaction for atomicity. If transactions are
+        unavailable, falls back to compensating cleanup (create Work last,
+        delete-by-work_id on failure).
+        
         Args:
             account_id: The user's account ID
             author: Author attribution for the demo work
@@ -1320,45 +1338,142 @@ class DemoStorage:
         """
         logger.debug(f"seed_demo({account_id}, reset={reset}) called")
         
-        # If reset is requested, delete existing demo works first
-        if reset:
-            await self.delete_demo_works(account_id, session=session)
-            
         # Generate the demo content using build_demo_tree function
         from app.demo import build_demo_tree
         work_data, node_list = build_demo_tree(account_id, author)
         
-        # Create the demo work
-        work_doc = await self.work_storage.create_work(account_id, work_data.model_dump())
+        try:
+            return await self._seed_with_transaction(
+                account_id, author, reset, work_data, node_list
+            )
+        except Exception as e:
+            # Check if this is a transaction-unsupported error
+            error_msg = str(e).lower()
+            if any(kw in error_msg for kw in (
+                "transaction not in progress",
+                "transactions are not supported by this server version/configuration",
+                "feature is not supported",
+                "mongoerror: transactions are not supported",
+                "command not found",
+            )):
+                logger.warning("Transactions not supported, using compensating cleanup fallback")
+                return await self._seed_with_compensating_cleanup(
+                    account_id, author, reset, work_data, node_list
+                )
+            raise
+
+    async def _seed_with_transaction(
+        self,
+        account_id: str,
+        author: str,
+        reset: bool,
+        work_data,
+        node_list,
+    ) -> dict:
+        """Seed using a multi-document transaction for atomicity."""
+        client = self.client
+        async with await client.start_session() as session:
+            async with session.start_transaction():
+                if reset:
+                    await self.delete_demo_works(account_id, session=session)
+
+                work_doc = await self.work_storage.create_work(
+                    account_id, work_data.model_dump(), session=session
+                )
+
+                # Add "demo" tag so the work can be identified for reset
+                await self.work_collection.update_one(
+                    {"work_id": work_doc["work_id"], "account_id": account_id},
+                    {"$push": {"tags": "demo"}},
+                    session=session,
+                )
+
+                created_nodes = []
+                for node_data in node_list:
+                    # Overwrite placeholder work_id with the real one from create_work
+                    node_doc = await self.node_storage.create_node(
+                        account_id,
+                        work_doc,
+                        {**node_data.model_dump(), "account_id": account_id, "work_id": work_doc["work_id"]},
+                        session=session,
+                    )
+                    created_nodes.append(node_doc)
+
+                by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+                for node in created_nodes:
+                    by_type[node["node_type"]] += 1
+
+                return {
+                    "work_id": work_doc["work_id"],
+                    "title": work_data.title,
+                    "total_nodes": len(created_nodes),
+                    "by_type": by_type,
+                }
+
+    async def _seed_with_compensating_cleanup(
+        self,
+        account_id: str,
+        author: str,
+        reset: bool,
+        work_data,
+        node_list,
+    ) -> dict:
+        """Compensating-cleanup fallback when transactions are unavailable.
         
-        # Add the demo tag to the work
-        work_doc["tags"].append("demo")
-        
-        # Update the work with the demo tag
-        await self.work_collection.update_one(
-            {"work_id": work_doc["work_id"], "account_id": account_id},
-            {"$push": {"tags": "demo"}},
-            session=session
-        )
-        
-        # Create all nodes for the demo tree
-        created_nodes = []
-        for node_data in node_list:
-            # Add account_id to node data
-            node_data["account_id"] = account_id
-            
-            # Create the node using existing storage method
-            node_doc = await self.node_storage.create_node(account_id, work_doc, node_data)
-            created_nodes.append(node_doc)
-            
-        # Return summary of what was created
-        by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
-        for node in created_nodes:
-            by_type[node["node_type"]] += 1
-            
-        return {
-            "work_id": work_doc["work_id"],
-            "title": work_data.title,
-            "total_nodes": len(created_nodes),
-            "by_type": by_type
-        }
+        Creates nodes first (with a placeholder work_id), then the Work last.
+        On any failure, deletes everything by work_id so no orphan data remains.
+        """
+        if reset:
+            await self.delete_demo_works(account_id)
+
+        # Determine the work_id that will be used (generated by create_work)
+        # We need it upfront for cleanup, so generate it here
+        import uuid as _uuid
+        provisional_work_id = str(_uuid.uuid4())
+
+        try:
+            # Create all nodes first (not yet discoverable -- no parent Work exists)
+            created_nodes = []
+            for node_data in node_list:
+                node_doc = await self.node_collection.insert_one({
+                    "node_id": str(_uuid.uuid4()),
+                    "work_id": provisional_work_id,
+                    "account_id": account_id,
+                    "author": author,
+                    **{k: v for k, v in node_data.model_dump().items() if k != "work_id"},
+                })
+                created_nodes.append({"node_id": node_doc.inserted_id, **node_data})
+
+            # Now create the Work -- if this fails, we delete the nodes below
+            work_doc = await self.work_storage.create_work(
+                account_id, work_data.model_dump()
+            )
+
+            # Success — return summary
+            by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+            for node in created_nodes:
+                by_type[node["node_type"]] += 1
+
+            # Add "demo" tag so the work can be identified for reset
+            await self.work_collection.update_one(
+                {"work_id": work_doc["work_id"], "account_id": account_id},
+                {"$push": {"tags": "demo"}},
+            )
+
+            return {
+                "work_id": work_doc["work_id"],
+                "title": work_data.title,
+                "total_nodes": len(created_nodes),
+                "by_type": by_type,
+            }
+        except Exception:
+            # Compensating cleanup — delete orphan nodes and any partial work
+            await self.node_collection.delete_many({
+                "work_id": provisional_work_id,
+                "account_id": account_id,
+            })
+            await self.work_collection.delete_one({
+                "work_id": provisional_work_id,
+                "account_id": account_id,
+            })
+            raise

@@ -234,8 +234,16 @@ def get_node_storage(request: Request) -> NodeStorage:
     return NodeStorage(client=request.app.state.motor_client)
 
 
-def get_demo_storage(request: Request) -> DemoStorage:
-    return DemoStorage(client=request.app.state.motor_client)
+def get_demo_storage(
+    request: Request,
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> DemoStorage:
+    return DemoStorage(
+        client=request.app.state.motor_client,
+        work_storage=work_storage,
+        node_storage=node_storage,
+    )
 
 
 # ----------------------------

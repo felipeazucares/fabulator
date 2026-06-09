@@ -364,6 +364,7 @@ class WorkResponse(BaseModel):
 # -----------------------------------------------
 
 class CreateNodeRequest(BaseModel):
+    node_id: Optional[UuidStr] = None
     work_id: UuidStr
     node_type: NodeType
     parent_id: Optional[UuidStr] = None
@@ -382,6 +383,7 @@ class CreateNodeRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
+                "node_id": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "work_id": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "node_type": "chapter",
                 "parent_id": "a11b2c3d-0000-0000-0000-f01898e87167",
