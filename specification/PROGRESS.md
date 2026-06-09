@@ -207,14 +207,28 @@
 
 ---
 
+## Phase 17 — Demo Tree Seeding (`demo-seed-feature.md`) ← NEXT
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| T-70 | Add `DemoSeedResponse` model to `models.py` | ⬜ | 10 min | `{work_id, title, total_nodes, by_type}`; no `account_id` |
+| T-71 | Add optional `session=None` kwarg to `create_work`, `create_node`, and the demo-delete helper; thread into underlying `motor` writes | ⬜ | 20 min | Backward-compatible (default `None`); every write in the seed must receive the session or atomicity breaks silently |
+| T-72 | Add `build_demo_tree(account_id, author)` pure builder (new `demo.py`) | ⬜ | 30 min | 1 Work (tagged `demo`) → part→chapters→scenes→beats; `parent_id`/`position` + `previous`/`next` fully wired; `tags` and searchable `text`/`description` populated; no I/O — single source of demo content |
+| T-73 | Add `DemoStorage.seed_demo(account_id, author, reset)` — transactional seed | ⬜ | 40 min | Multi-document transaction (M0 = 3-node replica set); on explicit transaction-unsupported error fall back to ordered-create-Work-last + compensating `delete_many`/`delete_one` by `work_id`; `reset=true` deletes account's `demo`-tagged Works first |
+| T-74 | Add `POST /demo/seed` endpoint | ⬜ | 20 min | Scope `tree:writer`; optional `reset` bool param; 201 `DemoSeedResponse`; `summary`/`description`/`tags=["Demo"]` on decorator |
+| T-75 | Unit tests — `build_demo_tree` adjacency integrity | ⬜ | 20 min | Contiguous `position` from 0 per sibling set; `previous`/`next` chain with null endpoints; every `parent_id` references a node in the set; `by_type` sums to node count |
+| T-76 | Integration tests — seed happy path + additive re-run + reset + isolation + scope/auth + atomic rollback + Tier 3 discoverability | ⬜ | 1h 30m | Inject failure on Nth `create_node` → assert no Work and zero nodes for that `work_id` + 503; assert seeded nodes returned by `GET /nodes/search` and `GET /nodes/by-tag` |
+
+---
+
 ## Running Totals
 
 | Category | Done | Total |
 |----------|------|-------|
-| Unit tests | 5 | 5 |
-| Integration tests | 5 | 5 |
+| Unit tests | 5 | 6 |
+| Integration tests | 5 | 6 |
 | SPEC.md acceptance criteria | 11 | 11 |
-| Tasks complete | 69 | 69 |
+| Tasks complete | 69 | 76 |
 
 ---
 
@@ -236,6 +250,7 @@
 - **Tier 3 Search & Query is ✅ complete** — `GET /nodes/search` (full-text), `GET /nodes/by-tag` (tag query), `SearchStorage` class, `node_text_idx` + `node_tags_idx` indexes.
 - **Phase 15 (P-01) Pagination is ✅ complete** — All 4 list endpoints enforce `limit` (default 50, max 200) with cursor pagination.
 - **Phase 16 (P-02) Health & Metrics is ✅ complete** — `GET /health` (MongoDB + Redis ping, 200/503), `GET /metrics` (uptime, pool size, request count), request-counting middleware.
+- **Phase 17 (Demo Tree Seeding) is ⬜ specced and queued — this is the next deliverable.** Spec: `demo-seed-feature.md`. `POST /demo/seed` loads a representative demo Work + adjacency tree for the authenticated account, written through `create_work`/`create_node` inside a transaction so demo data is indistinguishable from user data. Tasks T-70–T-76.
 - **Implementation:** 33 route handlers (6 Works + 15 Nodes + 2 Search + 3 Auth + 3 Meta + 6 Users), `WorkStorage`/`NodeStorage`/`UserStorage`/`SearchStorage` classes, MongoDB collections with JSON Schema validators and 9 indexes.
 - **Tests:** 33 unit tests pass (Pydantic validation, auth helpers) + 117 integration tests in `test_integration_normalised.py` across 5 test classes.
 
@@ -246,7 +261,8 @@
 
 ### Next Steps
 
-1. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
+1. **Phase 17 — Demo Tree Seeding (`demo-seed-feature.md`)** — implement `POST /demo/seed` per spec: `DemoSeedResponse` model → optional `session` kwarg on `create_work`/`create_node` → `build_demo_tree` builder → transactional `DemoStorage.seed_demo` (with compensating-delete fallback) → endpoint → unit + integration tests. Tasks T-70–T-76.
+2. **Tier 4: Enhanced features** — cross-node relationships, comments, export, bulk ops
 
 ### Recently Completed
 
