@@ -240,7 +240,7 @@
 | Category | Done | Total |
 |----------|------|-------|
 | Enhancement tasks (E-56–E-87) | 32 | 32 |
-| Bug items tracked (B-01–B-18) | 11 | 18 |
+| Bug items tracked (B-01–B-18) | 12 | 18 |
 | Unit tests | 46 | 46 |
 | Integration tests | 157 | 168 |
 | SPEC.md acceptance criteria | 11 | 11 |
@@ -251,13 +251,12 @@
 
 ### Remaining Open Tasks
 
-| # | Task | Priority | Prerequisite |
-|---|------|----------|-------------|
-| E-83 | Fix B-06: pass `provisional_work_id` into `create_work` so node `work_id` matches returned work | High | — |
-| E-84 | Fix B-05: replace `**node_data` with `**node_data.model_dump()` in `_seed_with_compensating_cleanup` | High | — |
-| E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | — |
-| E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | — |
-| E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | — |
+| # | Task | Priority | GitHub | Prerequisite |
+|---|------|----------|--------|-------------|
+| E-84 | Fix B-05: replace `**node_data` with `**node_data.model_dump()` in `_seed_with_compensating_cleanup` | High | #27 | — |
+| E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | #26 | — |
+| E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | — |
+| E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — |
 
 
 ---
@@ -329,6 +328,7 @@
 **Severity:** High — fallback code path silently broken  
 **Status:** ⬜ Open  
 **File:** `database.py:1445`  
+**GitHub:** #27  
 **Detail:** Pydantic v2 `BaseModel` has no `keys()` method so `**model` raises `TypeError`; entire fallback path crashes  
 
 ---
@@ -336,9 +336,10 @@
 ### B-06 — `provisional_work_id` vs real `work_id` mismatch in fallback
 
 **Severity:** High — seeded nodes orphaned in fallback path  
-**Status:** ⬜ Open  
-**File:** `database.py:1432,1448`  
-**Detail:** Nodes inserted with `provisional_work_id` but `create_work` generates a fresh UUID; nodes unreachable via `GET /works/{work_id}/nodes`  
+**Status:** ✅ Fixed 2026-06-10 (B-06 rewrite)  
+**File:** `database.py:1425-1473`  
+**GitHub:** #29  
+**Detail:** `_seed_with_compensating_cleanup` rewritten to create Work first via `create_work`, then use the real `work_doc["work_id"]` for all node inserts. `provisional_work_id` variable removed entirely. Nodes now reference the correct Work document.  
 
 ---
 
@@ -401,6 +402,7 @@
 **Severity:** Low — masks programming bugs as 503  
 **Status:** ⬜ Open  
 **File:** `api.py:1360-1363`  
+**GitHub:** #26  
 **Detail:** All non-DB exceptions return 503 "Database error"; should narrow to specific error types  
 
 ---
@@ -410,6 +412,7 @@
 **Severity:** Low — style/performance  
 **Status:** ⬜ Open  
 **File:** `database.py:1342, 1431`  
+**GitHub:** #24  
 **Detail:** `from app.demo import build_demo_tree` and `import uuid as _uuid` should be top-of-file  
 
 ---
@@ -419,6 +422,7 @@
 **Severity:** Low — misleading in code review  
 **Status:** ⬜ Open  
 **File:** `demo.py:8`  
+**GitHub:** #28  
 **Detail:** Generated once at import time; all `CreateNodeRequest` objects carry same stale `work_id` (overwritten in transaction path)  
 
 ---
@@ -428,6 +432,7 @@
 **Severity:** Low — demo tree incomplete  
 **Status:** ⬜ Open  
 **File:** `demo.py:150-171`  
+**GitHub:** #31  
 **Detail:** Spec requires all four hierarchy levels; beats only under Chapter 1 branches; Chapter 2 terminates at scene depth  
 
 ---
@@ -437,6 +442,7 @@
 **Severity:** Low — unnecessary coupling  
 **Status:** ⬜ Open  
 **File:** `database.py:1264-1265`  
+**GitHub:** #30  
 **Detail:** `self.work_collection` and `self.node_collection` duplicate injected `WorkStorage`/`NodeStorage`; needed only because fallback bypasses storage layer  
 
 ---
@@ -446,6 +452,7 @@
 **Severity:** Minor — weak type safety  
 **Status:** ⬜ Open  
 **File:** `models.py:641`  
+**GitHub:** #25  
 **Detail:** Should be `dict[NodeType, int]` or validate expected keys match spec example  
 
 ---
@@ -592,5 +599,28 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 **Items marked complete this session:** None — no PROGRESS.md task items were worked on.
 
 **Branch:** `chore/issues-dryrun` (PR #23 to main)
+
+---
+
+### 2026-06-10 — Defects migrated to GitHub issues
+
+**Done:**
+- Created `p1`/`p2`/`p3` severity labels on GitHub
+- Created 8 GitHub issues from the open Defects section:
+  - B-05 (#27): `**node_data` Pydantic v2 unpack crash
+  - B-06 (#29): `provisional_work_id` mismatch
+  - B-13 (#26): Bare `except Exception` in `seed_demo`
+  - B-14 (#24): Deferred imports in `database.py`
+  - B-15 (#28): Stale `_PLACEHOLDER_WORK_ID` in `demo.py`
+  - B-16 (#31): Scenes 3 and 4 have no beat children
+  - B-17 (#30): Redundant `DemoStorage` collection refs
+  - B-18 (#25): Untyped `by_type` in `models.py`
+- Added missing `bug`/`p2`/`p3` labels to issues #29, #30, #31
+
+**PROGRESS.md changes:**
+- Added `GitHub:` field to each open defect entry linking to its issue
+- Updated Open Tasks table (E-83–E-87) with GitHub reference column
+
+**Branch:** `chore/issues-dryrun`
 
 
