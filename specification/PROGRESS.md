@@ -623,4 +623,16 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 
 **Branch:** `chore/issues-dryrun`
 
+---
+
+### 2026-06-10 — B-06 fixed (PROGRESS.md documentation update)
+
+**Done:**
+- Confirmed the code fix for B-06 (`provisional_work_id` mismatch in fallback) was already applied in commit `84f3414` (Fixes to demo-seed scripts by Claude, 2026-06-10)
+- Updated PROGRESS.md: B-06 marked ✅ Fixed, Running Totals updated (11→12), E-83 removed from Open Tasks
+- Verified: 46/46 unit tests pass
+- Committed `42286f1` with message containing `fixes #29`; pushed to `refactor/normalised-node-model`
+
+**Branch:** `refactor/normalised-node-model`
+
 
