@@ -69,6 +69,7 @@ from .models import (
     HealthResponse,
     MetricsResponse,
     DemoSeedResponse,
+    OrderedNodesResponse,
 )
 
 
@@ -652,6 +653,59 @@ async def get_work_leaf_nodes(
         logger.error(f"Database error fetching leaves for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
     return {"results": leaves, "count": len(leaves), "next_cursor": next_cursor}
+
+
+@app.get(
+    "/works/{work_id}/nodes/ordered",
+    response_model=OrderedNodesResponse,
+    summary="Get nodes in reading order",
+    description=(
+        "Return all nodes of the specified work flattened into narrative reading order "
+        "(depth-first pre-order, siblings by position). "
+        "Use `limit` (default 50, max 200) and an opaque `cursor` (node_id) to page. "
+        "Returns 404 if the work does not exist or belongs to a different account."
+    ),
+    tags=["Search"],
+)
+async def get_work_reading_order(
+    work_id: str = Path(..., pattern=UUID_PATTERN),
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None, pattern=UUID_PATTERN),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> dict:
+    logger.debug(f"get_work_reading_order({work_id}) called")
+    try:
+        work = await work_storage.get_work(work_id=work_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error fetching work in get_work_reading_order for {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    if work is None:
+        raise HTTPException(status_code=404, detail="Work not found")
+    try:
+        ordered = await node_storage.get_reading_order(work_id=work_id, account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in get_reading_order for {work_id}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+
+    if cursor is not None:
+        idx = next((i for i, n in enumerate(ordered) if n["node_id"] == cursor), None)
+        if idx is None:
+            raise HTTPException(status_code=422, detail="Invalid cursor")
+        start = idx + 1
+    else:
+        start = 0
+
+    page = ordered[start:start + limit]
+    next_cursor: str | None = page[-1]["node_id"] if len(page) == limit and (start + limit) < len(ordered) else None
+
+    return {
+        "work_id": work_id,
+        "nodes": page,
+        "count": len(page),
+        "next_cursor": next_cursor,
+    }
 
 
 @app.get(

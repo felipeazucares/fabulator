@@ -919,6 +919,62 @@ class NodeStorage:
         return leaves, next_cursor
 
     # ----------------------------------------------------------
+    # Reading order  (E-89)
+    # ----------------------------------------------------------
+
+    async def get_reading_order(self, work_id: str, account_id: str) -> list[dict]:
+        """Return all nodes of a Work in depth-first pre-order, siblings by position.
+
+        Single {account_id, work_id} fetch; uses existing compound index.
+        Builds an in-memory parent→children map and performs a DFS pre-order walk.
+        A visited set guards against cycles defensively (the parent_id chain is
+        guaranteed acyclic by spec). Returns list of node dicts with _id stripped.
+        """
+        logger.debug(f"get_reading_order({work_id}) called")
+        try:
+            cursor = self.node_collection.find(
+                {"account_id": account_id, "work_id": work_id}
+            )
+            all_nodes: list[dict] = await cursor.to_list(length=None)
+        except (ConnectionFailure, OperationFailure):
+            logger.error(f"Exception in get_reading_order({work_id})", exc_info=True)
+            raise
+
+        if not all_nodes:
+            return []
+
+        node_map: dict[str, dict] = {}
+        parent_to_children: dict[str | None, list[str]] = {}
+        for doc in all_nodes:
+            nid = doc["node_id"]
+            node_map[nid] = doc
+            pid: str | None = doc.get("parent_id")
+            parent_to_children.setdefault(pid, []).append(nid)
+
+        for pid in parent_to_children:
+            parent_to_children[pid].sort(key=lambda nid: node_map[nid]["position"])
+
+        ordered: list[dict] = []
+        visited: set[str] = set()
+        stack: list[str] = list(parent_to_children.get(None, []))
+
+        while stack:
+            node_id = stack.pop()
+            if node_id in visited:
+                logger.error(f"Cycle detected: node {node_id} already visited")
+                continue
+            visited.add(node_id)
+            ordered.append(node_map[node_id])
+            children = parent_to_children.get(node_id, [])
+            for child in reversed(children):
+                stack.append(child)
+
+        for doc in ordered:
+            doc.pop("_id", None)
+
+        return ordered
+
+    # ----------------------------------------------------------
     # Stats and operation helpers  (T-08)
     # ----------------------------------------------------------
 

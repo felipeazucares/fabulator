@@ -2198,3 +2198,252 @@ class TestSearchQuery:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             rs = await ac.get("/nodes/search", params={"query": long_query}, headers=headers)
         assert rs.status_code == 422
+
+
+# ===========================================================================
+# T-57: Work Reading Order  (Phase 20)
+# ===========================================================================
+
+
+class TestWorkReadingOrder:
+
+    # -----------------------------------------------------------------------
+    # AC 1 — Pre-order shape
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_01_pre_order_shape(self, main_user):
+        """AC-1: Part(0)→Chapter(0),Chapter(1) with Ch(0)→Scene(0),Scene(1)
+        returns [Part0, Chapter0, Scene0, Scene1, Chapter1]. No account_id."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Reading Order Test")
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r0 = await _create_node(ac, headers, work_id, "part", "Part One")
+        assert r0.status_code == 201
+        part_id = r0.json()["node_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await _create_node(ac, headers, work_id, "chapter", "Chapter 0", parent_id=part_id)
+            r2 = await _create_node(ac, headers, work_id, "chapter", "Chapter 1", parent_id=part_id)
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+        ch0_id = r1.json()["node_id"]
+        ch1_id = r2.json()["node_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r3 = await _create_node(ac, headers, work_id, "scene", "Scene 0", parent_id=ch0_id)
+            r4 = await _create_node(ac, headers, work_id, "scene", "Scene 1", parent_id=ch0_id)
+        assert r3.status_code == 201
+        assert r4.status_code == 201
+        sc0_id = r3.json()["node_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        assert body["work_id"] == work_id
+        ids = [n["node_id"] for n in body["nodes"]]
+        assert ids == [part_id, ch0_id, sc0_id, r4.json()["node_id"], ch1_id]
+
+        for node in body["nodes"]:
+            assert "account_id" not in node
+
+    # -----------------------------------------------------------------------
+    # AC 2 — Empty work
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_02_empty_work(self, work_id, main_user):
+        """AC-2: Work with no nodes returns 200, nodes:[], count:0, next_cursor:null."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        assert body["work_id"] == work_id
+        assert body["nodes"] == []
+        assert body["count"] == 0
+        assert body["next_cursor"] is None
+
+    # -----------------------------------------------------------------------
+    # AC 3-5 — Pagination
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_03_pagination_contiguity(self, main_user):
+        """AC-3/4/5: limit=2 pagination, pages contiguous, last page cursor=null."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Pagination Test")
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r0 = await _create_node(ac, headers, work_id, "part", "Part One")
+        assert r0.status_code == 201
+        part_id = r0.json()["node_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await _create_node(ac, headers, work_id, "chapter", "Ch 1", parent_id=part_id)
+            r2 = await _create_node(ac, headers, work_id, "chapter", "Ch 2", parent_id=part_id)
+            r3 = await _create_node(ac, headers, work_id, "chapter", "Ch 3", parent_id=part_id)
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+        assert r3.status_code == 201
+        ch0 = r1.json()["node_id"]
+        ch1 = r2.json()["node_id"]
+        ch2 = r3.json()["node_id"]
+
+        # Page 1: limit=2
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            p1 = await ac.get(f"/works/{work_id}/nodes/ordered", params={"limit": 2}, headers=headers)
+        assert p1.status_code == 200
+        b1 = p1.json()
+        assert len(b1["nodes"]) == 2
+        assert b1["count"] == 2
+        assert b1["next_cursor"] is not None
+        assert b1["nodes"][0]["node_id"] == part_id
+        assert b1["nodes"][1]["node_id"] == ch0
+
+        # Page 2: cursor=next_cursor from page 1
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            p2 = await ac.get(
+                f"/works/{work_id}/nodes/ordered",
+                params={"limit": 2, "cursor": b1["next_cursor"]},
+                headers=headers,
+            )
+        assert p2.status_code == 200
+        b2 = p2.json()
+        assert len(b2["nodes"]) == 2
+        assert b2["nodes"][0]["node_id"] == ch1
+        assert b2["nodes"][1]["node_id"] == ch2
+        assert b2["next_cursor"] is None  # last page
+
+    # -----------------------------------------------------------------------
+    # AC 6 — Invalid cursor
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_06_invalid_cursor(self, work_id, main_user):
+        """AC-6: Valid UUID4 that is not a node_id in this Work → 422."""
+        headers, _ = main_user
+        fake_cursor = "00000000-0000-4000-8000-000000000000"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(
+                f"/works/{work_id}/nodes/ordered",
+                params={"cursor": fake_cursor},
+                headers=headers,
+            )
+        assert rs.status_code == 422
+        assert rs.json()["detail"] == "Invalid cursor"
+
+    # -----------------------------------------------------------------------
+    # AC 9 — previous/next independence
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_09_previous_next_independence(self, main_user):
+        """AC-9: Setting arbitrary previous/next does not change reading order."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="PrevNext Test")
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r0 = await _create_node(ac, headers, work_id, "part", "Part")
+        assert r0.status_code == 201
+        part_id = r0.json()["node_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await _create_node(ac, headers, work_id, "chapter", "Ch A", parent_id=part_id)
+            r2 = await _create_node(ac, headers, work_id, "chapter", "Ch B", parent_id=part_id)
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+        ch_a = r1.json()["node_id"]
+        ch_b = r2.json()["node_id"]
+
+        # Record original order
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=headers)
+        assert rs.status_code == 200
+        original_ids = [n["node_id"] for n in rs.json()["nodes"]]
+
+        # Set previous/next to arbitrary values
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            await ac.put(f"/nodes/{part_id}", json={"previous": "some-hint", "next": "another-hint"}, headers=headers)
+            await ac.put(f"/nodes/{ch_a}", json={"previous": "foo", "next": "bar"}, headers=headers)
+            await ac.put(f"/nodes/{ch_b}", json={"previous": "baz", "next": "qux"}, headers=headers)
+
+        # Re-query — order must be identical
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs2 = await ac.get(f"/works/{work_id}/nodes/ordered", headers=headers)
+        assert rs2.status_code == 200
+        new_ids = [n["node_id"] for n in rs2.json()["nodes"]]
+        assert new_ids == original_ids
+
+        # previous/next should appear verbatim in response
+        nodes_map = {n["node_id"]: n for n in rs2.json()["nodes"]}
+        assert nodes_map[part_id]["previous"] == "some-hint"
+        assert nodes_map[part_id]["next"] == "another-hint"
+        assert nodes_map[ch_a]["previous"] == "foo"
+        assert nodes_map[ch_a]["next"] == "bar"
+
+    # -----------------------------------------------------------------------
+    # AC 10 — Isolation: User B 404
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_10_isolation(self, work_id, main_user, iso_user):
+        """AC-10: User B gets 404 for User A's work."""
+        headers, _ = main_user
+        iso_headers = iso_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=iso_headers)
+        assert rs.status_code == 404
+
+    # -----------------------------------------------------------------------
+    # AC 11 — Auth and scope
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_11_no_auth(self):
+        """AC-11: No Authorization → 401."""
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/works/00000000-0000-4000-8000-000000000000/nodes/ordered")
+        assert rs.status_code == 401
+
+    async def test_t_reading_order_11_reader_scope(self, work_id, main_user, scoped_user):
+        """AC-11: Missing tree:reader scope → 403."""
+        s_headers, scope = scoped_user
+        if "tree:reader" in scope:
+            pytest.skip("token has tree:reader scope")
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=s_headers)
+        assert rs.status_code == 403
+
+    # -----------------------------------------------------------------------
+    # AC 12 — DB error → 503
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_12_db_error_503(self, work_id, main_user):
+        """AC-12: ConnectionFailure from get_reading_order → 503."""
+        headers, _ = main_user
+        with patch.object(
+            database.NodeStorage,
+            "get_reading_order",
+            new=AsyncMock(side_effect=ConnectionFailure("simulated")),
+        ):
+            async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+                rs = await ac.get(f"/works/{work_id}/nodes/ordered", headers=headers)
+        assert rs.status_code == 503
+        assert rs.json() == {"detail": "Database error"}
+
+    # -----------------------------------------------------------------------
+    # Blacklisted token → 401
+    # -----------------------------------------------------------------------
+
+    async def test_t_reading_order_blacklisted_token(self, main_user):
+        """Blacklisted token after logout returns 401."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            await ac.get("/logout", headers=headers)
+            rs = await ac.get("/works/00000000-0000-4000-8000-000000000000/nodes/ordered", headers=headers)
+        assert rs.status_code == 401

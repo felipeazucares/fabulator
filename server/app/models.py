@@ -652,3 +652,25 @@ class DemoSeedResponse(BaseModel):
             }
         }
     )
+
+
+# -----------------------------------------------
+#   Work reading order schemas  (P-20)
+# -----------------------------------------------
+
+class OrderedNodesResponse(BaseModel):
+    work_id: str
+    nodes: list[NodeResponse]
+    count: int
+    next_cursor: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "work_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+                "nodes": [],
+                "count": 0,
+                "next_cursor": None,
+            }
+        }
+    )

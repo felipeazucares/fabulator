@@ -15,6 +15,9 @@ from pydantic import ValidationError
 # Ensure .env is loaded before importing app modules
 import app.config  # noqa: F401
 
+from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timezone
+
 from app.models import (
     RequestAddSchema,
     RequestUpdateSchema,
@@ -30,6 +33,7 @@ from app.models import (
     DemoSeedResponse,
     CreateWorkRequest,
 )
+from app.database import NodeStorage
 from app.authentication import Authentication
 
 
@@ -469,5 +473,100 @@ class TestBuildDemoTree:
                 assert all(n.node_type == NodeType.beat for n in beats)
                 beat_count += len(beats)
         assert beat_count == 4
+
+
+# ---------------------------------------------------------------------------
+# Reading order — NodeStorage.get_reading_order  (E-89b)
+# ---------------------------------------------------------------------------
+
+class TestNodeStorageGetReadingOrder:
+
+    def _make_node(self, node_id, parent_id, position, **kw):
+        base = {
+            "_id": ObjectId(),
+            "node_id": node_id,
+            "work_id": "w-1",
+            "account_id": "a-1",
+            "author": None,
+            "node_type": "part",
+            "parent_id": parent_id,
+            "position": position,
+            "tag": f"N-{node_id[:8]}",
+            "description": None,
+            "text": None,
+            "previous": None,
+            "next": None,
+            "tags": [],
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        base.update(kw)
+        return base
+
+    def _storage_with_nodes(self, nodes: list[dict]) -> NodeStorage:
+        """Build a NodeStorage with its node_collection.find().to_list() mocked."""
+        client = MagicMock()
+        storage = NodeStorage(client)
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list.return_value = [dict(n) for n in nodes]
+        storage.node_collection.find = MagicMock(return_value=mock_cursor)
+        return storage
+
+    async def test_empty_work_returns_empty_list(self):
+        storage = self._storage_with_nodes([])
+        result = await storage.get_reading_order("w-1", "a-1")
+        assert result == []
+
+    async def test_single_root_node(self):
+        node = self._make_node("n-1", None, 0)
+        storage = self._storage_with_nodes([node])
+        result = await storage.get_reading_order("w-1", "a-1")
+        assert len(result) == 1
+        assert result[0]["node_id"] == "n-1"
+        assert "_id" not in result[0]
+
+    async def test_pre_order_traversal_shape(self):
+        n_part  = self._make_node("part-1", None, 0, node_type="part")
+        n_ch0   = self._make_node("ch-0", "part-1", 0, node_type="chapter")
+        n_ch1   = self._make_node("ch-1", "part-1", 1, node_type="chapter")
+        n_sc0   = self._make_node("sc-0", "ch-0", 0, node_type="scene")
+        n_sc1   = self._make_node("sc-1", "ch-0", 1, node_type="scene")
+        nodes = [n_part, n_ch1, n_ch0, n_sc1, n_sc0]
+        storage = self._storage_with_nodes(nodes)
+        result = await storage.get_reading_order("w-1", "a-1")
+        ids = [n["node_id"] for n in result]
+        assert ids == ["part-1", "ch-0", "sc-0", "sc-1", "ch-1"]
+
+    async def test_children_sorted_by_position(self):
+        n_root  = self._make_node("root", None, 0)
+        n_child_a = self._make_node("c-a", "root", 2, node_type="chapter")
+        n_child_b = self._make_node("c-b", "root", 0, node_type="chapter")
+        n_child_c = self._make_node("c-c", "root", 1, node_type="chapter")
+        nodes = [n_root, n_child_a, n_child_b, n_child_c]
+        storage = self._storage_with_nodes(nodes)
+        result = await storage.get_reading_order("w-1", "a-1")
+        ids = [n["node_id"] for n in result]
+        assert ids == ["root", "c-b", "c-c", "c-a"]
+
+    async def test_cycle_guard_skips_revisited_node(self):
+        """A node that appears as its own ancestor is skipped with a log."""
+        n_root = self._make_node("root", None, 0)
+        n_child = self._make_node("child", "root", 0, node_type="chapter")
+        # Simulate cycle: root appears again as child of child
+        n_cycle = self._make_node("root", "child", 1, node_type="chapter", tag="cycle-dup")
+        nodes = [n_root, n_child, n_cycle]
+        storage = self._storage_with_nodes(nodes)
+        result = await storage.get_reading_order("w-1", "a-1")
+        ids = [n["node_id"] for n in result]
+        assert ids == ["root", "child"]
+        assert len(result) == 2
+
+    async def test_id_stripped_from_every_node(self):
+        n1 = self._make_node("n-1", None, 0)
+        n2 = self._make_node("n-2", "n-1", 0)
+        storage = self._storage_with_nodes([n1, n2])
+        result = await storage.get_reading_order("w-1", "a-1")
+        for node in result:
+            assert "_id" not in node
 
 

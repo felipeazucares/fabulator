@@ -240,10 +240,10 @@
 
 | # | Task | Status | Est | Notes |
 |---|------|--------|-----|-------|
-| E-88 | Add `OrderedNodesResponse` to `models.py` | ☐ | 10 min | `{work_id, nodes: list[NodeResponse], count, next_cursor}`; no `account_id` |
-| E-89 | Add `NodeStorage.get_reading_order(work_id, account_id)` | ☐ | 30 min | Single `{account_id, work_id}` fetch (existing index); in-memory pre-order DFS, children by `position`; `visited` cycle-guard; `_strip_id` |
-| E-90 | Add `GET /works/{work_id}/nodes/ordered` endpoint | ☐ | 20 min | Work-ownership check first (404); `limit` (default 50, max 200) + opaque `node_id` cursor pagination; `tags=["Search"]`; scope `tree:reader` |
-| T-57 | Integration tests — `TestWorkReadingOrder` | ☐ | 1h 30m | pre-order shape, empty work, pagination contiguity, unknown-cursor 422, ordering independent of previous/next, isolation 404, scope/auth, DB-error 503 |
+| E-88 | Add `OrderedNodesResponse` to `models.py` | ✅ | 10 min | `{work_id, nodes: list[NodeResponse], count, next_cursor}`; no `account_id` |
+| E-89 | Add `NodeStorage.get_reading_order(work_id, account_id)` | ✅ | 30 min | Single `{account_id, work_id}` fetch (existing index); in-memory pre-order DFS, children by `position`; `visited` cycle-guard; `_strip_id` |
+| E-90 | Add `GET /works/{work_id}/nodes/ordered` endpoint | ✅ | 20 min | Work-ownership check first (404); `limit` (default 50, max 200) + opaque `node_id` cursor pagination; `tags=["Search"]`; scope `tree:reader` |
+| T-57 | Integration tests — `TestWorkReadingOrder` | ✅ | 1h 30m | pre-order shape, empty work, pagination contiguity, unknown-cursor 422, ordering independent of previous/next, isolation 404, scope/auth, DB-error 503 |
 
 ---
 
@@ -251,10 +251,10 @@
 
 | Category | Done | Total |
 |----------|------|-------|
-| Enhancement tasks (E-56–E-90) | 32 | 35 |
+| Enhancement tasks (E-56–E-90) | 35 | 35 |
 | Bug items tracked (B-01–B-18) | 12 | 18 |
-| Unit tests | 46 | 46 |
-| Integration tests | 175 | 186 |
+| Unit tests | 52 | 52 |
+| Integration tests | 188 | 204 |
 | SPEC.md acceptance criteria | 11 | 11 |
 
 
@@ -565,7 +565,22 @@
 - Session entry added
 
 **Branch:** `refactor/normalised-node-model`
-**Status: 78/78 tasks complete — ready to merge to `main`**
+
+---
+
+### 2026-06-10 — Phase 20: Work Reading Order implemented (E-88–E-90, T-57)
+
+**Done:**
+- Added `OrderedNodesResponse` to `models.py` (`work_id`, `nodes`, `count`, `next_cursor`)
+- Added `NodeStorage.get_reading_order()` to `database.py` — single `{account_id, work_id}` fetch, in-memory DFS pre-order with `visited` cycle-guard, `_id` stripped
+- Added `GET /works/{work_id}/nodes/ordered` endpoint to `api.py` — work ownership check first (404), `limit`/`cursor` pagination over materialised sequence, `tags=["Search"]`, scope `tree:reader`
+- Added 6 unit tests in `TestNodeStorageGetReadingOrder` (empty, single, pre-order shape, position sort, cycle guard, _id stripped) — all pass
+- Added `TestWorkReadingOrder` integration class — 14 tests (12 pass, 1 scope-skip, 1 blacklisted env-limited)
+- Verified: 52/52 unit tests pass; 188/204 integration tests pass (13 scope-skipped, 3 blacklisted env-limited — pre-existing Redis DNS issue)
+- Ruff lint: 0 new warnings from feature code
+
+**Branch:** `feature/work-reading-order`
+
 
 ---
 
