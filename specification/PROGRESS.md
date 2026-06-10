@@ -20,18 +20,38 @@
 
 ## Open Issues — Priority Bugs
 
-### BUG-01 — `POST /get_token` returns 401 with valid credentials (2026-06-10)
+### BUG-01 — Login fails due to Atlas connection pool auth failure (2026-06-10)
 
-**Severity:** Critical — users cannot log in  
-**Status:** 🔄 Under investigation  
-**Symptom:** `POST /get_token` with a known-good username and password returns `401 Unauthorized`. App starts cleanly, `GET /health` returns 200, Atlas connection is confirmed up.  
-**Observed:** `INFO: 172.20.0.1:48588 - "POST /get_token HTTP/1.1" 401 Unauthorized`  
-**Hypotheses (in order of likelihood):**
-1. User was registered against a different environment/Atlas cluster and doesn't exist in the hosted DB's `user_collection`
-2. Username case mismatch — lookup is exact/case-sensitive (`find_one({"username": username})`)
-3. Password hash mismatch — user record has a hash from a different bcrypt round or encoding
+**Severity:** Critical — users cannot log in; app crashes on any DB-hitting request  
+**Status:** 🔄 Under investigation — root cause identified, infrastructure fix pending  
+**Original symptom:** `POST /get_token` returned 401. Believed to be wrong credentials — confirmed as user error (wrong username/password supplied).  
+**Actual root cause:** The Atlas database-level credentials in `MONGO_DETAILS` are being rejected by Atlas during connection pool checkout (`SCRAM-SHA-1` handshake fails, code 8000 `AtlasError`). The app starts successfully because the initial pool connections authenticate at startup, but when a request triggers a new connection checkout (e.g. the `user_collection` lookup during login), Atlas rejects the credentials.  
+**Observed crash:**
+```
+pymongo/pool.py → connect() → conn.authenticate() → _authenticate_scram()
+pymongo.errors.OperationFailure: bad auth: authentication failed (code 8000)
+```
+**Why `GET /health` passes:** The health ping reuses an already-authenticated pool connection; it does not trigger a new connection checkout.  
+**Infrastructure fix required:** Verify Atlas Database Access — confirm the DB user password matches `MONGO_DETAILS` in `.env`. Most likely the Atlas password was rotated or a special character in the password needs URL-encoding in the connection string (`@`→`%40`, `#`→`%23`, `$`→`%24`).  
+**Code fix required (see BUG-04):** The failure mode is poor — an unhandled `OperationFailure` crashes the request with no clean error response. See BUG-04.
 
-**Next diagnostic step:** Enable `DEBUG=True` (now safe after BUG-02 fix), retry login, check logs for `get_user_details_by_username` output — if it returns `None` the user doesn't exist in the DB; if it returns a user then `verify_password` is failing.
+---
+
+### BUG-04 — MongoDB connection failures return unhandled 500 instead of 503 (2026-06-10)
+
+**Severity:** High — poor failure mode; crashes requests with no informative response  
+**Status:** ⬜ Not started  
+**Symptom:** When the Atlas connection pool fails to authenticate (or any DB connection error occurs during a request), `OperationFailure`/`ConnectionFailure` propagates uncaught through the route handler and FastAPI returns a raw 500 with a full traceback in logs. The caller gets no actionable error message.  
+**Root cause:** `get_user_details_by_username` (and all other storage methods) catch `OperationFailure`/`ConnectionFailure` and re-raise. Neither `authenticate_user` nor `login_for_access_token` (or any other route handler) catch database exceptions. FastAPI's default handler returns 500 with no body.  
+
+**Fix plan:**
+
+| # | Task | File | Detail |
+|---|------|------|--------|
+| T-83 | Add global FastAPI exception handler for `OperationFailure` and `ConnectionFailure` | `api.py` | Return HTTP 503 `{"detail": "Database unavailable — please try again later"}`. Register with `@app.exception_handler(OperationFailure)` and `@app.exception_handler(ConnectionFailure)`. Import `ConnectionFailure` and `OperationFailure` from `pymongo.errors` at top level (already imported). |
+| T-84 | Update `GET /health` to detect pool auth failures | `api.py` | The health ping reuses live connections and can return 200 even when new connections would fail. Change the ping to force a new connection or check pool state, so health correctly reflects Atlas reachability. |
+| T-85 | Add `MONGO_DETAILS` connection string validation at startup | `api.py` lifespan | After creating the `AsyncIOMotorClient`, run a test query (e.g. `list_collection_names`) and if it raises `OperationFailure` code 8000, log a clear error message naming the likely cause (bad credentials) and raise `RuntimeError` to abort startup with a human-readable message rather than a cryptic pool traceback. |
+| T-86 | Update PROGRESS.md | `specification/PROGRESS.md` | Mark tasks complete when done |
 
 ---
 
