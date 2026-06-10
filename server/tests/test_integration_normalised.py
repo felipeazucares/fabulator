@@ -11,6 +11,7 @@ import asyncio
 import os
 import re
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import motor.motor_asyncio
@@ -18,6 +19,7 @@ import pytest
 from fastapi.encoders import jsonable_encoder
 from httpx import ASGITransport
 from passlib.context import CryptContext
+from pymongo.errors import ConnectionFailure, OperationFailure
 
 import app.api as api
 import app.database as database
@@ -114,9 +116,31 @@ async def motor_client():
     client.close()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def ensure_collections():
+    """Create collections, validators, and indexes once per test session."""
+    import asyncio
+    import pymongo
+    client = pymongo.MongoClient(os.getenv("MONGO_DETAILS"))
+    db = client.fabulator
+    # Ensure text index on node_collection for $text searches
+    try:
+        db.node_collection.create_index(
+            [("description", pymongo.TEXT), ("text", pymongo.TEXT)],
+            name="node_text_idx",
+            default_language="english",
+        )
+    except pymongo.errors.OperationFailure:
+        pass  # index already exists
+    client.close()
+
+
 @pytest.fixture(autouse=True)
 def setup_app_state(motor_client):
+    from datetime import datetime, timezone
     api.app.state.motor_client = motor_client
+    api.app.state.request_count = 0
+    api.app.state.start_time = datetime.now(timezone.utc)
     api.oauth.set_client(motor_client)
 
 
@@ -322,7 +346,7 @@ class TestWorkCRUD:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get("/works", headers=headers)
         assert r.status_code == 200
-        data = r.json()
+        data = r.json()["results"]
         assert isinstance(data, list)
         assert len(data) >= 2
         assert data[0]["created_at"] >= data[1]["created_at"]
@@ -647,7 +671,7 @@ class TestNodeCreate:
             assert r.status_code == 201
             r = await ac.get(f"/works/{work_id}/nodes?node_type=part", headers=headers)
         assert r.status_code == 200
-        assert len(r.json()) == 2
+        assert len(r.json()["results"]) == 2
 
     @pytest.mark.asyncio
     async def test_t_create_15_list_invalid_type(self, work_id, main_user):
@@ -679,7 +703,7 @@ class TestNodeCreate:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes", headers=headers)
         assert r.status_code == 200
-        assert r.json() == []
+        assert r.json()["results"] == []
 
     # --- Get Single Node ---
 
@@ -951,7 +975,7 @@ class TestNodeNavigation:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/root", headers=headers)
         assert r.status_code == 200
-        roots = r.json()
+        roots = r.json()["results"]
         assert len(roots) == 1
         assert roots[0]["node_type"] == "part"
         assert roots[0]["parent_id"] is None
@@ -963,7 +987,7 @@ class TestNodeNavigation:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/root", headers=headers)
         assert r.status_code == 200
-        assert r.json() == []
+        assert r.json()["results"] == []
 
     @pytest.mark.asyncio
     async def test_t_nav_19_roots_not_found(self, work_and_nodes):
@@ -990,7 +1014,7 @@ class TestNodeNavigation:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/leaves", headers=headers)
         assert r.status_code == 200
-        leaves = r.json()
+        leaves = r.json()["results"]
         assert len(leaves) == 1
         assert leaves[0]["node_type"] == "beat"
 
@@ -1001,7 +1025,7 @@ class TestNodeNavigation:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/leaves", headers=headers)
         assert r.status_code == 200
-        assert r.json() == []
+        assert r.json()["results"] == []
 
     # --- Stats ---
 
@@ -1455,7 +1479,7 @@ class TestReorderDuplicate:
             assert new_id != part_id
             original_ids = {part_id, *ch_ids}
             r = await ac.get(f"/works/{work_id}/nodes", headers=headers)
-            all_after = {n["node_id"] for n in r.json()}
+            all_after = {n["node_id"] for n in r.json()["results"]}
             new_ids = all_after - original_ids
             assert new_id in new_ids
             assert len(new_ids) >= 4
@@ -1520,3 +1544,364 @@ class TestReorderDuplicate:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.post(f"/nodes/{ids[0]}/duplicate", headers=s_headers)
         assert r.status_code == 403
+
+
+# ===========================================================================
+# T-76: Demo Tree Seeding (12 tests)
+# ===========================================================================
+
+class TestDemoSeed:
+    """T-76: Integration tests for POST /demo/seed endpoint."""
+
+    # -----------------------------------------------------------------------
+    # AC 1 — 201 response with valid DemoSeedResponse
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_01_happy_path(self, main_user):
+        """T-DEMO-01: POST /demo/seed returns 201 with valid DemoSeedResponse."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 201
+        body = r.json()
+        assert "work_id" in body
+        assert re.match(UUID_PATTERN, body["work_id"])
+        assert body["title"] == "Demo: The Lighthouse at the End of the World"
+        assert body["total_nodes"] == 11
+        assert sum(body["by_type"].values()) == body["total_nodes"]
+        assert body["by_type"]["part"] == 1
+        assert body["by_type"]["chapter"] == 2
+        assert body["by_type"]["scene"] == 4
+        assert body["by_type"]["beat"] == 4
+        assert "account_id" not in body
+
+    # -----------------------------------------------------------------------
+    # AC 2 — Work exists, carries "demo" tag, author denormalised on every node
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_02_work_and_nodes_created(self, main_user):
+        """T-DEMO-02: Work exists via GET /works/{id}; has demo tag; all nodes carry author."""
+        headers, username = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rw = await ac.get(f"/works/{work_id}", headers=headers)
+        assert rw.status_code == 200
+        assert "demo" in rw.json()["tags"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rn = await ac.get(f"/works/{work_id}/nodes", headers=headers)
+        assert rn.status_code == 200
+        nodes = rn.json()["results"]
+        assert len(nodes) == 11
+        for node in nodes:
+            assert node.get("author") == username
+
+    # -----------------------------------------------------------------------
+    # AC 3 — Adjacency integrity
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_03_adjacency_integrity(self, main_user):
+        """T-DEMO-03: parent_id valid, positions contiguous from 0, previous/next chains unbroken."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rn = await ac.get(f"/works/{work_id}/nodes", headers=headers)
+        nodes = rn.json()["results"]
+        by_id = {n["node_id"]: n for n in nodes}
+        node_ids = set(by_id)
+
+        # All non-root parent_ids reference real nodes
+        for n in nodes:
+            if n["parent_id"] is not None:
+                assert n["parent_id"] in node_ids, f"parent_id {n['parent_id']} not in tree"
+
+        # Build sibling groups by parent_id
+        siblings: dict = {}
+        for n in nodes:
+            siblings.setdefault(n["parent_id"], []).append(n)
+
+        for parent_key, group in siblings.items():
+            positions = sorted(n["position"] for n in group)
+            # Positions must be contiguous starting from 0
+            assert positions == list(range(len(group))), (
+                f"Non-contiguous positions under parent {parent_key}: {positions}"
+            )
+
+            if len(group) == 1:
+                assert group[0]["previous"] is None
+                assert group[0]["next"] is None
+                continue
+
+            # Walk the prev/next linked list from head to tail
+            heads = [n for n in group if n["previous"] is None]
+            assert len(heads) == 1, f"Expected 1 head under {parent_key}"
+            tails = [n for n in group if n["next"] is None]
+            assert len(tails) == 1, f"Expected 1 tail under {parent_key}"
+
+            visited = []
+            current = heads[0]
+            while current is not None:
+                visited.append(current["node_id"])
+                next_id = current["next"]
+                if next_id is not None:
+                    assert next_id in by_id
+                    nxt = by_id[next_id]
+                    assert nxt["previous"] == current["node_id"], "back-pointer mismatch"
+                    current = nxt
+                else:
+                    current = None
+            assert len(visited) == len(group)
+            assert set(visited) == {n["node_id"] for n in group}
+
+    # -----------------------------------------------------------------------
+    # AC 4 — Tier 3 search discoverability
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_04_search_discoverability(self, main_user):
+        """T-DEMO-04: Seeded nodes appear in GET /nodes/search results."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": "lighthouse", "work_id": work_id}, headers=headers)
+        assert rs.status_code == 200
+        results = rs.json()["results"]
+        assert len(results) > 0
+        assert all(n["work_id"] == work_id for n in results)
+
+    # -----------------------------------------------------------------------
+    # AC 4 — Tier 3 tag discoverability
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_05_tag_discoverability(self, main_user):
+        """T-DEMO-05: Seeded nodes appear in GET /nodes/by-tag results."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rt = await ac.get(
+                "/nodes/by-tag",
+                params={"tags": "mystery", "work_id": work_id},
+                headers=headers,
+            )
+        assert rt.status_code == 200
+        results = rt.json()["results"]
+        assert len(results) > 0
+        assert all(n["work_id"] == work_id for n in results)
+
+    # -----------------------------------------------------------------------
+    # AC 5 — Additive re-run (reset=false)
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_06_additive_rerun(self, main_user):
+        """T-DEMO-06: Second seed with reset=false creates second independent Work; first unchanged."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await ac.post("/demo/seed", headers=headers)
+            assert r1.status_code == 201
+            work_id1 = r1.json()["work_id"]
+
+            r2 = await ac.post("/demo/seed?reset=false", headers=headers)
+            assert r2.status_code == 201
+            work_id2 = r2.json()["work_id"]
+
+        assert work_id1 != work_id2
+
+        # First work still accessible
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            assert (await ac.get(f"/works/{work_id1}", headers=headers)).status_code == 200
+            assert (await ac.get(f"/works/{work_id2}", headers=headers)).status_code == 200
+
+    # -----------------------------------------------------------------------
+    # AC 6 — Reset (reset=true)
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_07_reset(self, main_user):
+        """T-DEMO-07: reset=true deletes prior demo Works; exactly one new demo remains."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await ac.post("/demo/seed", headers=headers)
+            assert r1.status_code == 201
+            work_id1 = r1.json()["work_id"]
+
+            r2 = await ac.post("/demo/seed?reset=true", headers=headers)
+            assert r2.status_code == 201
+            work_id2 = r2.json()["work_id"]
+
+        assert work_id1 != work_id2
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            # Original work is gone
+            assert (await ac.get(f"/works/{work_id1}", headers=headers)).status_code == 404
+            # New work is present
+            assert (await ac.get(f"/works/{work_id2}", headers=headers)).status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_t_demo_08_reset_deletes_nodes(self, main_user, motor_client):
+        """T-DEMO-08: reset=true removes nodes belonging to the deleted demo Work."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await ac.post("/demo/seed", headers=headers)
+        assert r1.status_code == 201
+        work_id1 = r1.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r2 = await ac.post("/demo/seed?reset=true", headers=headers)
+        assert r2.status_code == 201
+
+        count = await _count_nodes(motor_client, work_id=work_id1)
+        assert count == 0
+
+    # -----------------------------------------------------------------------
+    # AC 7 — Account isolation
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_09_isolation_get(self, main_user, iso_user):
+        """T-DEMO-09: User B cannot access User A's demo Work."""
+        headers_a, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers_a)
+        assert r.status_code == 201
+        work_id = r.json()["work_id"]
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r_iso = await ac.get(f"/works/{work_id}", headers=iso_user)
+        assert r_iso.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_t_demo_10_reset_isolation(self, main_user, iso_user):
+        """T-DEMO-10: User B reset=true does not delete User A's demo Work."""
+        headers_a, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers_a)
+        assert r.status_code == 201
+        work_id_a = r.json()["work_id"]
+
+        # User B seeds with reset=true — should only affect B's own demo works
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r_b = await ac.post("/demo/seed?reset=true", headers=iso_user)
+        assert r_b.status_code == 201
+
+        # User A's demo work must still exist
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r_check = await ac.get(f"/works/{work_id_a}", headers=headers_a)
+        assert r_check.status_code == 200
+
+    # -----------------------------------------------------------------------
+    # AC 8 — Auth and scope
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_11_no_auth(self):
+        """T-DEMO-11: POST /demo/seed without auth returns 401."""
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed")
+        assert r.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_t_demo_12_reader_scope(self, scoped_user):
+        """T-DEMO-12: tree:reader only returns 403 on POST /demo/seed."""
+        s_headers, scope = scoped_user
+        if "tree:writer" in scope:
+            pytest.skip("token has tree:writer scope")
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=s_headers)
+        assert r.status_code == 403
+
+    # -----------------------------------------------------------------------
+    # AC 10 — DB error → 503
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_13_db_error_503(self, main_user):
+        """T-DEMO-13: ConnectionFailure from seed_demo → 503 with detail."""
+        headers, _ = main_user
+        with patch.object(
+            database.DemoStorage,
+            "seed_demo",
+            new=AsyncMock(side_effect=ConnectionFailure("simulated")),
+        ):
+            async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+                r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 503
+        assert r.json() == {"detail": "Database error"}
+
+    # -----------------------------------------------------------------------
+    # AC 9 — Transaction rollback leaves no orphans
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_14_transaction_rollback_no_orphans(self, main_user, motor_client):
+        """T-DEMO-14: mid-seed OperationFailure → 503; no Work or nodes remain."""
+        headers, _ = main_user
+        original_create_node = database.NodeStorage.create_node
+        call_count = 0
+
+        async def failing_create_node(self, account_id, work_doc, data, session=None):
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                raise OperationFailure("Simulated node failure", code=100)
+            return await original_create_node(self, account_id, work_doc, data, session=session)
+
+        with patch.object(database.NodeStorage, "create_node", failing_create_node):
+            async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+                r = await ac.post("/demo/seed", headers=headers)
+
+        assert r.status_code == 503
+
+        # No demo work must exist after the failed seed
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            works_r = await ac.get("/works", headers=headers)
+        demo_works = [w for w in works_r.json()["results"] if "demo" in w.get("tags", [])]
+        assert len(demo_works) == 0
+
+    # -----------------------------------------------------------------------
+    # AC 12 — Blacklisted token → 401
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_15_blacklisted_token_401(self, main_user):
+        """T-DEMO-15: blacklisted token returns 401."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            logout_r = await ac.get("/logout", headers=headers)
+        assert logout_r.status_code == 200
+
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed", headers=headers)
+        assert r.status_code == 401
+
+    # -----------------------------------------------------------------------
+    # AC 14 — Invalid reset param → 422
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_t_demo_16_invalid_reset_param_422(self, main_user):
+        """T-DEMO-16: ?reset=notabool returns 422."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await ac.post("/demo/seed?reset=notabool", headers=headers)
+        assert r.status_code == 422

@@ -28,6 +28,7 @@ from app.models import (
     TAGS_MAX_COUNT,
     TAG_MAX_LEN,
     DemoSeedResponse,
+    CreateWorkRequest,
 )
 from app.authentication import Authentication
 
@@ -301,7 +302,7 @@ class TestBuildDemoTree:
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
-        node_ids = {node.work_id for node in node_list}
+        node_ids = {node.node_id for node in node_list}
         for node in node_list:
             parent_id = node.parent_id
             if parent_id is not None:
@@ -322,11 +323,11 @@ class TestBuildDemoTree:
         assert len(siblings[None]) == 1
         
         # Chapter group (under Part): 2 chapters
-        part_parent_id = siblings[None][0].work_id
+        part_parent_id = siblings[None][0].node_id
         assert len(siblings[part_parent_id]) == 2
-        
+
         # Scene groups: 2 scenes under ch1, 2 scenes under ch2
-        chapter_ids = [n.work_id for n in siblings[part_parent_id]]
+        chapter_ids = [n.node_id for n in siblings[part_parent_id]]
         scene_counts = {ch_id: len(siblings[ch_id]) for ch_id in chapter_ids}
         assert scene_counts[chapter_ids[0]] == 2
         assert scene_counts[chapter_ids[1]] == 2
@@ -334,34 +335,42 @@ class TestBuildDemoTree:
     def test_build_demo_tree_previous_next_chains_valid(self):
         """Test that previous/next form unbroken linked lists within each sibling group"""
         from app.demo import build_demo_tree
-        
+
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
-        
+
+        by_id = {node.node_id: node for node in node_list}
+
         siblings = {}
         for node in node_list:
-            key = node.parent_id
-            siblings.setdefault(key, []).append(node)
-        
+            siblings.setdefault(node.parent_id, []).append(node)
+
         for parent_key, group in siblings.items():
             if len(group) == 1:
                 assert group[0].previous is None
                 assert group[0].next is None
                 continue
-            
-            sorted_group = sorted(group, key=lambda n: n.work_id)
-            
-            # First node has previous=None
-            assert sorted_group[0].previous is None
-            
-            # Last node has next=None
-            assert sorted_group[-1].next is None
-            
-            # Internal links are consistent
-            for i in range(len(sorted_group)):
-                if i > 0:
-                    assert sorted_group[i].previous == sorted_group[i - 1].work_id
-                if i < len(sorted_group) - 1:
-                    assert sorted_group[i].next == sorted_group[i + 1].work_id
+
+            # Walk the linked list from head (previous=None) to tail
+            heads = [n for n in group if n.previous is None]
+            assert len(heads) == 1, f"Expected 1 head in group under {parent_key}, got {len(heads)}"
+            tails = [n for n in group if n.next is None]
+            assert len(tails) == 1, f"Expected 1 tail in group under {parent_key}, got {len(tails)}"
+
+            visited = []
+            current = heads[0]
+            while current is not None:
+                visited.append(current.node_id)
+                next_id = current.next
+                if next_id is not None:
+                    assert next_id in by_id, f"next pointer {next_id} not in node list"
+                    nxt = by_id[next_id]
+                    assert nxt.previous == current.node_id, "back-pointer mismatch"
+                    current = nxt
+                else:
+                    current = None
+
+            assert len(visited) == len(group), "chain length != group size"
+            assert set(visited) == {n.node_id for n in group}, "chain does not cover all nodes"
 
     def test_build_demo_tree_root_has_no_parent(self):
         """Test that the single Part node has parent_id=None"""
@@ -441,22 +450,22 @@ class TestBuildDemoTree:
         
         # Part (root) -> chapters
         part = [n for n in node_list if n.node_type == NodeType.part][0]
-        chapters = children_map.get(part.work_id, [])
+        chapters = children_map.get(part.node_id, [])
         assert all(n.node_type == NodeType.chapter for n in chapters)
-        
+
         # Chapters -> scenes
         scene_count = 0
         for ch in chapters:
-            scenes = children_map.get(ch.work_id, [])
+            scenes = children_map.get(ch.node_id, [])
             assert all(n.node_type == NodeType.scene for n in scenes)
             scene_count += len(scenes)
         assert scene_count == 4
-        
+
         # Scenes -> beats
         beat_count = 0
         for node in node_list:
             if node.node_type == NodeType.scene:
-                beats = children_map.get(node.work_id, [])
+                beats = children_map.get(node.node_id, [])
                 assert all(n.node_type == NodeType.beat for n in beats)
                 beat_count += len(beats)
         assert beat_count == 4
