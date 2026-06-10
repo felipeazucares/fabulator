@@ -578,4 +578,19 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 | E-80 | Graceful `create_collection` permission (preventive) | `setup_collections` | ✅ | Retry without validator on permission failure |
 | E-81 | Verify fix against live Atlas + Redis | manual | ✅ | Startup completed cleanly with `[WARNING]` only |
 
+---
+
+### 2026-06-10 — `gh` connectivity test (dummy issue #22)
+
+**Done:**
+- Verified `gh auth status` — logged in as `felipeazucares`, token scopes: `gist`, `read:org`, `repo`, `workflow`
+- Created dummy test issue #22 via `gh issue create` (stdin pipe workaround — GraphQL `--body` auth issue)
+- Confirmed issue #22 viewable and accessible
+- Committed empty commit `3281d83 close dummy test issue` (includes `fixes #22`)
+- Pushed branch `chore/issues-dryrun` and opened PR #23 to close #22 on merge
+
+**Items marked complete this session:** None — no PROGRESS.md task items were worked on.
+
+**Branch:** `chore/issues-dryrun` (PR #23 to main)
+
 
