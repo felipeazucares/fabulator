@@ -334,8 +334,8 @@ Review scope: `demo-seed/feature.md` vs implemented code (`database.py`, `api.py
 
 | # | Issue | Severity | File:Line | Notes |
 |---|-------|----------|-----------|-------|
-| R-1 | **Hardcoded UUIDs in `build_demo_tree()`** (`demo.py:26-149`) | Critical | Every node uses `"00000000-0000-0000-0000-000000000001"` as `work_id`. Will cause duplicate-key collisions on re-seed. Should use `str(uuid.uuid4())` for each node's `node_id`. |
-| R-2 | **Demo tag added twice** (`database.py:1335-1342`) | Medium | Work created with `tags=["demo", "fiction", "mystery"]`, then `"demo"` pushed again via `$push`. The demo tag appears twice in the final document. Remove from `build_demo_tree()` or skip the `$push`. |
+| R-1 | **Hardcoded UUIDs in `build_demo_tree()`** (`demo.py:26-149`) | Critical | **Fixed (2026-06-10):** Every node now uses `str(uuid.uuid4())` for `node_id` (lines 32–41). Placeholder `_PLACEHOLDER_WORK_ID` is only used for `work_id` and is overwritten before any DB write. |
+| R-2 | **Demo tag added twice** (`database.py:1335-1342`) | Medium | **Fixed (2026-06-10):** `build_demo_tree()` uses `tags=["fiction", "mystery"]` (no `"demo"`); `"demo"` is appended exactly once in each seed path (`database.py:1381`, `1426`). No `$push` remains. |
 | R-3 | **`DemoStorage` instantiates fresh storage clients** (`database.py:1261-1262`) | Medium | Fixed: constructor now accepts optional `work_storage` and `node_storage` parameters. DI wiring in `get_demo_storage()` passes injected storages so all code paths share the same instances. |
 | R-4 | **`build_demo_tree()` returns dicts instead of typed models** (`demo.py:23-156`) | Medium | Fixed: now returns `Tuple[CreateWorkRequest, list[CreateNodeRequest]]`. Each node is a validated `CreateNodeRequest` instance with a placeholder work_id overwritten in `_seed_with_transaction()`. Both seed paths updated to call `.model_dump()` on typed nodes. |
 | R-5 | **No integration tests for demo seeding** (T-76) | High | **Fixed 2026-06-09:** `TestDemoSeed` class with 12 tests (15 collected). Covers all 10 feature.md acceptance criteria. All pass. |
