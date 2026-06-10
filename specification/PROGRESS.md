@@ -411,6 +411,21 @@ Review scope: `demo-seed/feature.md` vs implemented code (`database.py`, `api.py
 
 **Branch:** `refactor/normalised-node-model`
 
+### 2026-06-10 — Phase 18 identified; R-1/R-2 verified fixed
+
+**Done:**
+- Verified R-1 (hardcoded UUIDs) already fixed — `demo.py` uses `str(uuid.uuid4())` throughout
+- Verified R-2 (duplicate demo tag) already fixed — `"demo"` appended once per seed path, not in initial tags
+- Updated PROGRESS.md to mark both R-1 and R-2 as fixed
+- Identified Phase 18 startup crash: `NameError: timezone` in `api.py:13` and `authentication.py:6`
+- Wrote Phase 18 fix plan (T-77, T-78) including steps to fix and verify into PROGRESS.md
+
+**Not yet done:** T-77 and T-78 code changes not applied this session.
+
+**Branch:** `refactor/normalised-node-model`
+
+---
+
 ### 2026-06-09 (Session 3) — P-02: Health & Metrics endpoints
 
 **Done:**
@@ -422,3 +437,80 @@ Review scope: `demo-seed/feature.md` vs implemented code (`database.py`, `api.py
 - 33 unit tests pass; no regressions
 
 **Branch:** `refactor/normalised-node-model`
+
+---
+
+## Phase 18 — Startup Crash Fix (`timezone` import)
+
+**Discovered:** 2026-06-10  
+**Severity:** Critical — app fails to start; all endpoints unreachable  
+**Branch:** `refactor/normalised-node-model`
+
+### Root Cause
+
+`api.py:13` imports `from datetime import timedelta, datetime` but omits `timezone`.  
+Two call sites (`api.py:170`, `api.py:1287`) reference `timezone.utc`, raising `NameError` during lifespan startup before the server can accept any requests.
+
+`authentication.py:6` has the same incomplete import (`timedelta, datetime` only) but does not currently call `timezone`, so it is not broken — fixing it preventively avoids a future identical crash.
+
+```
+ERROR: NameError: name 'timezone' is not defined
+  File "/app/app/api.py", line 170, in lifespan
+    app.state.start_time = datetime.now(timezone.utc)
+```
+
+### Fix Plan
+
+| # | Task | File | Change | Effort |
+|---|------|------|--------|--------|
+| T-77 | Add `timezone` to datetime import | `api.py:13` | `from datetime import timedelta, datetime, timezone` | 1 min |
+| T-78 | Add `timezone` to datetime import (preventive) | `authentication.py:6` | `from datetime import timedelta, datetime, timezone` | 1 min |
+
+### Steps to Fix
+
+1. In `server/app/api.py` line 13, change:
+   ```python
+   from datetime import timedelta, datetime
+   ```
+   to:
+   ```python
+   from datetime import timedelta, datetime, timezone
+   ```
+
+2. In `server/app/authentication.py` line 6, apply the same change.
+
+3. Commit both files on the current branch.
+
+### Steps to Verify
+
+1. **Unit tests (no DB):**
+   ```bash
+   cd server && python -m pytest tests/test_unit.py -q
+   ```
+   Expected: 46 passed, 0 failures.
+
+2. **Docker restart:**
+   ```bash
+   docker compose restart fabulator-api
+   docker logs fabulator-api --tail 20
+   ```
+   Expected: no `NameError`; log shows `Uvicorn running` and `Application startup complete`.
+
+3. **Health check (confirms lifespan completed):**
+   ```bash
+   curl http://localhost:8000/health
+   ```
+   Expected: `{"status": "ok"}` with HTTP 200.
+
+4. **Integration tests (requires MongoDB + Redis):**
+   ```bash
+   cd server && python -m pytest tests/test_integration_normalised.py -q
+   ```
+   Expected: 157 passed, 11 skipped, 0 failures.
+
+### Task Status
+
+| # | Task | Status |
+|---|------|--------|
+| T-77 | Fix `timezone` import in `api.py` | ⬜ |
+| T-78 | Fix `timezone` import in `authentication.py` (preventive) | ⬜ |
