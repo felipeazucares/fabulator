@@ -644,3 +644,21 @@ INFO:     Application startup complete.
 | T-80 | Graceful `create_collection` permission handling (preventive) | ✅ |
 | T-81 | Verify fix against live Atlas + Redis | ✅ |
 | T-82 | Update PROGRESS.md | ✅ |
+
+---
+
+### 2026-06-10 — Session: Atlas credentials fixed, BUG-04 partial code fixes (T-79–T-85)
+
+**Status:** App is running and healthy. Login works. Demo seed works (via Swagger auth).
+
+**Completed this session:**
+- **BUG-01 → ✅ Resolved:** Infra fix — new Atlas Database Access user, `MONGO_DETAILS` updated in `.env`. Verified app starts and `/health` returns 200. Verified `/get_token` login succeeds. Verified `/demo/seed` works via Swagger (after authorizing).
+- **BUG-04 T-84 → ✅ Implemented:** `GET /health` now creates a short-lived `AsyncIOMotorClient` (`serverSelectionTimeoutMS=5000`, `maxPoolSize=1`) that forces a fresh auth attempt instead of reusing a stale pool connection. Verified: 200 when Atlas is up, health reports `database: "connected"` correctly.
+- **Commit `4c5dfe9`:** Staged and committed `api.py` (T-84 code) + `PROGRESS.md` (BUG-01 fixed, BUG-04/T-84 marked done).
+
+---
+
+### Next Steps after BUG-04 cleanup:
+1. Implement T-83 (global DB exception → 503 handlers)
+2. Implement T-85 (startup credential validation with clear message)
+3. Consider Phase 20: remaining D-xx tasks from Phase 17 Code Quality Review (low priority: L-1 bare except, L-2 deferred imports, L-4 demo tree missing beats under Chapter 2)
