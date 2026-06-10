@@ -35,6 +35,21 @@
 
 ---
 
+### BUG-03 — `user_role` comma-separated breaks scope validation on all protected endpoints (2026-06-10)
+
+**Severity:** Critical — authenticated users cannot access any protected endpoint  
+**Status:** ⬜ Not started  
+**Symptom:** All protected endpoints return 403 even with a valid token. User can log in but cannot perform any operations.  
+**Root cause:** `user_role` is stored as a comma-separated string (e.g. `"user:reader,user:writer,tree:reader,tree:writer"`) but `api.py:297` splits it by space: `user.user_role.split(" ")`. This returns the entire string as a single element, so the intersection with the token's scopes is always empty — no scopes are granted.  
+**Fix options:**
+1. Store `user_role` space-separated at registration time (change `POST /users` or the model default)
+2. Change the split in `api.py:297` to handle both separators: `re.split(r"[, ]+", user.user_role)`
+3. Migrate existing records in Atlas to use space-separated roles
+
+**Recommended fix:** Option 2 — tolerates both formats, safe for existing data.
+
+---
+
 ### BUG-02 — `DEBUG=True` crashes container on restart ✅ Fixed (2026-06-10)
 
 **Severity:** Critical — container fails to start when `DEBUG=True` is set  
