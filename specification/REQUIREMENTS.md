@@ -471,6 +471,22 @@ This document consolidates all functional requirements, non-functional requireme
 3. GIVEN `setup_collections` raises `OperationFailure` THEN it propagates through the lifespan startup, causing the FastAPI app to fail to start.
 ---
  
+### Requirement 29: Return a Work's Nodes in Reading Order
+ 
+**Feature group:** Work Reading Order (`work-reading-order/feature.md`)  
+**User Story:** As an authenticated reader, I want all nodes of one Work returned in narrative reading order with full metadata, so that I can render or export the story linearly.  
+**Maps to:** `NodeStorage.get_reading_order(work_id, account_id)` (database.py) and `GET /works/{work_id}/nodes/ordered` (api.py). See `specification/work-reading-order/feature.md`.
+ 
+#### Acceptance Criteria
+ 
+1. GIVEN a Work WHEN the endpoint is called THEN `nodes` is a depth-first pre-order traversal: every parent precedes its descendants and siblings appear in `position` ascending order.
+2. GIVEN a Work with no nodes WHEN the endpoint is called THEN the server returns HTTP 200 with `{"work_id": "...", "nodes": [], "count": 0, "next_cursor": null}`.
+3. GIVEN more than `limit` nodes WHEN the endpoint is called THEN `limit` is enforced (default 50, max 200) and `next_cursor` is the opaque `node_id` to resume after; a `cursor` not present in the Work returns HTTP 422 with `detail: "Invalid cursor"`.
+4. GIVEN a missing or cross-account `work_id` WHEN the endpoint is called THEN the server returns HTTP 404 with `detail: "Work not found"`. GIVEN a token without `tree:reader` scope THEN HTTP 403; GIVEN no Authorization header THEN HTTP 401.
+5. GIVEN any node carries `previous` / `next` hint values WHEN the endpoint is called THEN those values are returned as metadata on the node and the order of `nodes` is unaffected by them.
+6. GIVEN the node fetch WHEN executed THEN it uses the existing `{account_id, work_id}` index — no new index is added by this feature (Req 28 index count is unchanged).
+---
+ 
 ## Non-Functional Requirements
  
 ### NR 1: Authentication Enforcement (Work Endpoints)

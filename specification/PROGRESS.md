@@ -236,11 +236,22 @@
 
 ---
 
+## Phase 20 — Tier 3: Work Reading Order (`work-reading-order/feature.md`)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| E-88 | Add `OrderedNodesResponse` to `models.py` | ☐ | 10 min | `{work_id, nodes: list[NodeResponse], count, next_cursor}`; no `account_id` |
+| E-89 | Add `NodeStorage.get_reading_order(work_id, account_id)` | ☐ | 30 min | Single `{account_id, work_id}` fetch (existing index); in-memory pre-order DFS, children by `position`; `visited` cycle-guard; `_strip_id` |
+| E-90 | Add `GET /works/{work_id}/nodes/ordered` endpoint | ☐ | 20 min | Work-ownership check first (404); `limit` (default 50, max 200) + opaque `node_id` cursor pagination; `tags=["Search"]`; scope `tree:reader` |
+| T-57 | Integration tests — `TestWorkReadingOrder` | ☐ | 1h 30m | pre-order shape, empty work, pagination contiguity, unknown-cursor 422, ordering independent of previous/next, isolation 404, scope/auth, DB-error 503 |
+
+---
+
 ## Running Totals
 
 | Category | Done | Total |
 |----------|------|-------|
-| Enhancement tasks (E-56–E-87) | 32 | 32 |
+| Enhancement tasks (E-56–E-90) | 32 | 35 |
 | Bug items tracked (B-01–B-18) | 12 | 18 |
 | Unit tests | 46 | 46 |
 | Integration tests | 175 | 186 |
