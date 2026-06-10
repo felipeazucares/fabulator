@@ -1246,11 +1246,20 @@ async def health_check(request: Request) -> dict:
     db_status = "disconnected"
     cache_status = "disconnected"
 
+    temp_client = None
     try:
-        await request.app.state.motor_client.admin.command("ping")
+        temp_client = motor.motor_asyncio.AsyncIOMotorClient(
+            MONGO_DETAILS,
+            serverSelectionTimeoutMS=5000,
+            maxPoolSize=1,
+        )
+        await temp_client.admin.command("ping")
         db_status = "connected"
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error("Health check: MongoDB ping failed", exc_info=True)
+    finally:
+        if temp_client is not None:
+            temp_client.close()
 
     try:
         conn = aioredis.from_url(
