@@ -38,7 +38,7 @@
 ### BUG-03 — `user_role` comma-separated breaks scope validation on all protected endpoints (2026-06-10)
 
 **Severity:** Critical — authenticated users cannot access any protected endpoint  
-**Status:** ⬜ Not started  
+**Status:** ✅ Fixed — committed, pushed  
 **Symptom:** All protected endpoints return 403 even with a valid token. User can log in but cannot perform any operations.  
 **Root cause:** `user_role` is stored as a comma-separated string (e.g. `"user:reader,user:writer,tree:reader,tree:writer"`) but `api.py:297` splits it by space: `user.user_role.split(" ")`. This returns the entire string as a single element, so the intersection with the token's scopes is always empty — no scopes are granted.  
 **Fix options:**
@@ -46,7 +46,7 @@
 2. Change the split in `api.py:297` to handle both separators: `re.split(r"[, ]+", user.user_role)`
 3. Migrate existing records in Atlas to use space-separated roles
 
-**Recommended fix:** Option 2 — tolerates both formats, safe for existing data.
+**Fix applied:** Option 2 — `re.split(r"[, ]+", user.user_role)` in `api.py:295`. Tolerates both comma and space separators; safe for existing Atlas data. `import re` moved to top-level imports. 46 unit tests pass.
 
 ---
 

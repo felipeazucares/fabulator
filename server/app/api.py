@@ -1,4 +1,5 @@
 import os
+import re
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 import app.config   # loads the load_env lib to access .env file
@@ -292,7 +293,7 @@ async def get_current_user(
     if await oauth.is_token_blacklisted(token):
         raise credentials_exception
     # if we have a valid user and the token is not expired get the scopes
-    token_data.scopes = list(set(token_data.scopes) & set(user.user_role.split(" ")))
+    token_data.scopes = list(set(token_data.scopes) & set(re.split(r"[, ]+", user.user_role)))
     logger.debug(f"requested scopes in token:{token_scopes}")
     logger.debug(f"Required endpoint scopes:{security_scopes.scopes}")
 
