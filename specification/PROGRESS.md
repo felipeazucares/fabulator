@@ -244,6 +244,8 @@
 | E-89 | Add `NodeStorage.get_reading_order(work_id, account_id)` | ✅ | 30 min | Single `{account_id, work_id}` fetch (existing index); in-memory pre-order DFS, children by `position`; `visited` cycle-guard; `_strip_id` |
 | E-90 | Add `GET /works/{work_id}/nodes/ordered` endpoint | ✅ | 20 min | Work-ownership check first (404); `limit` (default 50, max 200) + opaque `node_id` cursor pagination; `tags=["Search"]`; scope `tree:reader` |
 | T-57 | Integration tests — `TestWorkReadingOrder` | ✅ | 1h 30m | pre-order shape, empty work, pagination contiguity, unknown-cursor 422, ordering independent of previous/next, isolation 404, scope/auth, DB-error 503 |
+| V-03 | OpenAPI docs check — schema renders correctly | ✅ | 5 min | Endpoint at `/works/{work_id}/nodes/ordered`, summary "Get nodes in reading order", tags `["Search"]`, `OrderedNodesResponse` in components |
+| V-04 | Open PR — push branch + create pull request | ❌ | 15 min | Branch pushed; PR blocked — `gh` CLI unavailable, GitHub token auth returns "Bad credentials". Needs manual creation at `https://github.com/felipeazucares/fabulator/pull/new/feature/work-reading-order` |
 
 ---
 
@@ -678,5 +680,19 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 - Committed `42286f1` with message containing `fixes #29`; pushed to `refactor/normalised-node-model`
 
 **Branch:** `refactor/normalised-node-model`
+
+---
+
+### 2026-06-10 — V-03 OpenAPI verified, V-04 PR blocked (Phase 20)
+
+**Done:**
+- V-03: OpenAPI schema verified via `api.app.openapi()` inside Docker container — endpoint `/works/{work_id}/nodes/ordered` renders with summary "Get nodes in reading order", tags `["Search"]`, and `OrderedNodesResponse` in `components/schemas`
+- V-04: Branch `feature/work-reading-order` pushed to `origin` (already up-to-date); PR creation blocked — `gh` CLI not available on host or container, `GH_TOKEN`/`GITHUB_TOKEN` env vars present but API returns "Bad credentials"\
+
+**PROGRESS.md changes:**
+- Phase 20: V-03 ✅, V-04 ❌ added to table
+- Session entry added
+
+**Branch:** `feature/work-reading-order`
 
 
