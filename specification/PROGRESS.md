@@ -18,6 +18,33 @@
 
 ---
 
+## Open Issues — Priority Bugs
+
+### BUG-01 — `POST /get_token` returns 401 with valid credentials (2026-06-10)
+
+**Severity:** Critical — users cannot log in  
+**Status:** 🔄 Under investigation  
+**Symptom:** `POST /get_token` with a known-good username and password returns `401 Unauthorized`. App starts cleanly, `GET /health` returns 200, Atlas connection is confirmed up.  
+**Observed:** `INFO: 172.20.0.1:48588 - "POST /get_token HTTP/1.1" 401 Unauthorized`  
+**Hypotheses (in order of likelihood):**
+1. User was registered against a different environment/Atlas cluster and doesn't exist in the hosted DB's `user_collection`
+2. Username case mismatch — lookup is exact/case-sensitive (`find_one({"username": username})`)
+3. Password hash mismatch — user record has a hash from a different bcrypt round or encoding
+
+**Next diagnostic step:** Enable `DEBUG=True` (now safe after BUG-02 fix), retry login, check logs for `get_user_details_by_username` output — if it returns `None` the user doesn't exist in the DB; if it returns a user then `verify_password` is failing.
+
+---
+
+### BUG-02 — `DEBUG=True` crashes container on restart ✅ Fixed (2026-06-10)
+
+**Severity:** Critical — container fails to start when `DEBUG=True` is set  
+**Status:** ✅ Fixed — committed `91f0731`, pushed  
+**Symptom:** Setting `DEBUG=True` in `.env` and restarting the container caused `pymongo.errors.OperationFailure: bad auth: authentication failed` (Atlas error code 8000).  
+**Root cause:** `pymongo.monitoring.register(_PoolEventLogger())` was called at module level (`api.py:144`). PyMongo's monitoring registry is global and process-persistent. In uvicorn StatReload mode, changing `.env` triggers a module reload, re-registering the listener against a partially-torn-down pool, corrupting pool state and causing Atlas auth failures on the next connection attempt.  
+**Fix:** Moved the registration inside the `lifespan` context manager, so it runs once per process, always before `MongoClient` is created.
+
+---
+
 ## Phase 0 — Branch Setup
 
 | # | Task | Status | Est | Notes |
