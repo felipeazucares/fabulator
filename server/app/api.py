@@ -1,16 +1,17 @@
 import os
+import re
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 import app.config   # loads the load_env lib to access .env file
 from app.helpers import get_logger
 from app.authentication import Authentication
-from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path
+from fastapi import FastAPI, HTTPException, Body, Depends, Security, status, Path, Query
 from typing import Optional
 import motor.motor_asyncio
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from zoneinfo import ZoneInfo
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from jose import JWTError, jwt
 import pymongo.errors
 import pymongo.monitoring
@@ -18,6 +19,8 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
+from starlette.responses import JSONResponse
+import redis.asyncio as aioredis
 from passlib.context import CryptContext
 from fastapi.security import (
     OAuth2PasswordBearer,
@@ -30,6 +33,8 @@ from .database import (
     UserStorage,
     WorkStorage,
     NodeStorage,
+    SearchStorage,
+    DemoStorage,
     setup_collections,
     is_valid_parent_child,
 )
@@ -53,6 +58,17 @@ from .models import (
     AncestorsResponse,
     WorkStatsResponse,
     NodeType,
+    DeleteResponse,
+    LogoutResult,
+    VersionResponse,
+    GenericResult,
+    NodeSearchResponse,
+    MatchType,
+    PaginatedNodeResponse,
+    PaginatedWorkResponse,
+    HealthResponse,
+    MetricsResponse,
+    DemoSeedResponse,
 )
 
 
@@ -126,10 +142,6 @@ class _PoolEventLogger(pymongo.monitoring.ConnectionPoolListener):
         )
 
 
-if DEBUG:
-    pymongo.monitoring.register(_PoolEventLogger())
-
-
 # ------------------------
 #      FABULATOR
 # ------------------------
@@ -138,6 +150,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=REDISHOST,
     storage_options={"socket_keepalive": True, "health_check_interval": 30},
+    in_memory_fallback_enabled=True,
 )
 
 # Authentication singleton — user_storage is wired up in the lifespan
@@ -146,11 +159,15 @@ oauth = Authentication()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if DEBUG:
+        pymongo.monitoring.register(_PoolEventLogger())
     motor_client = motor.motor_asyncio.AsyncIOMotorClient(
         MONGO_DETAILS,
         maxPoolSize=MONGO_MAX_POOL_SIZE,
     )
     app.state.motor_client = motor_client
+    app.state.start_time = datetime.now(timezone.utc)
+    app.state.request_count = 0
     oauth.set_client(motor_client)
     await setup_collections(motor_client.fabulator)
     yield
@@ -176,6 +193,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def count_requests(request: Request, call_next):
+    app.state.request_count += 1
+    response = await call_next(request)
+    return response
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/get_token",
@@ -206,6 +232,22 @@ def get_work_storage(request: Request) -> WorkStorage:
 
 def get_node_storage(request: Request) -> NodeStorage:
     return NodeStorage(client=request.app.state.motor_client)
+
+
+def get_search_storage(request: Request) -> SearchStorage:
+    return SearchStorage(client=request.app.state.motor_client)
+
+
+def get_demo_storage(
+    request: Request,
+    work_storage: WorkStorage = Depends(get_work_storage),
+    node_storage: NodeStorage = Depends(get_node_storage),
+) -> DemoStorage:
+    return DemoStorage(
+        client=request.app.state.motor_client,
+        work_storage=work_storage,
+        node_storage=node_storage,
+    )
 
 
 # ----------------------------
@@ -251,7 +293,7 @@ async def get_current_user(
     if await oauth.is_token_blacklisted(token):
         raise credentials_exception
     # if we have a valid user and the token is not expired get the scopes
-    token_data.scopes = list(set(token_data.scopes) & set(user.user_role.split(" ")))
+    token_data.scopes = list(set(token_data.scopes) & set(re.split(r"[, ]+", user.user_role)))
     logger.debug(f"requested scopes in token:{token_scopes}")
     logger.debug(f"Required endpoint scopes:{security_scopes.scopes}")
 
@@ -315,25 +357,31 @@ async def create_work(
 
 @app.get(
     "/works",
-    response_model=list[WorkResponse],
+    response_model=PaginatedWorkResponse,
     summary="List works",
     description=(
-        "Return all works belonging to the authenticated user, ordered by creation date "
-        "descending (most recent first)."
+        "Return works belonging to the authenticated user with cursor pagination, "
+        "ordered by creation date descending (most recent first). "
+        "Use `limit` (default 50, max 200) and `cursor` (the `next_cursor` from a previous "
+        "response) to page through results."
     ),
     tags=["Works"],
 )
 async def list_works(
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"list_works({account_id}) called")
     try:
-        works = await work_storage.list_works(account_id=account_id)
+        works, next_cursor = await work_storage.list_works(
+            account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error("Database error in list_works", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return works
+    return {"results": works, "count": len(works), "next_cursor": next_cursor}
 
 
 @app.get(
@@ -397,6 +445,7 @@ async def update_work(
 
 @app.delete(
     "/works/{work_id}",
+    response_model=DeleteResponse,
     summary="Delete a work",
     description=(
         "Permanently delete a work and all of its nodes. "
@@ -529,21 +578,25 @@ async def create_normalised_node(
 
 @app.get(
     "/works/{work_id}/nodes/root",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="Get root nodes for a work",
     description=(
-        "Return all Part (root) nodes for the specified Work, ordered by position ascending. "
+        "Return Part (root) nodes for the specified Work with cursor pagination, "
+        "ordered by position ascending. "
         "A Work may have multiple root Part nodes. "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
 )
 async def get_work_root_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"get_work_root_nodes({work_id}) called")
     try:
         work = await work_storage.get_work(work_id=work_id, account_id=account_id)
@@ -553,30 +606,36 @@ async def get_work_root_nodes(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
     try:
-        roots = await node_storage.get_roots(work_id=work_id, account_id=account_id)
+        roots, next_cursor = await node_storage.get_roots(
+            work_id=work_id, account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error fetching roots for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return roots
+    return {"results": roots, "count": len(roots), "next_cursor": next_cursor}
 
 
 @app.get(
     "/works/{work_id}/nodes/leaves",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="Get leaf nodes for a work",
     description=(
-        "Return all Beat (leaf) nodes for the specified Work, ordered by position ascending. "
+        "Return Beat (leaf) nodes for the specified Work with cursor pagination, "
+        "ordered by position ascending. "
         "Beats are the terminal narrative units and have no children. "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
 )
 async def get_work_leaf_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"get_work_leaf_nodes({work_id}) called")
     try:
         work = await work_storage.get_work(work_id=work_id, account_id=account_id)
@@ -586,21 +645,24 @@ async def get_work_leaf_nodes(
     if work is None:
         raise HTTPException(status_code=404, detail="Work not found")
     try:
-        leaves = await node_storage.get_leaves(work_id=work_id, account_id=account_id)
+        leaves, next_cursor = await node_storage.get_leaves(
+            work_id=work_id, account_id=account_id, limit=limit, cursor=cursor,
+        )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error fetching leaves for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return leaves
+    return {"results": leaves, "count": len(leaves), "next_cursor": next_cursor}
 
 
 @app.get(
     "/works/{work_id}/nodes",
-    response_model=list[NodeResponse],
+    response_model=PaginatedNodeResponse,
     summary="List nodes for a work",
     description=(
-        "Return all nodes belonging to the specified work. "
+        "Return nodes belonging to the specified work with cursor pagination. "
         "Pass `node_type` as a query parameter to filter by type "
         "(one of: `part`, `chapter`, `scene`, `beat`). "
+        "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the work does not exist or belongs to a different account."
     ),
     tags=["Nodes"],
@@ -608,10 +670,12 @@ async def get_work_leaf_nodes(
 async def list_normalised_nodes(
     work_id: str = Path(..., pattern=UUID_PATTERN),
     node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
+    cursor: Optional[str] = Query(None),
     account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
     work_storage: WorkStorage = Depends(get_work_storage),
     node_storage: NodeStorage = Depends(get_node_storage),
-) -> list[dict]:
+) -> dict:
     logger.debug(f"list_normalised_nodes({work_id}, node_type={node_type}) called")
 
     # Confirm the work exists and belongs to this account before listing its nodes.
@@ -624,15 +688,17 @@ async def list_normalised_nodes(
         raise HTTPException(status_code=404, detail="Work not found")
 
     try:
-        nodes = await node_storage.list_nodes(
+        nodes, next_cursor = await node_storage.list_nodes(
             work_id=work_id,
             account_id=account_id,
             node_type=node_type.value if node_type is not None else None,
+            limit=limit,
+            cursor=cursor,
         )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error(f"Database error listing nodes for work {work_id}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    return nodes
+    return {"results": nodes, "count": len(nodes), "next_cursor": next_cursor}
 
 
 @app.get(
@@ -765,6 +831,89 @@ async def get_node_siblings(
     return siblings
 
 
+# ── Node endpoints — search (Tier 3) ────────────────────────────
+
+
+@app.get(
+    "/nodes/search",
+    response_model=NodeSearchResponse,
+    summary="Full-text search across nodes",
+    description=(
+        "Search node `description` and `text` fields for the given query term. "
+        "Results are ordered by descending relevance score. "
+        "Optionally narrow results by `work_id` and/or `node_type`. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Search"],
+)
+async def search_nodes(
+    query: str = Query(..., min_length=1, max_length=200, strip_whitespace=True),
+    work_id: Optional[str] = Query(None, pattern=UUID_PATTERN),
+    node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    search_storage: SearchStorage = Depends(get_search_storage),
+) -> dict:
+    logger.debug(f"search_nodes({query!r}) called")
+    try:
+        results = await search_storage.search_nodes(
+            account_id=account_id,
+            query=query,
+            work_id=work_id,
+            node_type=node_type.value if node_type else None,
+            limit=limit,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in search_nodes for query {query!r}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+
+    # Strip the transient `score` field from each result before returning.
+    clean_results = []
+    for r in results:
+        r.pop("score", None)
+        clean_results.append(r)
+    return {"results": clean_results, "count": len(clean_results)}
+
+
+@app.get(
+    "/nodes/by-tag",
+    response_model=NodeSearchResponse,
+    summary="Query nodes by tag(s)",
+    description=(
+        "Return nodes carrying one or more specified tags. "
+        "Use `match=any` (default) to find nodes with at least one matching tag, "
+        "or `match=all` to require all tags. "
+        "Optionally narrow results by `work_id` and/or `node_type`. "
+        "Use `limit` (default 50, max 200) to cap results. "
+        "Returns 404 if the node does not exist or belongs to a different account."
+    ),
+    tags=["Search"],
+)
+async def nodes_by_tag(
+    tags: list[str] = Query(..., min_items=1),
+    match: MatchType = MatchType.any,
+    work_id: Optional[str] = Query(None, pattern=UUID_PATTERN),
+    node_type: Optional[NodeType] = None,
+    limit: int = Query(50, ge=1, le=200),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:reader"]),
+    search_storage: SearchStorage = Depends(get_search_storage),
+) -> dict:
+    logger.debug(f"nodes_by_tag(tags={tags!r}, match={match}) called")
+    try:
+        results = await search_storage.find_nodes_by_tags(
+            account_id=account_id,
+            tags=tags,
+            match=match.value,
+            work_id=work_id,
+            node_type=node_type.value if node_type else None,
+            limit=limit,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error(f"Database error in nodes_by_tag for tags {tags!r}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    return {"results": results, "count": len(results)}
+
+
 @app.get(
     "/nodes/{node_id}",
     response_model=NodeResponse,
@@ -885,6 +1034,7 @@ async def update_normalised_node(
 
 @app.delete(
     "/nodes/{node_id}",
+    response_model=DeleteResponse,
     summary="Delete a node",
     description=(
         "Permanently delete the specified node and all of its descendants. "
@@ -1020,7 +1170,7 @@ async def login_for_access_token(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # creates a token for a given user with an expiry in minutes
     access_token = oauth.create_access_token(
-        data={"sub": user.account_id, "scopes": form_data.scopes},
+        data={"sub": user.account_id, "scopes": re.split(r"[, ]+", user.user_role)},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -1032,6 +1182,7 @@ async def get_current_user_token(token: str = Depends(oauth2_scheme)):
 
 @app.get(
     "/logout",
+    response_model=LogoutResult,
     summary="Logout",
     description=(
         "Blacklist the current bearer token. The token will be rejected on all subsequent "
@@ -1062,6 +1213,7 @@ async def read_users_me(current_user: UserDetails = Depends(get_current_active_u
 
 @app.get(
     "/",
+    response_model=VersionResponse,
     summary="API version",
     description="Return the API version and the authenticated user's username.",
     tags=["Meta"],
@@ -1078,6 +1230,76 @@ async def get(
     )
 
 
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+    description=(
+        "Return server health status. Pings MongoDB and Redis to verify connectivity. "
+        "Returns HTTP 200 when both are reachable, HTTP 503 if either is down. "
+        "No authentication required — used by Docker HEALTHCHECK."
+    ),
+    tags=["Meta"],
+)
+async def health_check(request: Request) -> dict:
+    logger.debug("health_check() called")
+    db_status = "disconnected"
+    cache_status = "disconnected"
+
+    temp_client = None
+    try:
+        temp_client = motor.motor_asyncio.AsyncIOMotorClient(
+            MONGO_DETAILS,
+            serverSelectionTimeoutMS=5000,
+            maxPoolSize=1,
+        )
+        await temp_client.admin.command("ping")
+        db_status = "connected"
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Health check: MongoDB ping failed", exc_info=True)
+    finally:
+        if temp_client is not None:
+            temp_client.close()
+
+    try:
+        conn = aioredis.from_url(
+            REDISHOST, encoding="utf-8", decode_responses=True
+        )
+        await conn.ping()
+        await conn.aclose()
+        cache_status = "connected"
+    except Exception:
+        logger.error("Health check: Redis ping failed", exc_info=True)
+
+    is_healthy = db_status == "connected" and cache_status == "connected"
+    status_code = 200 if is_healthy else 503
+    return JSONResponse(
+        content={"status": "ok" if is_healthy else "degraded",
+                 "database": db_status, "cache": cache_status},
+        status_code=status_code,
+    )
+
+
+@app.get(
+    "/metrics",
+    response_model=MetricsResponse,
+    summary="Application metrics",
+    description=(
+        "Return application runtime metrics: uptime, MongoDB connection pool "
+        "size, and total requests handled since server start."
+    ),
+    tags=["Meta"],
+)
+async def metrics(request: Request) -> dict:
+    logger.debug("metrics() called")
+    uptime = (datetime.now(timezone.utc) - request.app.state.start_time).total_seconds()
+    return {
+        "uptime_seconds": uptime,
+        "max_pool_size": MONGO_MAX_POOL_SIZE,
+        "total_requests": request.app.state.request_count,
+    }
+
+
 # ------------------------
 #          Users
 # ------------------------
@@ -1085,6 +1307,7 @@ async def get(
 
 @app.post(
     "/users",
+    response_model=GenericResult,
     summary="Register a user",
     description=(
         "Create a new user account. Password and username are hashed before storage. "
@@ -1110,8 +1333,57 @@ async def save_user(
     return result
 
 
+@app.post(
+    "/demo/seed",
+    response_model=DemoSeedResponse,
+    status_code=201,
+    summary="Seed demo content",
+    description=(
+        "Load a ready-made demo Work and node tree into the authenticated user's account. "
+        "The demo contains a complete narrative structure with part/chapter/scene/beat nodes. "
+        "Returns HTTP 201 on success."
+    ),
+    tags=["Demo"],
+)
+async def seed_demo(
+    reset: bool = Query(False, description="If true, delete existing demo works before seeding"),
+    account_id: str = Security(get_current_active_user_account, scopes=["tree:writer"]),
+    demo_storage: DemoStorage = Depends(get_demo_storage),
+) -> dict:
+    """Seed a demo Work and tree into the authenticated user's account."""
+    logger.debug(f"seed_demo({account_id}, reset={reset}) called")
+    
+    # Get the current user's details to extract author name
+    try:
+        user = await oauth.get_user_by_account_id(account_id=account_id)
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in seed_demo", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    
+    # Use the username as the author name for demo content
+    author = user.username
+    
+    try:
+        # Seed the demo content using the DemoStorage class
+        result = await demo_storage.seed_demo(
+            account_id=account_id,
+            author=author,
+            reset=reset,
+        )
+    except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
+        logger.error("Database error in seed_demo", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    except Exception as e:
+        # Log the exception but return a generic error message to avoid leaking information
+        logger.error(f"Unexpected error in seed_demo: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Database error")
+    
+    return result
+
+
 @app.get(
     "/users",
+    response_model=GenericResult,
     summary="Get user details",
     description="Return the profile of the currently authenticated user from the user collection.",
     tags=["Users"],
@@ -1138,6 +1410,7 @@ async def get_user(
 
 @app.put(
     "/users",
+    response_model=GenericResult,
     summary="Update user details",
     description="Update the display name (first name, surname) and email address of the current user.",
     tags=["Users"],
@@ -1165,6 +1438,7 @@ async def update_user(
 
 @app.put(
     "/users/password",
+    response_model=GenericResult,
     summary="Change password",
     description="Update the password for the current user. The new password is hashed before storage.",
     tags=["Users"],
@@ -1194,6 +1468,7 @@ async def update_password(
 
 @app.put(
     "/users/type",
+    response_model=GenericResult,
     summary="Change user type",
     description=(
         "Update the subscription type for the current user (`free` or `premium`). "
@@ -1227,6 +1502,7 @@ async def update_type(
 
 @app.delete(
     "/users",
+    response_model=GenericResult,
     summary="Delete account",
     description="Permanently delete the current user's account and all associated tree saves.",
     tags=["Users"],

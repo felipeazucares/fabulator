@@ -11,6 +11,7 @@ from bson.objectid import ObjectId
 from pymongo import ReturnDocument
 from pymongo.errors import (
     ConnectionFailure,
+    InvalidOperation,
     OperationFailure,
     DuplicateKeyError,
 )
@@ -390,16 +391,33 @@ async def setup_collections(db) -> None:
             try:
                 await db.create_collection(name, validator=validator)
                 logger.debug(f"Created collection: {name}")
-            except OperationFailure:
-                logger.error(f"Failed to create collection {name}", exc_info=True)
-                raise
+            except OperationFailure as e:
+                if e.code in (8000, 13):
+                    try:
+                        await db.create_collection(name)
+                        logger.warning(
+                            f"Created {name} without validator: Atlas user lacks dbAdmin "
+                            f"(collMod requires dbAdmin). Pydantic enforces schema at the API layer."
+                        )
+                    except OperationFailure:
+                        logger.error(f"Failed to create collection {name}", exc_info=True)
+                        raise
+                else:
+                    logger.error(f"Failed to create collection {name}", exc_info=True)
+                    raise
         else:
             try:
                 await db.command("collMod", name, validator=validator)
                 logger.debug(f"Updated validator for existing collection: {name}")
-            except OperationFailure:
-                logger.error(f"Failed to update validator for {name}", exc_info=True)
-                raise
+            except OperationFailure as e:
+                if e.code in (8000, 13):
+                    logger.warning(
+                        f"Skipping validator update for {name}: Atlas user lacks dbAdmin "
+                        f"(collMod requires dbAdmin). Pydantic enforces schema at the API layer."
+                    )
+                else:
+                    logger.error(f"Failed to update validator for {name}", exc_info=True)
+                    raise
 
     work_col = db.get_collection("work_collection")
     await work_col.create_index([("work_id", 1)], unique=True)
@@ -411,6 +429,16 @@ async def setup_collections(db) -> None:
     await node_col.create_index([("account_id", 1), ("parent_id", 1)])
     await node_col.create_index([("account_id", 1), ("node_type", 1)])
     await node_col.create_index([("account_id", 1), ("node_id", 1)])
+
+    # Tier 3 — Search indexes
+    await node_col.create_index(
+        [("description", "text"), ("text", "text")],
+        name="node_text_idx",
+    )
+    await node_col.create_index(
+        [("account_id", 1), ("tags", 1)],
+        name="node_tags_idx",
+    )
 
     logger.debug("setup_collections() complete")
 
@@ -426,7 +454,7 @@ class WorkStorage:
         self.work_collection = self.database.get_collection("work_collection")
         self.node_collection = self.database.get_collection("node_collection")
 
-    async def create_work(self, account_id: str, data: dict) -> dict:
+    async def create_work(self, account_id: str, data: dict, session=None) -> dict:
         """Insert a new Work document and return it."""
         logger.debug(f"create_work({account_id}) called")
         now = datetime.now(timezone.utc)
@@ -441,7 +469,7 @@ class WorkStorage:
             "updated_at":  now,
         }
         try:
-            await self.work_collection.insert_one(doc)
+            await self.work_collection.insert_one(doc, session=session)
         except (DuplicateKeyError, ConnectionFailure, OperationFailure):
             logger.error("Exception occurred inserting work document", exc_info=True)
             raise
@@ -459,22 +487,39 @@ class WorkStorage:
             raise
         return _strip_id(doc) if doc else None
 
-    async def list_works(self, account_id: str) -> list[dict]:
-        """Return all Works for account ordered by created_at descending."""
+    async def list_works(
+        self, account_id: str, limit: int = 50, cursor: str | None = None
+    ) -> tuple[list[dict], str | None]:
+        """Return Works for account with cursor pagination, newest first.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"list_works({account_id}) called")
+        query: dict = {"account_id": account_id}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$lt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         works: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.work_collection.find(
-                {"account_id": account_id}, sort=[("created_at", -1)]
-            ):
-                works.append(_strip_id(doc))
+                query, sort=[("_id", -1)]
+            ).limit(limit + 1):
+                works.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error("Exception occurred listing works for account", exc_info=True)
             raise
-        return works
+        if len(works) > limit:
+            works.pop()
+            next_cursor = str(works[-1]["_id"])
+        for doc in works:
+            doc.pop("_id", None)
+        return works, next_cursor
 
     async def update_work(
-        self, work_id: str, account_id: str, updates: dict
+        self, work_id: str, account_id: str, updates: dict, session=None
     ) -> dict | None:
         """Apply field updates to a Work; cascade author to all child nodes if changed.
         Returns the updated document or None if not found."""
@@ -485,6 +530,7 @@ class WorkStorage:
                 {"work_id": work_id, "account_id": account_id},
                 {"$set": updates},
                 return_document=ReturnDocument.AFTER,
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred updating work {work_id}", exc_info=True)
@@ -496,11 +542,12 @@ class WorkStorage:
                 work_id=work_id,
                 account_id=account_id,
                 author=updates["author"],
+                session=session,
             )
         return _strip_id(result)
 
     async def cascade_author_to_nodes(
-        self, work_id: str, account_id: str, author: str | None
+        self, work_id: str, account_id: str, author: str | None, session=None
     ) -> int:
         """Bulk-update author on every node belonging to this Work. Returns count updated."""
         logger.debug(f"cascade_author_to_nodes({work_id}) called")
@@ -508,6 +555,7 @@ class WorkStorage:
             result = await self.node_collection.update_many(
                 {"work_id": work_id, "account_id": account_id},
                 {"$set": {"author": author}},
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(
@@ -557,7 +605,7 @@ class NodeStorage:
     # Core CRUD  (T-06)
     # ----------------------------------------------------------
 
-    async def create_node(self, account_id: str, work_doc: dict, data: dict) -> dict:
+    async def create_node(self, account_id: str, work_doc: dict, data: dict, session=None) -> dict:
         """Insert a new node; copies author from Work; auto-assigns position.
         Returns the inserted document."""
         logger.debug(f"create_node({account_id}) called")
@@ -571,7 +619,7 @@ class NodeStorage:
         )
         try:
             latest = await self.node_collection.find_one(
-                sibling_filter, sort=[("position", -1)]
+                sibling_filter, sort=[("position", -1)], session=session
             )
         except (ConnectionFailure, OperationFailure):
             logger.error("Exception occurred querying sibling positions", exc_info=True)
@@ -580,7 +628,7 @@ class NodeStorage:
 
         now = datetime.now(timezone.utc)
         doc = {
-            "node_id":     str(uuid.uuid4()),
+            "node_id":     data.get("node_id") or str(uuid.uuid4()),
             "work_id":     data["work_id"],
             "account_id":  account_id,
             "author":      work_doc.get("author"),
@@ -597,7 +645,7 @@ class NodeStorage:
             "updated_at":  now,
         }
         try:
-            await self.node_collection.insert_one(doc)
+            await self.node_collection.insert_one(doc, session=session)
         except (DuplicateKeyError, ConnectionFailure, OperationFailure):
             logger.error("Exception occurred inserting node document", exc_info=True)
             raise
@@ -616,21 +664,38 @@ class NodeStorage:
         return _strip_id(doc) if doc else None
 
     async def list_nodes(
-        self, work_id: str, account_id: str, node_type: str | None = None
-    ) -> list[dict]:
-        """Return all nodes for a Work, optionally filtered by node_type."""
+        self, work_id: str, account_id: str, node_type: str | None = None,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return nodes for a Work with cursor pagination, optionally filtered by node_type.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"list_nodes({work_id}) called")
         query: dict = {"work_id": work_id, "account_id": account_id}
         if node_type is not None:
             query["node_type"] = node_type
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         nodes: list[dict] = []
+        next_cursor: str | None = None
         try:
-            async for doc in self.node_collection.find(query):
-                nodes.append(_strip_id(doc))
+            async for doc in self.node_collection.find(
+                query, sort=[("_id", 1)]
+            ).limit(limit + 1):
+                nodes.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred listing nodes for work {work_id}", exc_info=True)
             raise
-        return nodes
+        if len(nodes) > limit:
+            nodes.pop()
+            next_cursor = str(nodes[-1]["_id"])
+        for doc in nodes:
+            doc.pop("_id", None)
+        return nodes, next_cursor
 
     async def update_node(
         self, node_id: str, account_id: str, updates: dict
@@ -789,35 +854,69 @@ class NodeStorage:
             raise
         return siblings
 
-    async def get_roots(self, work_id: str, account_id: str) -> list[dict]:
-        """Return all Part nodes (parent_id == None) for a Work, ordered by position."""
+    async def get_roots(
+        self, work_id: str, account_id: str,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return Part (root) nodes for a Work with cursor pagination, ordered by position.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"get_roots({work_id}) called")
+        query: dict = {"work_id": work_id, "account_id": account_id, "parent_id": None}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         roots: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.node_collection.find(
-                {"work_id": work_id, "account_id": account_id, "parent_id": None},
-                sort=[("position", 1)],
-            ):
-                roots.append(_strip_id(doc))
+                query, sort=[("position", 1), ("_id", 1)]
+            ).limit(limit + 1):
+                roots.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred getting roots for work {work_id}", exc_info=True)
             raise
-        return roots
+        if len(roots) > limit:
+            roots.pop()
+            next_cursor = str(roots[-1]["_id"])
+        for doc in roots:
+            doc.pop("_id", None)
+        return roots, next_cursor
 
-    async def get_leaves(self, work_id: str, account_id: str) -> list[dict]:
-        """Return all Beat nodes for a Work, ordered by position."""
+    async def get_leaves(
+        self, work_id: str, account_id: str,
+        limit: int = 50, cursor: str | None = None,
+    ) -> tuple[list[dict], str | None]:
+        """Return Beat (leaf) nodes for a Work with cursor pagination, ordered by position.
+
+        Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
+        """
         logger.debug(f"get_leaves({work_id}) called")
+        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "beat"}
+        if cursor is not None:
+            try:
+                query["_id"] = {"$gt": ObjectId(cursor)}
+            except InvalidId:
+                pass
         leaves: list[dict] = []
+        next_cursor: str | None = None
         try:
             async for doc in self.node_collection.find(
-                {"work_id": work_id, "account_id": account_id, "node_type": "beat"},
-                sort=[("position", 1)],
-            ):
-                leaves.append(_strip_id(doc))
+                query, sort=[("position", 1), ("_id", 1)]
+            ).limit(limit + 1):
+                leaves.append(doc)
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred getting leaves for work {work_id}", exc_info=True)
             raise
-        return leaves
+        if len(leaves) > limit:
+            leaves.pop()
+            next_cursor = str(leaves[-1]["_id"])
+        for doc in leaves:
+            doc.pop("_id", None)
+        return leaves, next_cursor
 
     # ----------------------------------------------------------
     # Stats and operation helpers  (T-08)
@@ -848,7 +947,7 @@ class NodeStorage:
 
     async def _calculate_max_depth(self, work_id: str, account_id: str) -> int:
         """BFS from all root nodes to compute maximum depth (0-indexed at roots)."""
-        roots = await self.get_roots(work_id, account_id)
+        roots, _ = await self.get_roots(work_id, account_id)
         if not roots:
             return 0
         max_depth = 0
@@ -1079,3 +1178,296 @@ class NodeStorage:
             )
 
         return _strip_id(new_doc)
+
+
+# ================================================================
+#  SearchStorage  (Tier 3 — search-query/feature.md)
+# ================================================================
+
+class SearchStorage:
+    def __init__(self, client: motor.motor_asyncio.AsyncIOMotorClient):
+        self.client = client
+        self.database = self.client.fabulator
+        self.node_collection = self.database.get_collection("node_collection")
+
+    async def search_nodes(
+        self,
+        account_id: str,
+        query: str,
+        work_id: str | None = None,
+        node_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Full-text search over description and text fields.
+
+        Returns a list of node dicts (with _id stripped) ordered by descending textScore.
+        """
+        logger.debug(f"search_nodes(account_id={account_id}, query={query!r}) called")
+        filter_doc: dict = {"account_id": account_id, "$text": {"$search": query}}
+        if work_id is not None:
+            filter_doc["work_id"] = work_id
+        if node_type is not None:
+            filter_doc["node_type"] = node_type
+
+        results: list[dict] = []
+        try:
+            async for doc in self.node_collection.find(
+                filter_doc,
+                {"score": {"$meta": "textScore"}},
+            ).sort([("score", {"$meta": "textScore"})]).limit(limit):
+                _strip_id(doc)
+                results.append(doc)
+        except (ConnectionFailure, OperationFailure):
+            logger.error(
+                f"Exception occurred during text search for query {query!r}",
+                exc_info=True,
+            )
+            raise
+        return results
+
+    async def find_nodes_by_tags(
+        self,
+        account_id: str,
+        tags: list[str],
+        match: str = "any",
+        work_id: str | None = None,
+        node_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Query nodes by tag(s).
+
+        *match* == 'any' → $in; *match* == 'all' → $all.
+        Returns a list of node dicts (with _id stripped) ordered by created_at descending.
+        """
+        logger.debug(f"find_nodes_by_tags(account_id={account_id}, tags={tags!r}) called")
+        filter_doc: dict = {"account_id": account_id}
+        if match == "any":
+            filter_doc["tags"] = {"$in": tags}
+        else:
+            filter_doc["tags"] = {"$all": tags}
+        if work_id is not None:
+            filter_doc["work_id"] = work_id
+        if node_type is not None:
+            filter_doc["node_type"] = node_type
+
+        results: list[dict] = []
+        try:
+            async for doc in self.node_collection.find(filter_doc).sort(
+                [("created_at", -1)]
+            ).limit(limit):
+                _strip_id(doc)
+                results.append(doc)
+        except (ConnectionFailure, OperationFailure):
+            logger.error(
+                f"Exception occurred during tag query for tags {tags!r}",
+                exc_info=True,
+            )
+            raise
+        return results
+
+
+# ================================================================
+#  DemoStorage  (Phase 17)
+# ================================================================
+
+class DemoStorage:
+    def __init__(
+        self,
+        client: motor.motor_asyncio.AsyncIOMotorClient,
+        work_storage: WorkStorage | None = None,
+        node_storage: NodeStorage | None = None,
+    ):
+        self.client = client
+        self.database = self.client.fabulator
+        self.work_collection = self.database.get_collection("work_collection")
+        self.node_collection = self.database.get_collection("node_collection")
+        # Use provided storage instances or create defaults (for non-DI usage)
+        self._work_storage = work_storage or WorkStorage(client)
+        self._node_storage = node_storage or NodeStorage(client)
+
+    @property
+    def work_storage(self) -> WorkStorage:
+        return self._work_storage
+
+    @property
+    def node_storage(self) -> NodeStorage:
+        return self._node_storage
+
+    async def delete_demo_works(self, account_id: str, session=None) -> int:
+        """Delete all demo-tagged Works and their nodes for the given account.
+        
+        Returns count of works deleted.
+        """
+        logger.debug(f"delete_demo_works({account_id}) called")
+        try:
+            # Find all demo works — pass session so the find is inside the transaction snapshot
+            demo_works = await self.work_collection.find(
+                {"account_id": account_id, "tags": {"$in": ["demo"]}},
+                {"work_id": 1},
+                session=session,
+            ).to_list(None)
+            
+            work_ids = [work["work_id"] for work in demo_works]
+            
+            if not work_ids:
+                return 0
+                
+            # Delete all nodes for these works
+            await self.node_collection.delete_many(
+                {"work_id": {"$in": work_ids}, "account_id": account_id},
+                session=session
+            )
+            
+            # Delete the works themselves
+            result = await self.work_collection.delete_many(
+                {"work_id": {"$in": work_ids}, "account_id": account_id},
+                session=session
+            )
+            
+            return result.deleted_count
+            
+        except (ConnectionFailure, OperationFailure) as e:
+            logger.error(f"Exception occurred deleting demo works for account {account_id}", exc_info=True)
+            raise
+
+    async def seed_demo(
+        self, 
+        account_id: str, 
+        author: str, 
+        reset: bool = False,
+        session=None
+    ) -> dict:
+        """Seed a demo Work and tree into the database within a transaction.
+        
+        Uses a multi-document transaction for atomicity. If transactions are
+        unavailable, falls back to compensating cleanup (create Work last,
+        delete-by-work_id on failure).
+        
+        Args:
+            account_id: The user's account ID
+            author: Author attribution for the demo work
+            reset: If True, delete existing demo works before seeding
+            session: Optional MongoDB session for transaction
+            
+        Returns:
+            dict with demo work details including work_id, title, total_nodes, and by_type
+            
+        Raises:
+            Exception: Propagated from underlying storage operations
+        """
+        logger.debug(f"seed_demo({account_id}, reset={reset}) called")
+        
+        # Generate the demo content using build_demo_tree function
+        from app.demo import build_demo_tree
+        work_data, node_list = build_demo_tree(account_id, author)
+        
+        try:
+            return await self._seed_with_transaction(
+                account_id, author, reset, work_data, node_list
+            )
+        except (InvalidOperation, OperationFailure) as e:
+            # InvalidOperation covers standalone servers ("Transactions are not supported
+            # on standalone servers").  OperationFailure code 20 (IllegalOperation) covers
+            # the same condition reported by the server on some configurations.
+            unsupported = isinstance(e, InvalidOperation) or (
+                isinstance(e, OperationFailure) and e.code == 20
+            )
+            if unsupported:
+                logger.warning("Transactions not supported, using compensating cleanup fallback")
+                return await self._seed_with_compensating_cleanup(
+                    account_id, author, reset, work_data, node_list
+                )
+            raise
+
+    async def _seed_with_transaction(
+        self,
+        account_id: str,
+        author: str,
+        reset: bool,
+        work_data,
+        node_list,
+    ) -> dict:
+        """Seed using a multi-document transaction for atomicity."""
+        client = self.client
+        async with await client.start_session() as session:
+            async with session.start_transaction():
+                if reset:
+                    await self.delete_demo_works(account_id, session=session)
+
+                work_dict = work_data.model_dump()
+                work_dict["tags"] = list(work_dict.get("tags") or []) + ["demo"]
+                work_doc = await self.work_storage.create_work(
+                    account_id, work_dict, session=session
+                )
+
+                created_nodes = []
+                for node_data in node_list:
+                    # Overwrite placeholder work_id with the real one from create_work
+                    node_doc = await self.node_storage.create_node(
+                        account_id,
+                        work_doc,
+                        {**node_data.model_dump(), "account_id": account_id, "work_id": work_doc["work_id"]},
+                        session=session,
+                    )
+                    created_nodes.append(node_doc)
+
+                by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+                for node in created_nodes:
+                    by_type[node["node_type"]] += 1
+
+                return {
+                    "work_id": work_doc["work_id"],
+                    "title": work_data.title,
+                    "total_nodes": len(created_nodes),
+                    "by_type": by_type,
+                }
+
+    async def _seed_with_compensating_cleanup(
+        self,
+        account_id: str,
+        author: str,
+        reset: bool,
+        work_data,
+        node_list,
+    ) -> dict:
+        """Compensating-cleanup fallback when transactions are unavailable.
+
+        Creates Work first to obtain the real work_id, then creates nodes using
+        it.  On any failure after Work creation, deletes Work + all created nodes
+        by work_id so no partial data remains.
+        """
+        if reset:
+            await self.delete_demo_works(account_id)
+
+        work_dict = work_data.model_dump()
+        work_dict["tags"] = list(work_dict.get("tags") or []) + ["demo"]
+        work_doc = await self.work_storage.create_work(account_id, work_dict)
+
+        try:
+            created_nodes = []
+            for node_data in node_list:
+                node_doc = await self.node_storage.create_node(
+                    account_id,
+                    work_doc,
+                    {**node_data.model_dump(), "account_id": account_id, "work_id": work_doc["work_id"]},
+                )
+                created_nodes.append(node_doc)
+
+            by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+            for node in created_nodes:
+                by_type[node["node_type"]] += 1
+
+            return {
+                "work_id": work_doc["work_id"],
+                "title": work_data.title,
+                "total_nodes": len(created_nodes),
+                "by_type": by_type,
+            }
+        except Exception:
+            await self.node_collection.delete_many(
+                {"work_id": work_doc["work_id"], "account_id": account_id}
+            )
+            await self.work_collection.delete_one(
+                {"work_id": work_doc["work_id"], "account_id": account_id}
+            )
+            raise

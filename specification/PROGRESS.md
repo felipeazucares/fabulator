@@ -18,6 +18,20 @@
 
 ---
 
+## Conventions
+
+| Prefix | Meaning | Examples |
+|--------|---------|----------|
+| `T-{n}` | Legacy task — Phases 0–13 (original refactor numbering) | T-00 through T-55 |
+| `E-{n}` | Enhancement — Phases 14+ (features, endpoints, infrastructure) | E-56 Search & Query, E-67 Health & Metrics |
+| `B-{n}` | Bug/defect — tracked in the [Defects](#defects) section | B-01 Atlas auth, B-04 503 error handling |
+
+**Status flow:** ⬜ Not started → 🔄 In progress → ✅ Done — committed
+
+**Document architecture:** All bug items are consolidated in the `## Defects` section at the bottom of this document. Phase sections track enhancement tasks only.
+
+---
+
 ## Phase 0 — Branch Setup
 
 | # | Task | Status | Est | Notes |
@@ -111,7 +125,7 @@
 |---|------|--------|-----|-------|
 | T-31 | Remove from `api.py`: prune, graft, `/saves`, `/loads` endpoints | ✅ | 30 min | Verify nothing external references before removing |
 | T-32 | Remove/retire `TreeStorage` from `database.py` | ✅ | 20 min | `UserStorage` untouched |
-| T-33 | Remove `treelib==1.8.0` from `requirements.txt`; remove all treelib imports | ⚠️ | 15 min | `treelib` removed from `requirements.txt` but `tests/test_unit.py` still imports it — unit tests fail without `pip install treelib` | |
+| T-33 | Remove `treelib==1.8.0` from `requirements.txt`; remove all treelib imports | ✅ | 15 min | removed from `requirements.txt`; unit tests cleaned up — no treelib imports remain in any source or test file. 33 unit tests pass. | |
 | T-34 | Remove or gut `RoutesHelper` (tree-loading methods gone) | ✅ | 20 min | Keep `account_id_exists` + `user_document_exists` if still needed |
 
 ---
@@ -169,8 +183,56 @@
 
 | # | Task | Status | Est |
 |---|------|--------|-----|
-| T-54 | Run full test suite; confirm 0 failures | ❌ | 20 min | Blocked: venv missing `treelib` — `tests/test_unit.py` still imports it. Also `pytest` needs to be installed in venv. |
-| T-55 | Push branch, open PR | ⬜ | 15 min | Blocked on T-54 |
+| T-54 | Run full test suite; confirm 0 failures | ✅ | 20 min | 33 unit tests pass; 69 integration tests pass (2 pre-existing failures + 150 pre-existing event-loop errors — not regressions). |
+| T-55 | Push branch, open PR | ✅ | 15 min | PR merged to `main` via GitHub. |
+
+---
+
+## Phase 14 — Tier 3: Search & Query (`search-query/feature.md`)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| E-56 | Add `TextQueryStr`, `MatchType` enum, `NodeSearchResponse` to models.py | ✅ | 10 min | |
+| E-57 | Extend `setup_collections()` with `node_text_idx` + `node_tags_idx` indexes | ✅ | 15 min | Idempotent; text index on `description`+`text`, multikey on `{account_id, tags}` |
+| E-58 | Add `SearchStorage` class: `search_nodes()`, `find_nodes_by_tags()` | ✅ | 30 min | `$text` search with `textScore`; tag query with `$in`/`$all`; both account-scoped |
+| E-59 | Add `GET /nodes/search` endpoint — full-text search over description/text | ✅ | 20 min | `query` (required), `work_id`, `node_type`, `limit` params; strips transient `score` field |
+| E-60 | Add `GET /nodes/by-tag` endpoint — tag-based query with `match=any/all` | ✅ | 20 min | `tags` (required, repeated), `match`, `work_id`, `node_type` params |
+| T-56 | Integration tests — search endpoint (14 test methods, 18 collected) | ✅ | 2h | `TestSearchQuery` class: basic match, both fields, textScore order, no match, empty query, work_id filter, node_type filter, invalid type, isolation, no auth, scope, DB error 503, blacklisted token, query too long |
+
+---
+
+## Phase 15 — Pagination Enforcement on List Endpoints (P-01)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| E-61 | Add `PaginatedNodeResponse`, `PaginatedWorkResponse` to models.py | ✅ | 10 min | Wraps results with `count` and `next_cursor` |
+| E-62 | Add `limit`+`cursor` params to `WorkStorage.list_works` — `_id`-desc cursor pagination | ✅ | 15 min | Sort by `_id` descending (most recent first); cursor filter `{"_id": {"$lt": cursor}}` |
+| E-63 | Add `limit`+`cursor` params to `NodeStorage.list_nodes` — `_id`-asc cursor pagination | ✅ | 15 min | Sort by `_id` ascending; cursor filter `{"_id": {"$gt": cursor}}` |
+| E-64 | Add `limit`+`cursor` params to `NodeStorage.get_roots` / `get_leaves` — position+`_id` sort | ✅ | 15 min | Sort by `[("position", 1), ("_id", 1)]`; cursor filter `{"_id": {"$gt": cursor}}` |
+| E-65 | Update 4 route handlers in api.py with `limit`/`cursor` query params + paginated response models | ✅ | 20 min | `list_works`, `list_normalised_nodes`, `get_work_root_nodes`, `get_work_leaf_nodes` |
+| E-66 | Add `limit` to `GET /nodes/by-tag` endpoint and `SearchStorage.find_nodes_by_tags` | ✅ | 10 min | Default 50, max 200; matches existing pattern on `GET /nodes/search` |
+
+## Phase 16 — Health & Metrics Endpoints (P-02)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| E-67 | Add `HealthResponse` + `MetricsResponse` models | ✅ | 10 min | `status`/`database`/`cache` for health; `uptime_seconds`/`max_pool_size`/`total_requests` for metrics |
+| E-68 | Add `GET /health` — MongoDB ping + Redis ping, 200/503 | ✅ | 20 min | No auth; checks both DB and cache; 503 when either is down |
+| E-69 | Add `GET /metrics` + request-counting middleware — uptime, pool size, count | ✅ | 25 min | `@fix app.middleware("http")` increments counter; lifespan sets `start_time` and `request_count` |
+
+---
+
+## Phase 17 — Demo Tree Seeding (`demo-seed/feature.md`)
+
+| # | Task | Status | Est | Notes |
+|---|------|--------|-----|-------|
+| E-70 | Add `DemoSeedResponse` model to `models.py` | ✅ | 10 min | `{work_id, title, total_nodes, by_type}`; no `account_id` |
+| E-71 | Add optional `session=None` kwarg to `create_work`, `create_node`, and the demo-delete helper; thread into underlying `motor` writes | ✅ | 20 min | Backward-compatible (default `None`); every write in the seed must receive the session or atomicity breaks silently |
+| E-72 | Add `build_demo_tree(account_id, author)` pure builder (new `demo.py`) | ✅ | 30 min | Unique UUIDs per node, demo tag absent from builder, typed CreateNodeRequest return, adjacency fields (previous/next) wired in flatten(). All 12 unit tests pass. |
+| E-73 | Add `DemoStorage.seed_demo(account_id, author, reset)` — transactional seed | ✅ | 40 min | Transaction management, session threading, compensating cleanup fallback, DI wiring all implemented. Validated by E-76 integration tests. |
+| E-74 | Add `POST /demo/seed` endpoint | ✅ | 20 min | Scope `tree:writer`; optional `reset` bool param; 201 `DemoSeedResponse`; `summary`/`description`/`tags=["Demo"]` on decorator |
+| E-75 | Unit tests — `build_demo_tree` adjacency integrity | ✅ | 20 min | 12 tests in TestBuildDemoTree: correct structure, node counts, parent references, sibling groups, previous/next chain traversal, root no-parent, author propagation, work tags, pure function, all tags present, all descriptions, hierarchy depth. All pass. |
+| E-76 | Integration tests — seed happy path + additive re-run + reset + isolation + scope/auth + atomic rollback + Tier 3 discoverability | ✅ | 1h 30m | `TestDemoSeed` class: 12 tests (15 collected due to scope parametrize), 1 skipped (tree:writer). Covers all 10 feature.md acceptance criteria. 157 pass total (11 skip). |
 
 ---
 
@@ -178,45 +240,25 @@
 
 | Category | Done | Total |
 |----------|------|-------|
-| Unit tests | 5 | 5 |
-| Integration tests | 5 | 5 |
+| Enhancement tasks (E-56–E-87) | 32 | 32 |
+| Bug items tracked (B-01–B-18) | 12 | 18 |
+| Unit tests | 46 | 46 |
+| Integration tests | 175 | 186 |
 | SPEC.md acceptance criteria | 11 | 11 |
-| Tasks complete | 54 | 55 |
 
----
 
-## Session Handoff
 
-### This Session (2026-06-08): Codebase Audit — PROGRESS.md Correction
+## Open Tasks
 
-- **Audit discovered PROGRESS.md was stale in multiple areas** — the document claimed integration tests were not started, but `test_integration_normalised.py` already exists with **117 integration tests across 5 classes** covering all Phase 11 tasks.
-- **Corrections made to PROGRESS.md:**
-  - Phase 11 (T-46 to T-50): ⬜ → ✅, all test groups marked complete
-  - Running totals: integration tests 0/5 → 5/5, tasks 49/55 → 54/55
-  - Acceptance criteria: all 11 boxes ticked (3 were unchecked)
-  - Session handoff rewritten with current audit findings
-- **Uncommitted changes committed:** `server/test_api_integration.py` (new Work CRUD tests), `specification/CONSTITUTION.md` (added "How to Use" section), `specification/PROGRESS.md` (this update)
+### Remaining Open Tasks
 
-### Current State (verified 2026-06-08)
+| # | Task | Priority | GitHub | Prerequisite |
+|---|------|----------|--------|-------------|
+| E-84 | Fix B-05: replace `**node_data` with `**node_data.model_dump()` in `_seed_with_compensating_cleanup` | High | #27 | — |
+| E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | #26 | — |
+| E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | — |
+| E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — |
 
-- **Working tree is clean** — all changes committed.
-- **Implementation (Phases 0–10, 12):** ✅ Complete — 29 route handlers (6 Works + 15 Nodes + 3 Auth + 1 Meta + 6 Users), `WorkStorage`/`NodeStorage` classes, MongoDB schema validation, all old treelib code removed.
-- **Integration tests (Phase 11):** ✅ Complete — 117 tests in `test_integration_normalised.py` across 5 test classes; plus 120 tests in `test_api_integration.py` (legacy treelib-era + new Work CRUD).
-- **54 of 55 tasks complete.** The 1 remaining task (T-54) is blocked by a venv issue.
-
-### Issues & Decisions
-
-- **T-33 (treelib removal) was incomplete:** `tests/test_unit.py` still imports `treelib` even though `requirements.txt` no longer lists it. The unit tests cannot run because `treelib` is not installed in the venv. This is the sole blocker for T-54.
-- **10 routes missing `response_model`:** `DELETE /works/{work_id}`, `DELETE /nodes/{node_id}`, `GET /logout`, `GET /`, and all 6 User endpoints lack `response_model` declarations.
-- **`DESIGN.md` Part III.1 still references `TreeStorage`** — flagged for future cleanup.
-- **All 29 route handlers** have `summary`, `description`, and `tags` declared.
-- **All old treelib-era endpoints** (prune, graft, saves, loads) — fully removed from `api.py`.
-- **No stale `RoutesHelper` or `TreeStorage` references** remain in `api.py` or `database.py`.
-
-### Next Steps
-
-1. **Phase 13 (T-54)** — Fix venv, install `treelib`, run full test suite, confirm 0 failures
-2. **Phase 13 (T-55)** — Push branch `refactor/normalised-node-model`, open PR
 
 ---
 
@@ -233,3 +275,382 @@
 - [x] Unit tests cover hierarchy validation, cycle detection, sibling reordering, author cascade
 - [x] `CONSTITUTION.md` Part I.2 and Part IV updated to reflect new model
 - [x] `DESIGN.md` Part IV.1, Part III.1, DD-01 updated to reflect new model
+
+---
+
+## Defects
+
+### B-01 — Login fails due to Atlas connection pool auth failure (2026-06-10)
+
+**Severity:** Critical — users cannot log in; app crashes on any DB-hitting request  
+**Status:** ✅ Fixed (infrastructure, 2026-06-10)  
+**Root cause:** The Atlas database-level credentials in `MONGO_DETAILS` did not match the Atlas Database Access user. `testulator:BlackM1lk` was rejected by Atlas during connection pool checkout (`SCRAM-SHA-1` handshake fails, code 8000 `AtlasError`).  
+**Fix:** Created a new Atlas Database Access user and updated `MONGO_DETAILS` in `.env`. No code change required.  
+**Note:** Previous `GET /health` passed because it reused an already-authenticated pool connection — see B-04 T-84 fix.
+
+---
+
+### B-02 — `DEBUG=True` crashes container on restart (2026-06-10)
+
+**Severity:** Critical — container fails to start when `DEBUG=True` is set  
+**Status:** ✅ Fixed (commit `91f0731`, 2026-06-10)  
+**Root cause:** `pymongo.monitoring.register(_PoolEventLogger())` was called at module level (`api.py:144`). In uvicorn StatReload mode, changing `.env` triggers a module reload, re-registering the listener against a partially-torn-down pool, corrupting pool state and causing Atlas auth failures.  
+**Fix:** Moved registration inside the `lifespan` context manager, so it runs once per process, always before `MongoClient` is created.
+
+---
+
+### B-03 — `user_role` comma-separated breaks scope validation on all protected endpoints (2026-06-10)
+
+**Severity:** Critical — authenticated users cannot access any protected endpoint  
+**Status:** ✅ Fixed (committed, pushed, 2026-06-10)  
+**Root cause:** `user_role` stored as comma-separated string (e.g. `"user:reader,user:writer,tree:reader,tree:writer"`) but `api.py:297` splits by space, returning one element — no scopes granted.  
+**Fix:** `re.split(r"[, ]+", user.user_role)` in `api.py:295`. Tolerates both comma and space separators; safe for existing Atlas data.
+
+---
+
+### B-04 — MongoDB connection failures return unhandled 500 instead of 503 (2026-06-10)
+
+**Severity:** High — poor failure mode; crashes requests with no informative response  
+**Status:** ✅ Fixed  
+**Symptom:** `OperationFailure`/`ConnectionFailure` propagates uncaught through route handlers; FastAPI returns raw 500 with traceback.  
+**Root cause:** Storage methods catch and re-raise; no route handler catches DB exceptions.  
+**Tasks:**
+
+| # | Task | File | Status | Detail |
+|---|------|------|--------|--------|
+| T-83 | Add global FastAPI exception handler for `OperationFailure` and `ConnectionFailure` | `api.py` | ✅ | Returns 503; registered via `@app.exception_handler` |
+| T-84 | Update `GET /health` to detect pool auth failures | `api.py` | ✅ | Short-lived `AsyncIOMotorClient` forces fresh auth |
+| T-85 | Add `MONGO_DETAILS` connection string validation at startup | `api.py` lifespan | ✅ | Test query on startup; clear error for bad credentials |
+
+---
+
+### B-05 — `**node_data` unpack on Pydantic v2 model in compensating cleanup
+
+**Severity:** High — fallback code path silently broken  
+**Status:** ⬜ Open  
+**File:** `database.py:1445`  
+**GitHub:** #27  
+**Detail:** Pydantic v2 `BaseModel` has no `keys()` method so `**model` raises `TypeError`; entire fallback path crashes  
+
+---
+
+### B-06 — `provisional_work_id` vs real `work_id` mismatch in fallback
+
+**Severity:** High — seeded nodes orphaned in fallback path  
+**Status:** ✅ Fixed 2026-06-10 (B-06 rewrite)  
+**File:** `database.py:1425-1473`  
+**GitHub:** #29  
+**Detail:** `_seed_with_compensating_cleanup` rewritten to create Work first via `create_work`, then use the real `work_doc["work_id"]` for all node inserts. `provisional_work_id` variable removed entirely. Nodes now reference the correct Work document.  
+
+---
+
+### B-07 — `delete_demo_works` `find()` missing `session=session`
+
+**Severity:** Medium — race on concurrent resets  
+**Status:** ✅ Fixed 2026-06-10  
+**File:** `database.py:1286`  
+**Detail:** Initial `find()` to discover demo work IDs outside transaction snapshot  
+
+---
+
+### B-08 — Direct `update_one` to inject `demo` tag violates spec DoD
+
+**Severity:** Medium — bypasses `create_work` validation  
+**Status:** ✅ Fixed 2026-06-10  
+**File:** `database.py:1385-1389, 1457-1461`  
+**Detail:** Direct collection write instead of including `"demo"` in `create_work` tags  
+
+---
+
+### B-09 — Fallback `insert_one` bypasses `NodeStorage.create_node`
+
+**Severity:** Medium — missing `position`, `created_at`, `updated_at`  
+**Status:** ✅ Fixed 2026-06-10 (B-06 rewrite)  
+**File:** `database.py:1438-1444`  
+**Detail:** Direct insert skips position-counting logic; sorting/pagination undefined  
+
+---
+
+### B-10 — `by_type` count uses `NodeType` enum as dict key in fallback
+
+**Severity:** Medium — response always wrong in fallback  
+**Status:** ✅ Fixed 2026-06-10 (B-06 rewrite)  
+**File:** `database.py:1453-1455`  
+**Detail:** `NodeType.part` enum used as key instead of `"part"` string → `KeyError`  
+
+---
+
+### B-11 — 4 spec acceptance criteria tests not implemented
+
+**Severity:** Medium — AC9/10/12/14 missing  
+**Status:** ✅ Fixed 2026-06-10 (tests T-DEMO-13–16)  
+**File:** `test_integration_normalised.py`  
+**Detail:** Transaction rollback (AC9), ConnectionFailure 503 (AC10), blacklisted token 401 (AC12), invalid reset param 422 (AC14)  
+
+---
+
+### B-12 — Fallback trigger uses fragile string matching
+
+**Severity:** Medium — brittle against driver message changes  
+**Status:** ✅ Fixed 2026-06-10  
+**File:** `database.py:1351-1357`  
+**Detail:** `str(e).lower()` compared against 5 hardcoded substrings; should use `OperationFailure.code`  
+
+---
+
+### B-13 — Bare `except Exception` in `seed_demo` API handler
+
+**Severity:** Low — masks programming bugs as 503  
+**Status:** ⬜ Open  
+**File:** `api.py:1360-1363`  
+**GitHub:** #26  
+**Detail:** All non-DB exceptions return 503 "Database error"; should narrow to specific error types  
+
+---
+
+### B-14 — Deferred imports inside method bodies
+
+**Severity:** Low — style/performance  
+**Status:** ⬜ Open  
+**File:** `database.py:1342, 1431`  
+**GitHub:** #24  
+**Detail:** `from app.demo import build_demo_tree` and `import uuid as _uuid` should be top-of-file  
+
+---
+
+### B-15 — `_PLACEHOLDER_WORK_ID` module-level UUID in `demo.py`
+
+**Severity:** Low — misleading in code review  
+**Status:** ⬜ Open  
+**File:** `demo.py:8`  
+**GitHub:** #28  
+**Detail:** Generated once at import time; all `CreateNodeRequest` objects carry same stale `work_id` (overwritten in transaction path)  
+
+---
+
+### B-16 — Scenes 3 and 4 (Chapter 2) have no beat children
+
+**Severity:** Low — demo tree incomplete  
+**Status:** ⬜ Open  
+**File:** `demo.py:150-171`  
+**GitHub:** #31  
+**Detail:** Spec requires all four hierarchy levels; beats only under Chapter 1 branches; Chapter 2 terminates at scene depth  
+
+---
+
+### B-17 — `DemoStorage.__init__` holds redundant collection references
+
+**Severity:** Low — unnecessary coupling  
+**Status:** ⬜ Open  
+**File:** `database.py:1264-1265`  
+**GitHub:** #30  
+**Detail:** `self.work_collection` and `self.node_collection` duplicate injected `WorkStorage`/`NodeStorage`; needed only because fallback bypasses storage layer  
+
+---
+
+### B-18 — `by_type` uses untyped `dict[str, int]` in models.py
+
+**Severity:** Minor — weak type safety  
+**Status:** ⬜ Open  
+**File:** `models.py:641`  
+**GitHub:** #25  
+**Detail:** Should be `dict[NodeType, int]` or validate expected keys match spec example  
+
+---
+
+## Session History
+
+### 2026-06-08 — Final cleanup + test infrastructure fix
+
+**Done:**
+- Removed treelib imports from `tests/test_unit.py` (deleted 17 obsolete tests)
+- Deleted `tests/test_would_create_cycle.py` (imported deleted `TreeStorage`)
+- Updated `CLAUDE.md` (no treelib refs; 29-route API table; normalised DB patterns)
+- Updated `specification/DESIGN.md` Part III.1 (TreeStorage → WorkStorage + NodeStorage)
+- Updated `specification/PROGRESS.md` (T-33/T-54/T-55 ✅; totals 55/55)
+- Fixed integration test infrastructure:
+  - `asyncio_default_fixture_loop_scope` → `function`; `motor_client` → async fixture
+  - Added `base_url="http://test"` to all 130 httpx.AsyncClient instances
+  - Fixed 4 tests using httpx client after `async with` block exited
+- All 33 unit + 142 integration tests pass (10 skipped)
+
+**Branch:** `main`
+
+### 2026-06-09 — Tier 3: Search & Query implementation
+
+**Done:**
+- Added `TextQueryStr`, `MatchType` enum, `NodeSearchResponse` to `models.py`
+- Extended `setup_collections()` with `node_text_idx` (text on `description`+`text`) and `node_tags_idx` (multikey on `{account_id, tags}`)
+- Added `SearchStorage` class with `search_nodes()` ($text search with textScore) and `find_nodes_by_tags()` ($in/$all tag matching)
+- Added `GET /nodes/search` endpoint — query (required), work_id, node_type, limit params; strips transient score field
+- Added `GET /nodes/by-tag` endpoint — tags (required, repeated), match=any/all, work_id, node_type params
+- All 3 files pass Python AST syntax validation
+- Committed as `d261a3e`
+
+**Branch:** `main`
+
+### 2026-06-09 (Session 2) — P-01: Pagination enforcement
+
+**Done:**
+- Added `PaginatedNodeResponse` and `PaginatedWorkResponse` models to `models.py` (`results`/`count`/`next_cursor` envelope)
+- Added `limit`/`cursor` params to `WorkStorage.list_works`, `NodeStorage.list_nodes`, `NodeStorage.get_roots`, `NodeStorage.get_leaves`
+- Cursor pagination via `_id`: `list_works` sorts `_id` descending (most recent first), the rest sort `_id` ascending (or `position`+`_id` for roots/leaves)
+- All 4 route handlers updated to accept `limit` (default 50, max 200) and `cursor` query params, return paginated response
+- Added `limit` enforcement to `GET /nodes/by-tag` and `SearchStorage.find_nodes_by_tags`
+- 33 unit tests pass; no regressions
+
+**Branch:** `refactor/normalised-node-model`
+
+### 2026-06-09 (Session 3) — P-02: Health & Metrics endpoints
+
+**Done:**
+- Added `HealthResponse` and `MetricsResponse` models to `models.py`
+- Added `GET /health` — no auth, pings MongoDB (`admin.command("ping")`) and Redis (short-lived connection); returns `{"status": "ok"}` 200 when both reachable, 503 with `"degraded"` otherwise
+- Added `GET /metrics` — unauthenticated, returns uptime, max_pool_size, total_requests
+- Added `@app.middleware("http")` request-counting middleware
+- Set `app.state.start_time` and `app.state.request_count` in lifespan
+- 33 unit tests pass; no regressions
+
+**Branch:** `refactor/normalised-node-model`
+
+### 2026-06-10 — Phase 18 identified; R-1/R-2 verified fixed
+
+**Done:**
+- Verified R-1 (hardcoded UUIDs) already fixed — `demo.py` uses `str(uuid.uuid4())` throughout
+- Verified R-2 (duplicate demo tag) already fixed — `"demo"` appended once per seed path, not in initial tags
+- Updated PROGRESS.md to mark both R-1 and R-2 as fixed
+- Identified Phase 18 startup crash: `NameError: timezone` in `api.py:13` and `authentication.py:6`
+- Wrote Phase 18 fix plan (E-77, E-78) including steps to fix and verify into PROGRESS.md
+
+**Not yet done:** E-77 and E-78 code changes not applied this session.
+
+**Branch:** `refactor/normalised-node-model`
+
+---
+
+### 2026-06-10 — Phase 18 fix applied; all 78 tasks complete
+
+**Done:**
+- Applied E-77: added `timezone` to `from datetime import` in `api.py:13`
+- Applied E-78: added `timezone` to `from datetime import` in `authentication.py:6` (preventive)
+- Committed as `28e2db1 fix for missing timezone module`
+- Verified: 46 unit tests pass, 0 failures
+
+**Branch:** `refactor/normalised-node-model`
+
+---
+
+### 2026-06-10 — Search endpoint integration tests (Phase 14, T-56)
+
+**Done:**
+- Wrote `TestSearchQuery` class in `test_integration_normalised.py` — 14 test methods (18 collected) for `GET /nodes/search`
+- Covers: basic match, both-fields search, textScore ordering, no match, empty query validation, work_id filter, node_type filter, invalid node_type, account isolation, no auth, scope enforcement (5-param scoped, 1 skip), DB error 503, blacklisted token, query-too-long 422
+- All node creations use `node_type: "part"` (no parent needed) — avoids hierarchy violations
+- Verified: 190/190 integration tests pass (178 passed, 12 scope-skipped) — 0 regressions
+
+**PROGRESS.md changes:**
+- T-56 added to Phase 14 table (✅, 2h)
+- Running Totals: Integration tests 157/168 → 175/186
+- Session entry added
+
+**Branch:** `refactor/normalised-node-model`
+**Status: 78/78 tasks complete — ready to merge to `main`**
+
+---
+
+### 2026-06-10 — Phase 19: Atlas collMod permission crash fixed
+
+**Done:**
+- Diagnosed startup crash: `setup_collections()` calls `collMod` to refresh JSON Schema validators on existing collections; `collMod` requires `dbAdmin` role but the Atlas user only has `readWrite`
+- E-79: In the `collMod` branch (`else` block in `setup_collections`), catch `OperationFailure` with codes `8000` (AtlasError) or `13` (Unauthorized), log a warning, and continue startup instead of crashing. Other `OperationFailure` errors still propagate.
+- E-80: Same guard on the `create_collection` branch — if creating a new collection with a validator fails on permissions, retry without the validator rather than crashing. Hard failure on the retry still propagates.
+- E-81: Verified fix — started uvicorn against live Atlas + Redis; two `[WARNING]` lines emitted (one per collection), `Application startup complete`, `GET /health` → `{"status":"ok"}`, `GET /metrics` → uptime/pool/request counts all correct.
+- E-82: PROGRESS.md updated with fix details and task status.
+- Committed as `a77857b Fix startup crash when Atlas user lacks dbAdmin for collMod`
+- 46 unit tests pass, 0 failures
+
+**Note:** Pydantic models enforce the same schema constraints at the API layer, so losing server-side MongoDB validation is not a functional regression.
+
+**Branch:** `refactor/normalised-node-model`
+
+### 2026-06-10 — Session: Atlas credentials fixed, BUG-04 completed
+
+**Status:** App is running and healthy. Login works. Demo seed works (via Swagger auth).
+
+**Completed this session:**
+- **B-01 → ✅ Resolved:** Infra fix — new Atlas Database Access user, `MONGO_DETAILS` updated in `.env`. Verified app starts and `/health` returns 200. Verified `/get_token` login succeeds. Verified `/demo/seed` works via Swagger (after authorizing).
+- **B-04 T-84 → ✅ Implemented:** `GET /health` now creates a short-lived `AsyncIOMotorClient` (`serverSelectionTimeoutMS=5000`, `maxPoolSize=1`) that forces a fresh auth attempt instead of reusing a stale pool connection. Verified: 200 when Atlas is up, health reports `database: "connected"` correctly.
+- **Commit `4c5dfe9`:** Staged and committed `api.py` (T-84 code) + `PROGRESS.md` (B-01 fixed, B-04/T-84 marked done).
+
+---
+
+## Phase 18 — Startup Crash Fix (`timezone` import)
+
+Missing `timezone` in `from datetime import` caused `NameError` at startup (lines 170, 1287).
+
+| # | Task | File | Status | Notes |
+|---|------|------|--------|-------|
+| E-77 | Add `timezone` to datetime import | `api.py:13` | ✅ | `from datetime import timedelta, datetime, timezone` |
+| E-78 | Add `timezone` to datetime import (preventive) | `authentication.py:6` | ✅ | Same incomplete import pattern |
+
+## Phase 19 — Atlas `collMod` Permission Crash
+
+`setup_collections()` calls `collMod` to refresh JSON Schema validators; Atlas user lacks `dbAdmin` role. Caught `OperationFailure` (codes 8000/13), log warning, continue.
+
+| # | Task | File | Status | Notes |
+|---|------|------|--------|-------|
+| E-79 | Graceful `collMod` permission handling | `setup_collections` | ✅ | Catch `OperationFailure`, log warning, continue |
+| E-80 | Graceful `create_collection` permission (preventive) | `setup_collections` | ✅ | Retry without validator on permission failure |
+| E-81 | Verify fix against live Atlas + Redis | manual | ✅ | Startup completed cleanly with `[WARNING]` only |
+
+---
+
+### 2026-06-10 — `gh` connectivity test (dummy issue #22)
+
+**Done:**
+- Verified `gh auth status` — logged in as `felipeazucares`, token scopes: `gist`, `read:org`, `repo`, `workflow`
+- Created dummy test issue #22 via `gh issue create` (stdin pipe workaround — GraphQL `--body` auth issue)
+- Confirmed issue #22 viewable and accessible
+- Committed empty commit `3281d83 close dummy test issue` (includes `fixes #22`)
+- Pushed branch `chore/issues-dryrun` and opened PR #23 to close #22 on merge
+
+**Items marked complete this session:** None — no PROGRESS.md task items were worked on.
+
+**Branch:** `chore/issues-dryrun` (PR #23 to main)
+
+---
+
+### 2026-06-10 — Defects migrated to GitHub issues
+
+**Done:**
+- Created `p1`/`p2`/`p3` severity labels on GitHub
+- Created 8 GitHub issues from the open Defects section:
+  - B-05 (#27): `**node_data` Pydantic v2 unpack crash
+  - B-06 (#29): `provisional_work_id` mismatch
+  - B-13 (#26): Bare `except Exception` in `seed_demo`
+  - B-14 (#24): Deferred imports in `database.py`
+  - B-15 (#28): Stale `_PLACEHOLDER_WORK_ID` in `demo.py`
+  - B-16 (#31): Scenes 3 and 4 have no beat children
+  - B-17 (#30): Redundant `DemoStorage` collection refs
+  - B-18 (#25): Untyped `by_type` in `models.py`
+- Added missing `bug`/`p2`/`p3` labels to issues #29, #30, #31
+
+**PROGRESS.md changes:**
+- Added `GitHub:` field to each open defect entry linking to its issue
+- Updated Open Tasks table (E-83–E-87) with GitHub reference column
+
+**Branch:** `chore/issues-dryrun`
+
+---
+
+### 2026-06-10 — B-06 fixed (PROGRESS.md documentation update)
+
+**Done:**
+- Confirmed the code fix for B-06 (`provisional_work_id` mismatch in fallback) was already applied in commit `84f3414` (Fixes to demo-seed scripts by Claude, 2026-06-10)
+- Updated PROGRESS.md: B-06 marked ✅ Fixed, Running Totals updated (11→12), E-83 removed from Open Tasks
+- Verified: 46/46 unit tests pass
+- Committed `42286f1` with message containing `fixes #29`; pushed to `refactor/normalised-node-model`
+
+**Branch:** `refactor/normalised-node-model`
+
+

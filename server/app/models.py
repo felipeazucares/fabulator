@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Any
 from pydantic import BaseModel, EmailStr, ConfigDict, field_validator, StringConstraints
 from bson.objectid import ObjectId
 from enum import Enum
@@ -364,6 +364,7 @@ class WorkResponse(BaseModel):
 # -----------------------------------------------
 
 class CreateNodeRequest(BaseModel):
+    node_id: Optional[UuidStr] = None
     work_id: UuidStr
     node_type: NodeType
     parent_id: Optional[UuidStr] = None
@@ -382,6 +383,7 @@ class CreateNodeRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
+                "node_id": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "work_id": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "node_type": "chapter",
                 "parent_id": "a11b2c3d-0000-0000-0000-f01898e87167",
@@ -502,6 +504,151 @@ class WorkStatsResponse(BaseModel):
                 "total_nodes": 12,
                 "by_type": {"part": 2, "chapter": 4, "scene": 4, "beat": 2},
                 "max_depth": 3
+            }
+        }
+    )
+
+
+class DeleteResponse(BaseModel):
+    detail: str
+
+
+class LogoutResult(BaseModel):
+    result: bool
+
+
+class VersionInfo(BaseModel):
+    version: str
+    username: str
+
+
+class VersionResponse(BaseModel):
+    data: VersionInfo
+    code: int = 200
+    message: str
+
+
+class GenericResult(BaseModel):
+    data: Any = None
+    code: int = 200
+    message: str
+
+
+# -----------------------------------------------
+#   Tier 3 — Search & Query schemas
+# -----------------------------------------------
+
+TextQueryStr = Annotated[str, StringConstraints(min_length=1, max_length=200, strip_whitespace=True)]
+
+
+class MatchType(str, Enum):
+    any = "any"
+    all = "all"
+
+
+class NodeSearchResponse(BaseModel):
+    results: list[NodeResponse]
+    count: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0
+            }
+        }
+    )
+
+
+# -----------------------------------------------
+#   Pagination schemas  (P-01)
+# -----------------------------------------------
+
+class PaginatedNodeResponse(BaseModel):
+    results: list[NodeResponse]
+    count: int
+    next_cursor: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0,
+                "next_cursor": None
+            }
+        }
+    )
+
+
+class PaginatedWorkResponse(BaseModel):
+    results: list[WorkResponse]
+    count: int
+    next_cursor: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "results": [],
+                "count": 0,
+                "next_cursor": None
+            }
+        }
+    )
+
+
+# -----------------------------------------------
+#   Health / Metrics schemas  (P-02)
+# -----------------------------------------------
+
+class HealthResponse(BaseModel):
+    status: str
+    database: str
+    cache: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "ok",
+                "database": "connected",
+                "cache": "connected",
+            }
+        }
+    )
+
+
+class MetricsResponse(BaseModel):
+    uptime_seconds: float
+    max_pool_size: int
+    total_requests: int
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "uptime_seconds": 3600.0,
+                "max_pool_size": 100,
+                "total_requests": 42,
+            }
+        }
+    )
+
+
+# -----------------------------------------------
+#   Demo seeding schemas
+# -----------------------------------------------
+
+class DemoSeedResponse(BaseModel):
+    work_id: str
+    title: str
+    total_nodes: int
+    by_type: dict[str, int]
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "work_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+                "title": "Demo: The Lighthouse at the End of the World",
+                "total_nodes": 11,
+                "by_type": { "part": 1, "chapter": 2, "scene": 4, "beat": 4 }
             }
         }
     )

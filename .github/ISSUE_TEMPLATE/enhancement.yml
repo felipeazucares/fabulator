@@ -1,0 +1,21 @@
+name: Enhancement
+description: A new desired capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes: { label: Summary }
+    validations: { required: true }
+  - type: textarea
+    id: motivation
+    attributes: { label: Motivation }
+    validations: { required: true }
+  - type: input
+    id: feature
+    attributes: { label: Related feature / area }
+  - type: dropdown
+    id: priority
+    attributes: { label: Priority, options: [p1, p2, p3] }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria }

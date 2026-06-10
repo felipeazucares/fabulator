@@ -1,0 +1,26 @@
+name: Bug report
+description: A defect in existing, built behaviour
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes: { label: Summary }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Steps to reproduce }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected vs actual }
+    validations: { required: true }
+  - type: input
+    id: feature
+    attributes: { label: Affected feature / file(s) }
+  - type: dropdown
+    id: severity
+    attributes: { label: Severity, options: [p1, p2, p3] }
+    validations: { required: true }
+  - type: textarea
+    id: acceptance
+    attributes: { label: Acceptance criteria }

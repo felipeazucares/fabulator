@@ -3,13 +3,16 @@
 import os
 from time import tzname
 from zoneinfo import ZoneInfo
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from jose import jwt
 from passlib.context import CryptContext
 from .models import TokenData
 from typing import Optional
+import logging
 import app.database as database
 import redis.asyncio as redis
+
+logger = logging.getLogger(__name__)
 
 REDISHOST = os.getenv(key="REDISHOST")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -88,14 +91,24 @@ class Authentication():
                                username=account_id, expires=expires)
 
         conn = self._get_redis_connection()
-        result = await conn.setex(
-            token, int((token_data.expires - datetime.now(ZoneInfo("GMT"))).total_seconds()), 1)
-        await conn.aclose()
+        try:
+            result = await conn.setex(
+                token, int((token_data.expires - datetime.now(ZoneInfo("GMT"))).total_seconds()), 1)
+        except redis.ConnectionError:
+            logger.warning("Redis unavailable; token blacklist write skipped", exc_info=True)
+            result = False
+        finally:
+            await conn.aclose()
         return result
 
     async def is_token_blacklisted(self, token):
-        """ return true if supplied token is in the blacklist"""
+        """ return true if supplied token is in the blacklist; fails open when Redis is unavailable"""
         conn = self._get_redis_connection()
-        result = await conn.get(token)
-        await conn.aclose()
+        try:
+            result = await conn.get(token)
+        except redis.ConnectionError:
+            logger.warning("Redis unavailable; assuming token is not blacklisted", exc_info=True)
+            result = None
+        finally:
+            await conn.aclose()
         return bool(result)

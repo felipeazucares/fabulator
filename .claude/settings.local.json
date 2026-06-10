@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(pip3 list:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(echo \"normal\")"
     ]
   },
   "hooks": {

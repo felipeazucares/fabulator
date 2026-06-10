@@ -27,6 +27,8 @@ from app.models import (
     LINK_FIELD_MAX_LEN,
     TAGS_MAX_COUNT,
     TAG_MAX_LEN,
+    DemoSeedResponse,
+    CreateWorkRequest,
 )
 from app.authentication import Authentication
 
@@ -232,5 +234,240 @@ class TestAuthHelpers:
         )
         payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         assert "exp" in payload
+
+
+# ---------------------------------------------------------------------------
+# Demo seeding tests
+# ---------------------------------------------------------------------------
+
+class TestDemoSeedResponse:
+    def test_demo_seed_response_model(self):
+        """Test that DemoSeedResponse model accepts correct data structure"""
+        response = DemoSeedResponse(
+            work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+            title="Demo: The Lighthouse at the End of the World",
+            total_nodes=11,
+            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+        )
+        assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        assert response.title == "Demo: The Lighthouse at the End of the World"
+        assert response.total_nodes == 11
+        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+
+
+class TestBuildDemoTree:
+    def test_build_demo_tree_returns_correct_structure(self):
+        """Test that build_demo_tree function returns correct structure"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        assert isinstance(work_data, CreateWorkRequest)
+        assert isinstance(node_list, list)
+        assert len(node_list) > 0
+        
+        first_node = node_list[0]
+        assert hasattr(first_node, "work_id")
+        assert hasattr(first_node, "node_type")
+        assert hasattr(first_node, "parent_id")
+        assert hasattr(first_node, "tag")
+        assert hasattr(first_node, "description")
+        assert hasattr(first_node, "text")
+        assert hasattr(first_node, "previous")
+        assert hasattr(first_node, "next")
+        assert hasattr(first_node, "tags")
+
+    def test_build_demo_tree_node_counts(self):
+        """Test that build_demo_tree returns exactly 11 nodes with correct type distribution"""
+        from app.demo import build_demo_tree
+        from app.models import NodeType
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        assert len(node_list) == 11
+        
+        by_type = {}
+        for node in node_list:
+            nt = node.node_type if isinstance(node.node_type, str) else node.node_type.value
+            by_type[nt] = by_type.get(nt, 0) + 1
+        
+        assert by_type["part"] == 1
+        assert by_type["chapter"] == 2
+        assert by_type["scene"] == 4
+        assert by_type["beat"] == 4
+
+    def test_build_demo_tree_parent_references_valid(self):
+        """Test that every parent_id references an existing node in the tree"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        node_ids = {node.node_id for node in node_list}
+        for node in node_list:
+            parent_id = node.parent_id
+            if parent_id is not None:
+                assert parent_id in node_ids, f"parent_id {parent_id} not found in tree nodes"
+
+    def test_build_demo_tree_sibling_groups_correct(self):
+        """Test that sibling groups are correctly formed by parent_id"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        siblings = {}
+        for node in node_list:
+            key = node.parent_id
+            siblings.setdefault(key, []).append(node)
+        
+        # Root group (parent_id=None): 1 part
+        assert len(siblings[None]) == 1
+        
+        # Chapter group (under Part): 2 chapters
+        part_parent_id = siblings[None][0].node_id
+        assert len(siblings[part_parent_id]) == 2
+
+        # Scene groups: 2 scenes under ch1, 2 scenes under ch2
+        chapter_ids = [n.node_id for n in siblings[part_parent_id]]
+        scene_counts = {ch_id: len(siblings[ch_id]) for ch_id in chapter_ids}
+        assert scene_counts[chapter_ids[0]] == 2
+        assert scene_counts[chapter_ids[1]] == 2
+
+    def test_build_demo_tree_previous_next_chains_valid(self):
+        """Test that previous/next form unbroken linked lists within each sibling group"""
+        from app.demo import build_demo_tree
+
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+
+        by_id = {node.node_id: node for node in node_list}
+
+        siblings = {}
+        for node in node_list:
+            siblings.setdefault(node.parent_id, []).append(node)
+
+        for parent_key, group in siblings.items():
+            if len(group) == 1:
+                assert group[0].previous is None
+                assert group[0].next is None
+                continue
+
+            # Walk the linked list from head (previous=None) to tail
+            heads = [n for n in group if n.previous is None]
+            assert len(heads) == 1, f"Expected 1 head in group under {parent_key}, got {len(heads)}"
+            tails = [n for n in group if n.next is None]
+            assert len(tails) == 1, f"Expected 1 tail in group under {parent_key}, got {len(tails)}"
+
+            visited = []
+            current = heads[0]
+            while current is not None:
+                visited.append(current.node_id)
+                next_id = current.next
+                if next_id is not None:
+                    assert next_id in by_id, f"next pointer {next_id} not in node list"
+                    nxt = by_id[next_id]
+                    assert nxt.previous == current.node_id, "back-pointer mismatch"
+                    current = nxt
+                else:
+                    current = None
+
+            assert len(visited) == len(group), "chain length != group size"
+            assert set(visited) == {n.node_id for n in group}, "chain does not cover all nodes"
+
+    def test_build_demo_tree_root_has_no_parent(self):
+        """Test that the single Part node has parent_id=None"""
+        from app.demo import build_demo_tree
+        from app.models import NodeType
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        parts = [n for n in node_list if n.node_type == NodeType.part]
+        assert len(parts) == 1
+        assert parts[0].parent_id is None
+
+    def test_build_demo_tree_author_propagated(self):
+        """Test that the author from build_demo_tree matches the input"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Alice")
+        
+        assert work_data.author == "Alice"
+
+    def test_build_demo_tree_work_tags_no_demo(self):
+        """Test that the demo work does not include 'demo' tag in initial tags"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        assert "demo" not in work_data.tags
+
+    def test_build_demo_tree_pure_function(self):
+        """Test that build_demo_tree is pure — two calls return independent trees"""
+        from app.demo import build_demo_tree
+        
+        work1, nodes1 = build_demo_tree("account_a", "Author A")
+        work2, nodes2 = build_demo_tree("account_b", "Author B")
+        
+        assert work1.title == work2.title
+        assert len(nodes1) == len(nodes2)
+        
+        # Different authors
+        assert work1.author == "Author A"
+        assert work2.author == "Author B"
+
+    def test_build_demo_tree_all_tags_present(self):
+        """Test that every node has a non-empty tags list"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        for node in node_list:
+            assert isinstance(node.tags, list)
+            assert len(node.tags) > 0
+
+    def test_build_demo_tree_all_descriptions_present(self):
+        """Test that every node has a description and text"""
+        from app.demo import build_demo_tree
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        for node in node_list:
+            assert node.description is not None
+            assert len(node.description) > 0
+            assert node.text is not None
+            assert len(node.text) > 0
+
+    def test_build_demo_tree_hierarchy_depth(self):
+        """Test that the tree has exactly 4 levels: part -> chapter -> scene -> beat"""
+        from app.demo import build_demo_tree
+        from app.models import NodeType
+        
+        work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
+        
+        # Build parent->children map
+        children_map = {}
+        for node in node_list:
+            parent_key = node.parent_id
+            children_map.setdefault(parent_key, []).append(node)
+        
+        # Part (root) -> chapters
+        part = [n for n in node_list if n.node_type == NodeType.part][0]
+        chapters = children_map.get(part.node_id, [])
+        assert all(n.node_type == NodeType.chapter for n in chapters)
+
+        # Chapters -> scenes
+        scene_count = 0
+        for ch in chapters:
+            scenes = children_map.get(ch.node_id, [])
+            assert all(n.node_type == NodeType.scene for n in scenes)
+            scene_count += len(scenes)
+        assert scene_count == 4
+
+        # Scenes -> beats
+        beat_count = 0
+        for node in node_list:
+            if node.node_type == NodeType.scene:
+                beats = children_map.get(node.node_id, [])
+                assert all(n.node_type == NodeType.beat for n in beats)
+                beat_count += len(beats)
+        assert beat_count == 4
 
 

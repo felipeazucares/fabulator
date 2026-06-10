@@ -25,7 +25,7 @@ The CONSTITUTION.md is the overulling rulebook for how to complete work.
 The DESIGN.md outlines the archtecture and design decisions for the project.
 The REQUIREMENTS.md defines what the project will do.
 The sub folders within specification folder refer to an indvidual feature of requirement (where the name of the folder is the name of the feature)
-The FEATURE.md doc within a requirement sub folder details the specs for that feature, including requirements, how it should be implemented as well as acceptence criteria.
+The {name-of-the-feature}.md doc within a requirement sub folder details the specs for that feature, including requirements, how it should be implemented as well as acceptence criteria.
 
 ## Part 0 - Coding Guidelines
 
@@ -97,6 +97,13 @@ Examples:
 - `Fix duplicate method definition in database.py`
 - `Add rate limiting to login endpoint`
 - `Update dependencies to latest versions (2024/2025)`
+
+## Work tracking boundary
+- PROGRESS.md and the specs are the planned forward roadmap.
+- GitHub Issues are the reactive backlog: bugs and enhancements only.
+- An enhancement is only worked once it has graduated into a FEATURE.md / PROGRESS.md entry; reference the issue number there.
+- Bugs are fixed against their existing feature and closed directly.
+- The agent may draft and create issues, but only a human closes an issue.
 
 ## Part I — Architectural Invariants
 
@@ -451,8 +458,8 @@ All pre-refactor debt items (M7, M6, L6, L7, L8, L9, L10, L11) from the treelib 
 | Ref | Violation | Severity | Target Version | Status |
 |-----|-----------|----------|----------------|--------|
 | 4.3 | No performance/load tests | High | v1.3 | Open |
-| P-01 | Pagination not yet enforced on list endpoints | High | v1.2 | Open |
-| P-02 | `/metrics` endpoint not yet implemented | Medium | v1.3 | Open |
+| P-01 | Pagination not yet enforced on list endpoints | High | v1.2 | Resolved |
+| P-02 | `/metrics` endpoint not yet implemented | Medium | v1.3 | Resolved |
 
 ---
 

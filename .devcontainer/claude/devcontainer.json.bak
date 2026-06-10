@@ -3,9 +3,6 @@
   "dockerComposeFile": ["../../docker-compose.yml"],
   "service": "dev-claude",
   "workspaceFolder": "/code",
-  "mounts": [
-    "source=${localEnv:HOME}/.config/gh,target=/root/.config/gh,type=bind"
-  ],
   "customizations": {
     "vscode": {
       "extensions": [

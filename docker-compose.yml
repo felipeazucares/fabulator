@@ -1,7 +1,7 @@
 services:
   fabulator-api:
     env_file:
-    - .env
+      - .env
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -21,61 +21,14 @@ services:
     container_name: fabulator-dev-claude
     command: sleep infinity
     volumes:
-        - .:/code
-        - ${HOME}/.claude:/root/.claude
-    environment:
-        - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
-    networks:
-        - fabulator
-    ports:
-        - "8080:8080"
-
-  dev-qwen:
-    build:
-      context: .
-      dockerfile: .devcontainer/qwen/Dockerfile
-    container_name: fabulator-dev-qwen
-    command: sleep infinity
-    volumes:
       - .:/code
       - ${HOME}/.claude:/root/.claude
+    environment:
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN}
     networks:
       - fabulator
     ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: fabulator-ollama
-    profiles: ["ollama"]
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_cache:/root/.ollama
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_NUM_PARALLEL=1
-      - OLLAMA_KEEP_ALIVE=5m
-    networks:
-      - fabulator
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 20G
-        reservations:
-          memory: 18G
-
-volumes:
-  ollama_cache:
-    driver: local
+      - "8080:8080"
 
 networks:
   fabulator:
