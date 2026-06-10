@@ -1905,3 +1905,296 @@ class TestDemoSeed:
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.post("/demo/seed?reset=notabool", headers=headers)
         assert r.status_code == 422
+
+
+# ===========================================================================
+# T-xx: Search & Query — Phase 14 (E-56 through E-60)
+# ===========================================================================
+
+
+class TestSearchQuery:
+    """T-xx: Integration tests for Search & Query endpoints (Phase 14)."""
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — happy path
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_01_basic_match(self, main_user):
+        """T-SEARCH-01: Search returns matching node; no account_id in results."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"lighthouse_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Search Test 01")
+            assert r.status_code == 201
+            work_id = r.json()["work_id"]
+
+            rn = await ac.post("/nodes", json={
+                "work_id": work_id,
+                "node_type": "part",
+                "tag": "Search Part",
+                "text": f"The {term} beam swept the dark water.",
+                "description": f"A test node for search {suffix}",
+            }, headers=headers)
+            assert rn.status_code == 201
+            node_id = rn.json()["node_id"]
+
+            rs = await ac.get("/nodes/search", params={"query": term}, headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        assert body["count"] >= 1
+        found = any(n["node_id"] == node_id for n in body["results"])
+        assert found, f"Node {node_id} not found in search results"
+        for n in body["results"]:
+            assert "account_id" not in n
+
+    async def test_t_search_02_both_fields(self, main_user):
+        """T-SEARCH-02: Match in description or text — both returned."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"keystone_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Search Test 02")
+            assert r.status_code == 201
+            work_id = r.json()["work_id"]
+
+            r1 = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "Desc Match",
+                "description": f"The {term} in the description field",
+            }, headers=headers)
+            assert r1.status_code == 201
+            node_desc_id = r1.json()["node_id"]
+
+            r2 = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "Text Match",
+                "text": f"The {term} in the text field",
+            }, headers=headers)
+            assert r2.status_code == 201
+            node_text_id = r2.json()["node_id"]
+
+            rs = await ac.get("/nodes/search", params={"query": term}, headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        result_ids = {n["node_id"] for n in body["results"]}
+        assert node_desc_id in result_ids, "Description-match node missing"
+        assert node_text_id in result_ids, "Text-match node missing"
+
+    async def test_t_search_03_textscore_order(self, main_user):
+        """T-SEARCH-03: Multiple matches return both (textScore ordering via MongoDB)."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"seastone_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Search Test 03")
+            assert r.status_code == 201
+            work_id = r.json()["work_id"]
+
+            repeated = " ".join([term] * 5)
+            r1 = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "High Score",
+                "text": repeated,
+            }, headers=headers)
+            assert r1.status_code == 201
+            node_a = r1.json()["node_id"]
+
+            r2 = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "Low Score",
+                "text": f"the {term} was visible",
+            }, headers=headers)
+            assert r2.status_code == 201
+            node_b = r2.json()["node_id"]
+
+            rs = await ac.get("/nodes/search", params={"query": term}, headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        result_ids = {n["node_id"] for n in body["results"]}
+        assert node_a in result_ids
+        assert node_b in result_ids
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — no match / empty / validation
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_04_no_match(self, main_user):
+        """T-SEARCH-04: No matching nodes returns 200 with empty results."""
+        headers, _ = main_user
+        unique = os.urandom(8).hex()
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": f"zzz_nonexistent_{unique}"}, headers=headers)
+        assert rs.status_code == 200
+        assert rs.json() == {"results": [], "count": 0}
+
+    async def test_t_search_05_empty_query(self, main_user):
+        """T-SEARCH-05: Empty query returns 422."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": ""}, headers=headers)
+        assert rs.status_code == 422
+
+    async def test_t_search_06_work_id_filter(self, main_user):
+        """T-SEARCH-06: search with work_id returns only that work's nodes."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"sharedterm_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r1 = await _create_work(ac, headers, title="Search Work A")
+            assert r1.status_code == 201
+            wid_a = r1.json()["work_id"]
+
+            r2 = await _create_work(ac, headers, title="Search Work B")
+            assert r2.status_code == 201
+            wid_b = r2.json()["work_id"]
+
+            rn1 = await ac.post("/nodes", json={
+                "work_id": wid_a, "node_type": "part", "tag": "A",
+                "text": f"unique {term} in work A",
+            }, headers=headers)
+            assert rn1.status_code == 201
+            nid_a = rn1.json()["node_id"]
+
+            rn2 = await ac.post("/nodes", json={
+                "work_id": wid_b, "node_type": "part", "tag": "B",
+                "text": f"unique {term} in work B",
+            }, headers=headers)
+            assert rn2.status_code == 201
+
+            # Search scoped to work A
+            rs = await ac.get("/nodes/search", params={"query": term, "work_id": wid_a}, headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        result_ids = {n["node_id"] for n in body["results"]}
+        assert nid_a in result_ids, "Work A node should appear"
+        assert all(n["work_id"] == wid_a for n in body["results"]), "All results must belong to work A"
+
+    async def test_t_search_07_node_type_filter(self, main_user):
+        """T-SEARCH-07: search with node_type returns only that type."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"typedterm_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers, title="Search Type Test")
+            assert r.status_code == 201
+            work_id = r.json()["work_id"]
+
+            r_part = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "Part One",
+                "text": f"the {term} is found here",
+            }, headers=headers)
+            assert r_part.status_code == 201
+            part_id = r_part.json()["node_id"]
+
+            r_ch = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "chapter", "tag": "Chapter 1",
+                "parent_id": part_id,
+            }, headers=headers)
+            assert r_ch.status_code == 201
+            ch_id = r_ch.json()["node_id"]
+
+            r_scene = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "scene", "tag": "Scene 1",
+                "parent_id": ch_id,
+                "text": f"also the {term} appears",
+            }, headers=headers)
+            assert r_scene.status_code == 201
+            scene_id = r_scene.json()["node_id"]
+
+            rs = await ac.get("/nodes/search", params={"query": term, "node_type": "scene"}, headers=headers)
+        assert rs.status_code == 200
+        body = rs.json()
+        assert body["count"] >= 1
+        assert all(n["node_type"] == "scene" for n in body["results"])
+
+    async def test_t_search_08_invalid_node_type(self, main_user):
+        """T-SEARCH-08: Invalid node_type returns 422."""
+        headers, _ = main_user
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": "test", "node_type": "invalid"}, headers=headers)
+        assert rs.status_code == 422
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — isolation
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_09_isolation(self, main_user, iso_user):
+        """T-SEARCH-09: User B does not see User A's matching node (200, count=0)."""
+        headers_a, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"isolated_{suffix}"
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            r = await _create_work(ac, headers_a, title="Isolation Work")
+            assert r.status_code == 201
+            work_id = r.json()["work_id"]
+
+            rn = await ac.post("/nodes", json={
+                "work_id": work_id, "node_type": "part", "tag": "Secret",
+                "text": f"this contains the {term}",
+            }, headers=headers_a)
+            assert rn.status_code == 201
+
+            # User B searches for the same term — no own data → empty results
+            rs = await ac.get("/nodes/search", params={"query": term}, headers=iso_user)
+        assert rs.status_code == 200
+        assert rs.json() == {"results": [], "count": 0}
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — auth and scope
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_10_no_auth(self):
+        """T-SEARCH-10: No auth returns 401."""
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": "test"})
+        assert rs.status_code == 401
+
+    async def test_t_search_11_reader_scope(self, scoped_user):
+        """T-SEARCH-11: Missing tree:reader scope returns 403."""
+        s_headers, scope = scoped_user
+        if "tree:reader" in scope:
+            pytest.skip("token has tree:reader scope")
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": "test"}, headers=s_headers)
+        assert rs.status_code == 403
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — DB error → 503
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_12_db_error_503(self, main_user):
+        """T-SEARCH-12: ConnectionFailure from search_nodes → 503."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        term = f"dberror_{suffix}"
+        with patch.object(
+            database.SearchStorage,
+            "search_nodes",
+            new=AsyncMock(side_effect=ConnectionFailure("simulated")),
+        ):
+            async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+                rs = await ac.get("/nodes/search", params={"query": term}, headers=headers)
+        assert rs.status_code == 503
+        assert rs.json() == {"detail": "Database error"}
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — blacklisted token
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_13_blacklisted_token(self, main_user):
+        """T-SEARCH-13: Blacklisted token returns 401."""
+        headers, _ = main_user
+        suffix = os.urandom(4).hex()
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            await ac.get("/logout", headers=headers)
+            rs = await ac.get("/nodes/search", params={"query": f"test_{suffix}"}, headers=headers)
+        assert rs.status_code == 401
+
+    # -----------------------------------------------------------------------
+    # Search endpoint — input validation
+    # -----------------------------------------------------------------------
+
+    async def test_t_search_14_query_too_long(self, main_user):
+        """T-SEARCH-14: Query > 200 chars returns 422."""
+        headers, _ = main_user
+        long_query = "x" * 201
+        async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
+            rs = await ac.get("/nodes/search", params={"query": long_query}, headers=headers)
+        assert rs.status_code == 422

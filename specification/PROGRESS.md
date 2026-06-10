@@ -197,6 +197,7 @@
 | E-58 | Add `SearchStorage` class: `search_nodes()`, `find_nodes_by_tags()` | ✅ | 30 min | `$text` search with `textScore`; tag query with `$in`/`$all`; both account-scoped |
 | E-59 | Add `GET /nodes/search` endpoint — full-text search over description/text | ✅ | 20 min | `query` (required), `work_id`, `node_type`, `limit` params; strips transient `score` field |
 | E-60 | Add `GET /nodes/by-tag` endpoint — tag-based query with `match=any/all` | ✅ | 20 min | `tags` (required, repeated), `match`, `work_id`, `node_type` params |
+| T-56 | Integration tests — search endpoint (14 test methods, 18 collected) | ✅ | 2h | `TestSearchQuery` class: basic match, both fields, textScore order, no match, empty query, work_id filter, node_type filter, invalid type, isolation, no auth, scope, DB error 503, blacklisted token, query too long |
 
 ---
 
@@ -242,7 +243,7 @@
 | Enhancement tasks (E-56–E-87) | 32 | 32 |
 | Bug items tracked (B-01–B-18) | 12 | 18 |
 | Unit tests | 46 | 46 |
-| Integration tests | 157 | 168 |
+| Integration tests | 175 | 186 |
 | SPEC.md acceptance criteria | 11 | 11 |
 
 
@@ -535,7 +536,24 @@
 - Committed as `28e2db1 fix for missing timezone module`
 - Verified: 46 unit tests pass, 0 failures
 
-**Branch:** `refactor/normalised-node-model`  
+**Branch:** `refactor/normalised-node-model`
+
+---
+
+### 2026-06-10 — Search endpoint integration tests (Phase 14, T-56)
+
+**Done:**
+- Wrote `TestSearchQuery` class in `test_integration_normalised.py` — 14 test methods (18 collected) for `GET /nodes/search`
+- Covers: basic match, both-fields search, textScore ordering, no match, empty query validation, work_id filter, node_type filter, invalid node_type, account isolation, no auth, scope enforcement (5-param scoped, 1 skip), DB error 503, blacklisted token, query-too-long 422
+- All node creations use `node_type: "part"` (no parent needed) — avoids hierarchy violations
+- Verified: 190/190 integration tests pass (178 passed, 12 scope-skipped) — 0 regressions
+
+**PROGRESS.md changes:**
+- T-56 added to Phase 14 table (✅, 2h)
+- Running Totals: Integration tests 157/168 → 175/186
+- Session entry added
+
+**Branch:** `refactor/normalised-node-model`
 **Status: 78/78 tasks complete — ready to merge to `main`**
 
 ---
