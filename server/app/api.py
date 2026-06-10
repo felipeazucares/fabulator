@@ -1170,7 +1170,7 @@ async def login_for_access_token(
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # creates a token for a given user with an expiry in minutes
     access_token = oauth.create_access_token(
-        data={"sub": user.account_id, "scopes": form_data.scopes},
+        data={"sub": user.account_id, "scopes": re.split(r"[, ]+", user.user_role)},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
