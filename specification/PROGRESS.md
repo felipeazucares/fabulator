@@ -439,6 +439,23 @@ Review scope: `demo-seed/feature.md` vs implemented code (`database.py`, `api.py
 
 ---
 
+### 2026-06-10 — Phase 19: Atlas collMod permission crash fixed
+
+**Done:**
+- Diagnosed startup crash: `setup_collections()` calls `collMod` to refresh JSON Schema validators on existing collections; `collMod` requires `dbAdmin` role but the Atlas user only has `readWrite`
+- T-79: In the `collMod` branch (`else` block in `setup_collections`), catch `OperationFailure` with codes `8000` (AtlasError) or `13` (Unauthorized), log a warning, and continue startup instead of crashing. Other `OperationFailure` errors still propagate.
+- T-80: Same guard on the `create_collection` branch — if creating a new collection with a validator fails on permissions, retry without the validator rather than crashing. Hard failure on the retry still propagates.
+- T-81: Verified fix — started uvicorn against live Atlas + Redis; two `[WARNING]` lines emitted (one per collection), `Application startup complete`, `GET /health` → `{"status":"ok"}`, `GET /metrics` → uptime/pool/request counts all correct.
+- T-82: PROGRESS.md updated with fix details and task status.
+- Committed as `a77857b Fix startup crash when Atlas user lacks dbAdmin for collMod`
+- 46 unit tests pass, 0 failures
+
+**Note:** Pydantic models enforce the same schema constraints at the API layer, so losing server-side MongoDB validation is not a functional regression.
+
+**Branch:** `refactor/normalised-node-model`
+
+---
+
 ### 2026-06-09 (Session 3) — P-02: Health & Metrics endpoints
 
 **Done:**
@@ -527,3 +544,43 @@ ERROR: NameError: name 'timezone' is not defined
 |---|------|--------|
 | T-77 | Fix `timezone` import in `api.py` | ✅ |
 | T-78 | Fix `timezone` import in `authentication.py` (preventive) | ✅ |
+
+## Phase 19 — Atlas `collMod` Permission Crash
+
+**Discovered:** 2026-06-10  
+**Severity:** Critical — app crashes on every startup after first run  
+**Branch:** `refactor/normalised-node-model`
+
+### Root Cause
+
+`setup_collections()` runs on every lifespan startup. When collections already exist it calls `db.command("collMod", name, validator=validator)` to refresh the JSON Schema validator. `collMod` is a database administration command requiring the `dbAdmin` role — the Atlas `readWrite` role covers all data-plane operations but not schema admin. This raises `OperationFailure` (code `8000 AtlasError`) and crashes the app before it can accept requests.
+
+### Fix
+
+- **T-79 (`collMod` branch):** Catch `OperationFailure` with code `8000` or `13` (standard MongoDB Unauthorized), log a warning, and continue. Other `OperationFailure` errors still propagate.
+- **T-80 (`create_collection` branch, preventive):** If creating a new collection with a validator fails on permissions, retry without the validator rather than crashing. Hard failure on the retry still propagates.
+
+Pydantic models enforce the same schema constraints at the API layer, so losing server-side MongoDB validation is not a functional regression.
+
+### Verification
+
+Started uvicorn against live Atlas + Redis. Both `collMod` calls emitted `[WARNING]` lines and startup completed cleanly:
+
+```
+[WARNING] database: Skipping validator update for work_collection: Atlas user lacks dbAdmin (collMod requires dbAdmin). Pydantic enforces schema at the API layer.
+[WARNING] database: Skipping validator update for node_collection: Atlas user lacks dbAdmin ...
+INFO:     Application startup complete.
+```
+
+`GET /health` → `{"status":"ok","database":"connected","cache":"connected"}` 200  
+`GET /metrics` → uptime/pool/request counts all correct  
+46 unit tests pass, 0 failures.
+
+### Task Status
+
+| # | Task | Status |
+|---|------|--------|
+| T-79 | Graceful `collMod` permission handling in `setup_collections` | ✅ |
+| T-80 | Graceful `create_collection` permission handling (preventive) | ✅ |
+| T-81 | Verify fix against live Atlas + Redis | ✅ |
+| T-82 | Update PROGRESS.md | ✅ |
