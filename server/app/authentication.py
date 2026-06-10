@@ -3,7 +3,7 @@
 import os
 from time import tzname
 from zoneinfo import ZoneInfo
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from jose import jwt
 from passlib.context import CryptContext
 from .models import TokenData

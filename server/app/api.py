@@ -10,7 +10,7 @@ import motor.motor_asyncio
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from zoneinfo import ZoneInfo
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from jose import JWTError, jwt
 import pymongo.errors
 import pymongo.monitoring
