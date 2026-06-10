@@ -98,6 +98,13 @@ Examples:
 - `Add rate limiting to login endpoint`
 - `Update dependencies to latest versions (2024/2025)`
 
+## Work tracking boundary
+- PROGRESS.md and the specs are the planned forward roadmap.
+- GitHub Issues are the reactive backlog: bugs and enhancements only.
+- An enhancement is only worked once it has graduated into a FEATURE.md / PROGRESS.md entry; reference the issue number there.
+- Bugs are fixed against their existing feature and closed directly.
+- The agent may draft and create issues, but only a human closes an issue.
+
 ## Part I — Architectural Invariants
 
 These rules define what Fabulator fundamentally *is*. They MUST NOT be changed without a full architectural review.
