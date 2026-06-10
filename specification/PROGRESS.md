@@ -426,6 +426,19 @@ Review scope: `demo-seed/feature.md` vs implemented code (`database.py`, `api.py
 
 ---
 
+### 2026-06-10 — Phase 18 fix applied; all 78 tasks complete
+
+**Done:**
+- Applied T-77: added `timezone` to `from datetime import` in `api.py:13`
+- Applied T-78: added `timezone` to `from datetime import` in `authentication.py:6` (preventive)
+- Committed as `28e2db1 fix for missing timezone module`
+- Verified: 46 unit tests pass, 0 failures
+
+**Branch:** `refactor/normalised-node-model`  
+**Status: 78/78 tasks complete — ready to merge to `main`**
+
+---
+
 ### 2026-06-09 (Session 3) — P-02: Health & Metrics endpoints
 
 **Done:**
@@ -512,5 +525,5 @@ ERROR: NameError: name 'timezone' is not defined
 
 | # | Task | Status |
 |---|------|--------|
-| T-77 | Fix `timezone` import in `api.py` | ⬜ |
-| T-78 | Fix `timezone` import in `authentication.py` (preventive) | ⬜ |
+| T-77 | Fix `timezone` import in `api.py` | ✅ |
+| T-78 | Fix `timezone` import in `authentication.py` (preventive) | ✅ |

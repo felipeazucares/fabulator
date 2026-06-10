@@ -391,16 +391,33 @@ async def setup_collections(db) -> None:
             try:
                 await db.create_collection(name, validator=validator)
                 logger.debug(f"Created collection: {name}")
-            except OperationFailure:
-                logger.error(f"Failed to create collection {name}", exc_info=True)
-                raise
+            except OperationFailure as e:
+                if e.code in (8000, 13):
+                    try:
+                        await db.create_collection(name)
+                        logger.warning(
+                            f"Created {name} without validator: Atlas user lacks dbAdmin "
+                            f"(collMod requires dbAdmin). Pydantic enforces schema at the API layer."
+                        )
+                    except OperationFailure:
+                        logger.error(f"Failed to create collection {name}", exc_info=True)
+                        raise
+                else:
+                    logger.error(f"Failed to create collection {name}", exc_info=True)
+                    raise
         else:
             try:
                 await db.command("collMod", name, validator=validator)
                 logger.debug(f"Updated validator for existing collection: {name}")
-            except OperationFailure:
-                logger.error(f"Failed to update validator for {name}", exc_info=True)
-                raise
+            except OperationFailure as e:
+                if e.code in (8000, 13):
+                    logger.warning(
+                        f"Skipping validator update for {name}: Atlas user lacks dbAdmin "
+                        f"(collMod requires dbAdmin). Pydantic enforces schema at the API layer."
+                    )
+                else:
+                    logger.error(f"Failed to update validator for {name}", exc_info=True)
+                    raise
 
     work_col = db.get_collection("work_collection")
     await work_col.create_index([("work_id", 1)], unique=True)
