@@ -141,10 +141,6 @@ class _PoolEventLogger(pymongo.monitoring.ConnectionPoolListener):
         )
 
 
-if DEBUG:
-    pymongo.monitoring.register(_PoolEventLogger())
-
-
 # ------------------------
 #      FABULATOR
 # ------------------------
@@ -162,6 +158,8 @@ oauth = Authentication()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if DEBUG:
+        pymongo.monitoring.register(_PoolEventLogger())
     motor_client = motor.motor_asyncio.AsyncIOMotorClient(
         MONGO_DETAILS,
         maxPoolSize=MONGO_MAX_POOL_SIZE,
