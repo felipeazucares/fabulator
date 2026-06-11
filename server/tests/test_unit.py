@@ -250,13 +250,13 @@ class TestDemoSeedResponse:
         response = DemoSeedResponse(
             work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
             title="Demo: The Lighthouse at the End of the World",
-            total_nodes=11,
-            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+            total_nodes=13,
+            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 6}
         )
         assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         assert response.title == "Demo: The Lighthouse at the End of the World"
-        assert response.total_nodes == 11
-        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 4}
+        assert response.total_nodes == 13
+        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 6}
 
 
 class TestBuildDemoTree:
@@ -268,7 +268,7 @@ class TestBuildDemoTree:
         
         assert isinstance(work_data, CreateWorkRequest)
         assert isinstance(node_list, list)
-        assert len(node_list) > 0
+        assert len(node_list) == 13
         
         first_node = node_list[0]
         assert hasattr(first_node, "work_id")

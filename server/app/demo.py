@@ -41,6 +41,9 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
     b3_id = str(uuid.uuid4())
     b4_id = str(uuid.uuid4())
 
+    b5_id = str(uuid.uuid4())
+    b6_id = str(uuid.uuid4())
+
     # Define the tree structure with sibling groups
     # Each group is a list of (node_type, tag, description, text, child_group) tuples
     tree_structure = [
@@ -144,7 +147,28 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
                             "description": "Thomas discovers the message content",
                             "text": "The message read: 'Help needed. Lighthouse keeper. Signal 1234.' Thomas realized someone was in trouble.",
                             "tags": ["message", "help"],
-                            "children": []
+                            "children": [
+                                {
+                                    "node_id": b5_id,
+                                    "node_type": NodeType.beat,
+                                    "parent_id": s3_id,
+                                    "tag": "The Decision",
+                                    "description": "Thomas decides to follow the signal coordinates",
+                                    "text": "Armed with the message and his knowledge of the waters, Thomas prepared his boat for a journey into the storm.",
+                                    "tags": ["decision", "journey"],
+                                    "children": []
+                                },
+                                {
+                                    "node_id": b6_id,
+                                    "node_type": NodeType.beat,
+                                    "parent_id": s3_id,
+                                    "tag": "The Storm",
+                                    "description": "Thomas faces a sudden storm during the investigation",
+                                    "text": "A fierce storm rolled in as Thomas set out, making it difficult for him to see and navigate. But he pressed on, driven by the urgent message.",
+                                    "tags": ["storm", "courage"],
+                                    "children": []
+                                }
+                            ]
                         },
                         {
                             "node_id": s4_id,

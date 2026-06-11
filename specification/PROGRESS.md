@@ -265,12 +265,13 @@
 
 ### Remaining Open Tasks
 
-| # | Task | Priority | GitHub | Prerequisite |
-|---|------|----------|--------|-------------|
-| E-84 | Fix B-05: replace `**node_data` with `**node_data.model_dump()` in `_seed_with_compensating_cleanup` | High | #27 | — |
+| # | Task | Priority | GitHub | Status |
+|---|------|----------|--------|--------|
 | E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | #26 | — |
 | E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | — |
 | E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — |
+
+**Note:** E-84 (Fix B-05, `**node_data` Pydantic v2 unpack) removed — already fixed in commit `84f3414`, closed via GitHub issue #27.
 
 
 ---
@@ -340,10 +341,10 @@
 ### B-05 — `**node_data` unpack on Pydantic v2 model in compensating cleanup
 
 **Severity:** High — fallback code path silently broken  
-**Status:** ⬜ Open  
-**File:** `database.py:1445`  
-**GitHub:** #27  
-**Detail:** Pydantic v2 `BaseModel` has no `keys()` method so `**model` raises `TypeError`; entire fallback path crashes  
+**Status:** ✅ Fixed (commit `84f3414`, 2026-06-10)  
+**File:** `database.py:1409, 1452`  
+**GitHub:** #27 (closed)  
+**Detail:** Fixed in commit `84f3414` — bare `**node_data` replaced with `**node_data.model_dump()` at both locations; issue closed as already-fixed (no new code change needed)  
 
 ---
 
