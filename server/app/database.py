@@ -565,13 +565,14 @@ class WorkStorage:
         return result.modified_count
 
     async def delete_work(
-        self, work_id: str, account_id: str
+        self, work_id: str, account_id: str, session=None
     ) -> tuple[bool, int]:
         """Delete a Work and all its nodes. Returns (found, nodes_deleted)."""
         logger.debug(f"delete_work({work_id}) called")
         try:
             work_result = await self.work_collection.delete_one(
-                {"work_id": work_id, "account_id": account_id}
+                {"work_id": work_id, "account_id": account_id},
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred deleting work {work_id}", exc_info=True)
@@ -580,7 +581,8 @@ class WorkStorage:
             return False, 0
         try:
             node_result = await self.node_collection.delete_many(
-                {"work_id": work_id, "account_id": account_id}
+                {"work_id": work_id, "account_id": account_id},
+                session=session,
             )
         except (ConnectionFailure, OperationFailure):
             logger.error(
@@ -1334,10 +1336,6 @@ class DemoStorage:
         node_storage: NodeStorage | None = None,
     ):
         self.client = client
-        self.database = self.client.fabulator
-        self.work_collection = self.database.get_collection("work_collection")
-        self.node_collection = self.database.get_collection("node_collection")
-        # Use provided storage instances or create defaults (for non-DI usage)
         self._work_storage = work_storage or WorkStorage(client)
         self._node_storage = node_storage or NodeStorage(client)
 
@@ -1356,33 +1354,34 @@ class DemoStorage:
         """
         logger.debug(f"delete_demo_works({account_id}) called")
         try:
-            # Find all demo works — pass session so the find is inside the transaction snapshot
-            demo_works = await self.work_collection.find(
-                {"account_id": account_id, "tags": {"$in": ["demo"]}},
-                {"work_id": 1},
-                session=session,
-            ).to_list(None)
-            
-            work_ids = [work["work_id"] for work in demo_works]
-            
-            if not work_ids:
+            # Find all demo works via list_works + Python tag filter
+            demo_works: list[dict] = []
+            cursor: str | None = None
+            while True:
+                works, next_cursor = await self._work_storage.list_works(
+                    account_id, limit=200, cursor=cursor
+                )
+                for w in works:
+                    if "demo" in w.get("tags", []):
+                        demo_works.append(w)
+                if next_cursor is None:
+                    break
+                cursor = next_cursor
+
+            if not demo_works:
                 return 0
-                
-            # Delete all nodes for these works
-            await self.node_collection.delete_many(
-                {"work_id": {"$in": work_ids}, "account_id": account_id},
-                session=session
-            )
-            
-            # Delete the works themselves
-            result = await self.work_collection.delete_many(
-                {"work_id": {"$in": work_ids}, "account_id": account_id},
-                session=session
-            )
-            
-            return result.deleted_count
-            
-        except (ConnectionFailure, OperationFailure) as e:
+
+            deleted = 0
+            for w in demo_works:
+                found, _ = await self._work_storage.delete_work(
+                    w["work_id"], account_id, session=session
+                )
+                if found:
+                    deleted += 1
+
+            return deleted
+
+        except (ConnectionFailure, OperationFailure):
             logger.error(f"Exception occurred deleting demo works for account {account_id}", exc_info=True)
             raise
 
@@ -1520,10 +1519,5 @@ class DemoStorage:
                 "by_type": by_type,
             }
         except Exception:
-            await self.node_collection.delete_many(
-                {"work_id": work_doc["work_id"], "account_id": account_id}
-            )
-            await self.work_collection.delete_one(
-                {"work_id": work_doc["work_id"], "account_id": account_id}
-            )
+            await self._work_storage.delete_work(work_doc["work_id"], account_id)
             raise
