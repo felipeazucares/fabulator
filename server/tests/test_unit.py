@@ -250,13 +250,13 @@ class TestDemoSeedResponse:
         response = DemoSeedResponse(
             work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
             title="Demo: The Lighthouse at the End of the World",
-            total_nodes=13,
-            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 6}
+            total_nodes=15,
+            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 8}
         )
         assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         assert response.title == "Demo: The Lighthouse at the End of the World"
-        assert response.total_nodes == 13
-        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 6}
+        assert response.total_nodes == 15
+        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 8}
 
 
 class TestBuildDemoTree:
@@ -268,7 +268,7 @@ class TestBuildDemoTree:
         
         assert isinstance(work_data, CreateWorkRequest)
         assert isinstance(node_list, list)
-        assert len(node_list) == 13
+        assert len(node_list) == 15
         
         first_node = node_list[0]
         assert hasattr(first_node, "work_id")
@@ -288,7 +288,7 @@ class TestBuildDemoTree:
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
-        assert len(node_list) == 11
+        assert len(node_list) == 15
         
         by_type = {}
         for node in node_list:
@@ -298,7 +298,7 @@ class TestBuildDemoTree:
         assert by_type["part"] == 1
         assert by_type["chapter"] == 2
         assert by_type["scene"] == 4
-        assert by_type["beat"] == 4
+        assert by_type["beat"] == 8
 
     def test_build_demo_tree_parent_references_valid(self):
         """Test that every parent_id references an existing node in the tree"""
@@ -472,7 +472,7 @@ class TestBuildDemoTree:
                 beats = children_map.get(node.node_id, [])
                 assert all(n.node_type == NodeType.beat for n in beats)
                 beat_count += len(beats)
-        assert beat_count == 4
+        assert beat_count == 8
 
 
 # ---------------------------------------------------------------------------

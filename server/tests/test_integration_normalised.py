@@ -1568,12 +1568,12 @@ class TestDemoSeed:
         assert "work_id" in body
         assert re.match(UUID_PATTERN, body["work_id"])
         assert body["title"] == "Demo: The Lighthouse at the End of the World"
-        assert body["total_nodes"] == 11
+        assert body["total_nodes"] == 15
         assert sum(body["by_type"].values()) == body["total_nodes"]
         assert body["by_type"]["part"] == 1
         assert body["by_type"]["chapter"] == 2
         assert body["by_type"]["scene"] == 4
-        assert body["by_type"]["beat"] == 4
+        assert body["by_type"]["beat"] == 8
         assert "account_id" not in body
 
     # -----------------------------------------------------------------------
@@ -1598,7 +1598,7 @@ class TestDemoSeed:
             rn = await ac.get(f"/works/{work_id}/nodes", headers=headers)
         assert rn.status_code == 200
         nodes = rn.json()["results"]
-        assert len(nodes) == 11
+        assert len(nodes) == 15
         for node in nodes:
             assert node.get("author") == username
 

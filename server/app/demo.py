@@ -43,6 +43,8 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
 
     b5_id = str(uuid.uuid4())
     b6_id = str(uuid.uuid4())
+    b7_id = str(uuid.uuid4())
+    b8_id = str(uuid.uuid4())
 
     # Define the tree structure with sibling groups
     # Each group is a list of (node_type, tag, description, text, child_group) tuples
@@ -178,7 +180,28 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
                             "description": "Thomas attempts to rescue the signal sender",
                             "text": "Thomas decided to act on the message. He organized a search party and set out to find who needed help.",
                             "tags": ["rescue", "action"],
-                            "children": []
+                            "children": [
+                                {
+                                    "node_id": b7_id,
+                                    "node_type": NodeType.beat,
+                                    "parent_id": s4_id,
+                                    "tag": "The Departure",
+                                    "description": "Thomas and the search party set out",
+                                    "text": "With the coordinates from the message, Thomas led the search party into the treacherous waters, hoping they would reach the stranded person in time.",
+                                    "tags": ["departure", "search"],
+                                    "children": []
+                                },
+                                {
+                                    "node_id": b8_id,
+                                    "node_type": NodeType.beat,
+                                    "parent_id": s4_id,
+                                    "tag": "The Discovery",
+                                    "description": "Thomas finds the signal sender",
+                                    "text": "After hours of navigating through the storm, Thomas spotted a small raft with a lone figure waving frantically in the fading light.",
+                                    "tags": ["discovery", "rescue"],
+                                    "children": []
+                                }
+                            ]
                         }
                     ]
                 }
