@@ -1,6 +1,6 @@
 ---
 name: spec-reader
-description: Reads and summarises Fabulator specification documents. Use when you need to load context from CONSTITUTION.md, SPEC.md, TEST_SPEC.md, DESIGN.md, or PROGRESS.md before beginning implementation work. Invoke multiple instances in parallel to load all specs simultaneously.
+description: Reads and summarises Fabulator specification documents. Use when you need to load context from CONSTITUTION.md, DESIGN.md, and/or PROGRESS.md before beginning implementation work. Invoke multiple instances in parallel to load all specs simultaneously.
 tools: Read
 model: claude-sonnet-4-5
 ---
@@ -16,7 +16,7 @@ You MUST NOT edit any files. You MUST NOT write any code. Read only.
 
 Documents you may be asked to read:
 - specification/CONSTITUTION.md — architectural rules and invariants
-- specification/SPEC.md — EARS behavioural requirements
-- specification/TEST_SPEC.md — test cases mapped to spec requirements
+- specification/DESIGN.md — EARS behavioural requirements
 - specification/DESIGN.md — system architecture and design decisions
 - specification/PROGRESS.md — current implementation status and next steps
+- specificarion/{feature name}/{feature name}-feature.md - status of current features
