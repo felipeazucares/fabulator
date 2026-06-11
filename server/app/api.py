@@ -178,7 +178,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-version = "0.1.0"
+version = "1.0"
 
 _cors_origins_raw = os.getenv("CORS_ORIGINS", "")
 if not _cors_origins_raw.strip():

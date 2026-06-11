@@ -1,6 +1,6 @@
 # Feature Specification: Work Reading Order (Tier 3)
  
-**Implementation status:** NOT STARTED — Tier 3 (addition to Search & Query). Blocked until Tier 2 (navigation) is verified complete per the CONSTITUTION roadmap. This document is authoritative for implementation, test authoring, and review.
+**Implementation status:** COMPLETED ✅ — Merged to `main` 2026-06-11. Endpoint live at `GET /works/{work_id}/nodes/ordered`, tagged `["Search"]`.
  
 ## Introduction
  
