@@ -254,7 +254,7 @@
 | Category | Done | Total |
 |----------|------|-------|
 | Enhancement tasks (E-56–E-90) | 35 | 35 |
-| Bug items tracked (B-01–B-18) | 12 | 18 |
+| Bug items tracked (B-01–B-18) | 13 | 18 |
 | Unit tests | 52 | 52 |
 | Integration tests | 188 | 204 |
 | SPEC.md acceptance criteria | 11 | 11 |
@@ -435,10 +435,10 @@
 ### B-15 — `_PLACEHOLDER_WORK_ID` module-level UUID in `demo.py`
 
 **Severity:** Low — misleading in code review  
-**Status:** ⬜ Open  
-**File:** `demo.py:8`  
+**Status:** ✅ Fixed (PR fix/placeholder-work-id, 2026-06-11)  
+**File:** `demo.py:7`  
 **GitHub:** #28  
-**Detail:** Generated once at import time; all `CreateNodeRequest` objects carry same stale `work_id` (overwritten in transaction path)  
+**Detail:** Replaced `str(uuid.uuid4())` with `"__placeholder_work_id__"` sentinel string to clearly signal this is a temporary stub value  
 
 ---
 
