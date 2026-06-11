@@ -1427,10 +1427,6 @@ async def seed_demo(
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error("Database error in seed_demo", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
-    except Exception as e:
-        # Log the exception but return a generic error message to avoid leaking information
-        logger.error(f"Unexpected error in seed_demo: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=503, detail="Database error")
     
     return result
 
