@@ -415,18 +415,18 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 
 | # | Task | File(s) | Status | Est | GitHub | Notes |
 |---|------|---------|--------|-----|--------|-------|
-| E-101 | Remove `beat` from `NodeType` enum | `models.py` | ⬜ | XS | TBC | Do first |
-| E-102 | Replace `_VALID_CHILD` with `_VALID_CHILDREN` | `database.py` | ⬜ | S | TBC | Depends E-101 |
-| E-103 | Update MongoDB JSON Schema validator | `database.py` | ⬜ | XS | TBC | |
-| E-104 | Remove Beat guard; add Scene deep-dup guard | `api.py`, `database.py` | ⬜ | S | TBC | |
-| E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ⬜ | S | TBC | |
-| E-106 | Update hierarchy validation error messages | `api.py` | ⬜ | S | TBC | |
-| E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ⬜ | XS | TBC | Do last |
-| E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ⬜ | M | TBC | Closes #31 |
-| E-109 | Update unit tests | `test_unit.py` | ⬜ | M | TBC | After E-108 |
-| E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | TBC | After E-108 |
-| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | TBC | After E-108 |
-| E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | TBC | |
+| E-101 | Remove `beat` from `NodeType` enum | `models.py` | ⬜ | XS | #41 | Do first |
+| E-102 | Replace `_VALID_CHILD` with `_VALID_CHILDREN` | `database.py` | ⬜ | S | #42 | Depends E-101 |
+| E-103 | Update MongoDB JSON Schema validator | `database.py` | ⬜ | XS | #43 | |
+| E-104 | Remove Beat guard; add Scene deep-dup guard | `api.py`, `database.py` | ⬜ | S | #44 | |
+| E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ⬜ | S | #45 | |
+| E-106 | Update hierarchy validation error messages | `api.py` | ⬜ | S | #46 | |
+| E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ⬜ | XS | #47 | Do last |
+| E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ⬜ | M | #48 | Closes #31 |
+| E-109 | Update unit tests | `test_unit.py` | ⬜ | M | #49 | After E-108 |
+| E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | #50 | After E-108 |
+| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | #51 | After E-108 |
+| E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | #52 | |
 
 **Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests) → E-107 (doc verification)
 
@@ -952,6 +952,25 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 
 **PROGRESS.md changes:**
 - None — this session had no PROGRESS.md task status changes; all Phase 20 tasks already ✅
+
+**Branch:** `main`
+
+---
+
+### 2026-06-12 — Phase 21 GitHub issues created (#41–#52)
+
+**Done:**
+- Created `refactor`, `docs`, `test` labels on GitHub
+- Created 12 GitHub issues for Phase 21 tasks E-101 through E-112 (#41–#52)
+- Updated PROGRESS.md Phase 21 summary table: `TBC` → `#41`–`#52` in GitHub column
+
+**Not done (no code changes):**
+- Code implementation for E-101 through E-112 — not started (⬜ all)
+- Issue #25 (`by_type` fix) remains OPEN on GitHub despite being marked ✅ fixed in PROGRESS.md — may need closing manually
+
+**PROGRESS.md changes:**
+- Phase 21 summary table: GitHub column filled with issue numbers
+- Session entry added
 
 **Branch:** `main`
 
