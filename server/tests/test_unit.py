@@ -250,13 +250,13 @@ class TestDemoSeedResponse:
         response = DemoSeedResponse(
             work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
             title="Demo: The Lighthouse at the End of the World",
-            total_nodes=15,
-            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 8}
+            total_nodes=10,
+            by_type={"part": 2, "chapter": 2, "scene": 6}
         )
         assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         assert response.title == "Demo: The Lighthouse at the End of the World"
-        assert response.total_nodes == 15
-        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 8}
+        assert response.total_nodes == 10
+        assert response.by_type == {"part": 2, "chapter": 2, "scene": 6}
 
 
 class TestBuildDemoTree:
@@ -268,7 +268,7 @@ class TestBuildDemoTree:
         
         assert isinstance(work_data, CreateWorkRequest)
         assert isinstance(node_list, list)
-        assert len(node_list) == 15
+        assert len(node_list) == 10
         
         first_node = node_list[0]
         assert hasattr(first_node, "work_id")
@@ -282,23 +282,23 @@ class TestBuildDemoTree:
         assert hasattr(first_node, "tags")
 
     def test_build_demo_tree_node_counts(self):
-        """Test that build_demo_tree returns exactly 11 nodes with correct type distribution"""
+        """Test that build_demo_tree returns correct node counts by type"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
-        assert len(node_list) == 15
+        assert len(node_list) == 10
         
         by_type = {}
         for node in node_list:
             nt = node.node_type if isinstance(node.node_type, str) else node.node_type.value
             by_type[nt] = by_type.get(nt, 0) + 1
         
-        assert by_type["part"] == 1
+        assert by_type["part"] == 2
         assert by_type["chapter"] == 2
-        assert by_type["scene"] == 4
-        assert by_type["beat"] == 8
+        assert by_type["scene"] == 6
+        assert sum(by_type.values()) == 10
 
     def test_build_demo_tree_parent_references_valid(self):
         """Test that every parent_id references an existing node in the tree"""
@@ -326,15 +326,15 @@ class TestBuildDemoTree:
         # Root group (parent_id=None): 1 part
         assert len(siblings[None]) == 1
         
-        # Chapter group (under Part): 2 chapters
+        # Under Part 1: 3 children (Scene 1, Chapter 1, Chapter 2)
         part_parent_id = siblings[None][0].node_id
-        assert len(siblings[part_parent_id]) == 2
+        assert len(siblings[part_parent_id]) == 3
 
-        # Scene groups: 2 scenes under ch1, 2 scenes under ch2
-        chapter_ids = [n.node_id for n in siblings[part_parent_id]]
-        scene_counts = {ch_id: len(siblings[ch_id]) for ch_id in chapter_ids}
-        assert scene_counts[chapter_ids[0]] == 2
-        assert scene_counts[chapter_ids[1]] == 2
+        # Chapter 1 has 3 children (Part 2, Scene 3, Scene 4)
+        # Chapter 2 has 2 children (Scene 5, Scene 6)
+        chapter_ids = [n.node_id for n in siblings[part_parent_id] if n.node_type.value == 'chapter']
+        assert len(siblings[chapter_ids[0]]) == 3
+        assert len(siblings[chapter_ids[1]]) == 2
 
     def test_build_demo_tree_previous_next_chains_valid(self):
         """Test that previous/next form unbroken linked lists within each sibling group"""
@@ -377,15 +377,17 @@ class TestBuildDemoTree:
             assert set(visited) == {n.node_id for n in group}, "chain does not cover all nodes"
 
     def test_build_demo_tree_root_has_no_parent(self):
-        """Test that the single Part node has parent_id=None"""
+        """Test that the root Part node has parent_id=None"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
         parts = [n for n in node_list if n.node_type == NodeType.part]
-        assert len(parts) == 1
-        assert parts[0].parent_id is None
+        assert len(parts) == 2
+        roots = [p for p in parts if p.parent_id is None]
+        assert len(roots) == 1
+        assert roots[0].parent_id is None
 
     def test_build_demo_tree_author_propagated(self):
         """Test that the author from build_demo_tree matches the input"""
@@ -440,7 +442,7 @@ class TestBuildDemoTree:
             assert len(node.text) > 0
 
     def test_build_demo_tree_hierarchy_depth(self):
-        """Test that the tree has exactly 4 levels: part -> chapter -> scene -> beat"""
+        """Test that the tree respects flexible hierarchy rules (part/chapter/scene)"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
@@ -452,27 +454,31 @@ class TestBuildDemoTree:
             parent_key = node.parent_id
             children_map.setdefault(parent_key, []).append(node)
         
-        # Part (root) -> chapters
-        part = [n for n in node_list if n.node_type == NodeType.part][0]
-        chapters = children_map.get(part.node_id, [])
-        assert all(n.node_type == NodeType.chapter for n in chapters)
+        # Root (parent_id=None) -> exactly 1 part
+        root = [n for n in node_list if n.parent_id is None]
+        assert len(root) == 1
+        assert root[0].node_type == NodeType.part
 
-        # Chapters -> scenes
-        scene_count = 0
-        for ch in chapters:
-            scenes = children_map.get(ch.node_id, [])
-            assert all(n.node_type == NodeType.scene for n in scenes)
-            scene_count += len(scenes)
-        assert scene_count == 4
+        # Part 1 children: scene + chapters (exercises Part->Scene and Part->Chapter)
+        part1_children = children_map.get(root[0].node_id, [])
+        assert any(n.node_type == NodeType.scene for n in part1_children)
+        assert any(n.node_type == NodeType.chapter for n in part1_children)
 
-        # Scenes -> beats
-        beat_count = 0
+        # Chapter 1 children: part + scenes (exercises Chapter->Part and Chapter->Scene)
+        ch1 = [n for n in part1_children if n.tag == 'The Investigation'][0]
+        ch1_children = children_map.get(ch1.node_id, [])
+        assert any(n.node_type == NodeType.part for n in ch1_children)
+        assert any(n.node_type == NodeType.scene for n in ch1_children)
+
+        # Part 2 (nested) children: scene (exercises Part->Scene in nested context)
+        part2 = [n for n in ch1_children if n.node_type == NodeType.part][0]
+        part2_children = children_map.get(part2.node_id, [])
+        assert all(n.node_type == NodeType.scene for n in part2_children)
+
+        # No scene has children
         for node in node_list:
             if node.node_type == NodeType.scene:
-                beats = children_map.get(node.node_id, [])
-                assert all(n.node_type == NodeType.beat for n in beats)
-                beat_count += len(beats)
-        assert beat_count == 8
+                assert node.node_id not in children_map or len(children_map[node.node_id]) == 0
 
 
 # ---------------------------------------------------------------------------
