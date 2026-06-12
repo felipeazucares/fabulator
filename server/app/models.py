@@ -284,7 +284,7 @@ class NodeType(str, Enum):
     part = "part"
     chapter = "chapter"
     scene = "scene"
-
+    beat = "beat"
 
 
 # -----------------------------------------------
@@ -502,7 +502,7 @@ class WorkStatsResponse(BaseModel):
             "example": {
                 "work_id": "d22e5e28-ca11-11eb-b437-f01898e87167",
                 "total_nodes": 12,
-                "by_type": {"part": 2, "chapter": 4, "scene": 6},
+                "by_type": {"part": 2, "chapter": 4, "scene": 4, "beat": 2},
                 "max_depth": 3
             }
         }
@@ -648,7 +648,7 @@ class DemoSeedResponse(BaseModel):
                 "work_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
                 "title": "Demo: The Lighthouse at the End of the World",
                 "total_nodes": 11,
-                "by_type": { "part": 1, "chapter": 2, "scene": 8 }
+                "by_type": { "part": 1, "chapter": 2, "scene": 4, "beat": 4 }
             }
         }
     )
