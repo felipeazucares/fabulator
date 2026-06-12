@@ -32,19 +32,19 @@ This document consolidates all functional requirements, non-functional requireme
 |------|-----------|
 | **Work** | A MongoDB document in `work_collection` representing one narrative project. Top-level container for all Nodes. |
 | **work_id** | UUID4 string. Primary key for a Work. Never MongoDB's `_id`. |
-| **Node** | A MongoDB document in `node_collection` representing one structural unit (Part / Chapter / Scene / Beat). |
+| **Node** | A MongoDB document in `node_collection` representing one structural unit (Part / Chapter / Scene). (DD-11) |
 | **node_id** | UUID4 string. Primary key for a Node. |
 | **account_id** | bcrypt hash of the user's username. Universal tenant partition key. MUST NEVER appear in any API response body. (CONSTITUTION I.4) |
 | **parent_id** | UUID4 foreign key pointing to a node's parent. `null` for root Part nodes. |
-| **node_type** | Enum: `"part"` \| `"chapter"` \| `"scene"` \| `"beat"`. Strict hierarchy enforced at application and DB level. |
+| **node_type** | Enum: `"part"` \| `"chapter"` \| `"scene"`. `"beat"` is not a valid type. Flexible hierarchy enforced at application and DB level. (DD-11) |
 | **position** | Zero-based integer ordering among siblings sharing the same `parent_id`. |
 | **tag** | Display name of a Node. Required, 1–200 chars, whitespace stripped. |
 | **author** | Free-text attribution on a Work. Denormalised onto every child Node at creation; cascaded via `update_many` when updated. (CONSTITUTION I.7) |
-| **hierarchy** | Fixed type chain: `null → part → chapter → scene → beat`. No levels may be skipped. |
-| **_VALID_CHILD** | `{None: "part", "part": "chapter", "chapter": "scene", "scene": "beat", "beat": None}`. Encodes the complete hierarchy. |
-| **is_valid_parent_child(parent_type, child_type)** | Module-level function returning True iff `_VALID_CHILD.get(parent_type) == child_type`. |
+| **hierarchy** | Flexible rules: Part is the only root type; Part and Chapter may contain Part, Chapter, or Scene children; Scene is always a leaf. (DD-11) |
+| **_VALID_CHILDREN** | `{None: {"part"}, "part": {"part", "chapter", "scene"}, "chapter": {"part", "chapter", "scene"}, "scene": set()}`. Encodes the flexible hierarchy. (DD-11) |
+| **is_valid_parent_child(parent_type, child_type)** | Module-level function returning True iff `child_type in _VALID_CHILDREN.get(parent_type, set())`. (DD-11) |
 | **would_create_cycle** | `NodeStorage` async method. Returns True if setting `new_parent_id` as parent of `node_id` would form a cycle. |
-| **Beat guard** | Check preventing duplication of Beat (leaf) nodes. Applied at API layer before any DB call. |
+| **Scene guard** | Check preventing duplication of Scene (leaf) nodes when they have no children. Applied at API layer before any DB call. (DD-11) |
 | **cascade delete** | BFS traversal from a node, collecting all descendant IDs, then single `delete_many`. |
 | **author cascade** | Bulk `update_many` on `node_collection` triggered when Work `author` changes. |
 | **setup_collections** | `async def setup_collections(db)`. Idempotent startup function creating validators and indexes. |
@@ -471,22 +471,6 @@ This document consolidates all functional requirements, non-functional requireme
 3. GIVEN `setup_collections` raises `OperationFailure` THEN it propagates through the lifespan startup, causing the FastAPI app to fail to start.
 ---
  
-### Requirement 29: Return a Work's Nodes in Reading Order
- 
-**Feature group:** Work Reading Order (`work-reading-order/feature.md`)  
-**User Story:** As an authenticated reader, I want all nodes of one Work returned in narrative reading order with full metadata, so that I can render or export the story linearly.  
-**Maps to:** `NodeStorage.get_reading_order(work_id, account_id)` (database.py) and `GET /works/{work_id}/nodes/ordered` (api.py). See `specification/work-reading-order/feature.md`.
- 
-#### Acceptance Criteria
- 
-1. GIVEN a Work WHEN the endpoint is called THEN `nodes` is a depth-first pre-order traversal: every parent precedes its descendants and siblings appear in `position` ascending order.
-2. GIVEN a Work with no nodes WHEN the endpoint is called THEN the server returns HTTP 200 with `{"work_id": "...", "nodes": [], "count": 0, "next_cursor": null}`.
-3. GIVEN more than `limit` nodes WHEN the endpoint is called THEN `limit` is enforced (default 50, max 200) and `next_cursor` is the opaque `node_id` to resume after; a `cursor` not present in the Work returns HTTP 422 with `detail: "Invalid cursor"`.
-4. GIVEN a missing or cross-account `work_id` WHEN the endpoint is called THEN the server returns HTTP 404 with `detail: "Work not found"`. GIVEN a token without `tree:reader` scope THEN HTTP 403; GIVEN no Authorization header THEN HTTP 401.
-5. GIVEN any node carries `previous` / `next` hint values WHEN the endpoint is called THEN those values are returned as metadata on the node and the order of `nodes` is unaffected by them.
-6. GIVEN the node fetch WHEN executed THEN it uses the existing `{account_id, work_id}` index — no new index is added by this feature (Req 28 index count is unchanged).
----
- 
 ## Non-Functional Requirements
  
 ### NR 1: Authentication Enforcement (Work Endpoints)
@@ -837,15 +821,15 @@ This document consolidates all functional requirements, non-functional requireme
 - **Testable:** Call `PUT /nodes/{id}` with extra field `{"node_type": "scene"}` — assert `node_type` is unchanged after the call.
 ---
  
-### CP 12: Strict Hierarchy Invariant
+### CP 12: Flexible Hierarchy Invariant
  
-- **Description:** At every moment, every non-Part node MUST have a `parent_id` pointing to a node of the correct parent type. No skipped levels are permitted. (CONSTITUTION I.5)
-- **Testable:** For each node in `node_collection`, fetch its parent and assert `_VALID_CHILD[parent_type] == node_type`.
+- **Description:** At every moment, every node's `parent_id` MUST point to a node whose type permits children of the given type, per `_VALID_CHILDREN`. Scene nodes MUST have no children. (CONSTITUTION I.5, DD-11)
+- **Testable:** For each node in `node_collection`, fetch its parent and assert `node_type in _VALID_CHILDREN[parent_type]`.
 ---
  
 ### CP 13: Part is the Only Valid Root
  
-- **Description:** A node with `parent_id == null` MUST have `node_type == "part"`. (CONSTITUTION I.5)
+- **Description:** A node with `parent_id == null` MUST have `node_type == "part"`. Chapter and Scene nodes MUST always have a parent. (CONSTITUTION I.5, DD-11)
 - **Testable:** Query `node_collection` for `{parent_id: null}`. Assert every result has `node_type: "part"`.
 ---
  
@@ -855,10 +839,10 @@ This document consolidates all functional requirements, non-functional requireme
 - **Testable:** Walk the `parent_id` chain using a `visited` set. Assert the chain terminates without repeating any node.
 ---
  
-### CP 15: Beat Has No Children
+### CP 15: Scene Has No Children
  
-- **Description:** No node may have `parent_id` pointing to a Beat node via the API. (CONSTITUTION I.5)
-- **Testable:** Attempt `POST /nodes` with `parent_id = beat_node_id` and any `node_type`. Assert HTTP 422 is returned. Query `node_collection` for `{parent_id: beat_node_id}` and assert empty result.
+- **Description:** No node may have `parent_id` pointing to a Scene node via the API. (CONSTITUTION I.5, DD-11)
+- **Testable:** Attempt `POST /nodes` with `parent_id = scene_node_id` and any `node_type`. Assert HTTP 422 is returned. Query `node_collection` for `{parent_id: scene_node_id}` and assert empty result.
 ---
  
 ### CP 16: Children Ordered by Position Ascending
@@ -869,8 +853,8 @@ This document consolidates all functional requirements, non-functional requireme
  
 ### CP 17: Ancestors Ordered Root-First
  
-- **Description:** `GET /nodes/{id}/ancestors` MUST return the root Part at index 0 and the immediate parent at the last index, enforced by `ancestors.reverse()` in `NodeStorage.get_ancestors`.
-- **Testable:** For a Beat node at depth 3, assert ancestors list has 3 items, first is a Part, last is a Scene.
+- **Description:** `GET /nodes/{id}/ancestors` MUST return the root Part at index 0 and the immediate parent at the last index, enforced by `ancestors.reverse()` in `NodeStorage.get_ancestors`. (DD-11)
+- **Testable:** For a Scene node at depth 3, assert ancestors list has 3 items, first is a Part, last is a Chapter.
 ---
  
 ### CP 18: Self Excluded from Siblings
@@ -881,14 +865,14 @@ This document consolidates all functional requirements, non-functional requireme
  
 ### CP 19: Root Nodes are Always Parts
  
-- **Description:** `GET /works/{id}/nodes/root` MUST only return nodes with `node_type == "part"` and `parent_id == null`. (CONSTITUTION I.5)
+- **Description:** `GET /works/{id}/nodes/root` MUST only return nodes with `node_type == "part"` and `parent_id == null`. (CONSTITUTION I.5, DD-11)
 - **Testable:** Assert every item in the roots response has `node_type: "part"` and `parent_id: null`.
 ---
  
-### CP 20: Leaf Nodes are Always Beats
+### CP 20: Leaf Nodes are Always Scenes
  
-- **Description:** `GET /works/{id}/nodes/leaves` MUST only return nodes with `node_type == "beat"`. (CONSTITUTION I.5)
-- **Testable:** Assert every item in the leaves response has `node_type: "beat"`.
+- **Description:** `GET /works/{id}/nodes/leaves` MUST only return nodes with `node_type == "scene"`. (CONSTITUTION I.5, DD-11)
+- **Testable:** Assert every item in the leaves response has `node_type: "scene"`.
 ---
  
 ### CP 21: Contiguous Zero-Based Positions After Reorder
@@ -927,10 +911,10 @@ This document consolidates all functional requirements, non-functional requireme
 - **Testable:** After shallow duplicate, assert `result["tag"] == f"{source_tag} (copy)"`. After deep duplicate, assert child copies have `tag == original_child_tag`.
 ---
  
-### CP 27: Beat Nodes Cannot Be Duplicated
+### CP 27: Scene Nodes Cannot Be Deep-Duplicated
  
-- **Description:** The API MUST return HTTP 400 for Beat nodes before calling any DB method. No document MUST be inserted when the source is a Beat. (CONSTITUTION I.5)
-- **Testable:** Count documents in `node_collection` before and after a Beat duplicate attempt. Assert the count is unchanged and HTTP 400 was returned.
+- **Description:** The API MUST return HTTP 400 for deep-duplicate requests where the source is a Scene node, since Scene is a leaf. Shallow duplicate of a Scene is permitted. (CONSTITUTION I.5, DD-11)
+- **Testable:** Attempt deep duplicate of a Scene node. Assert HTTP 400 is returned and document count is unchanged.
 ---
  
 ### CP 28: work_id is Globally Unique in work_collection
@@ -947,8 +931,8 @@ This document consolidates all functional requirements, non-functional requireme
  
 ### CP 30: node_type Enum Enforced at DB Level
  
-- **Description:** The `_NODE_VALIDATOR` enforces `node_type` as one of `["part", "chapter", "scene", "beat"]`. No other value may be stored. (CONSTITUTION IV.3)
-- **Testable:** Directly insert a document with `node_type: "act"` into `node_collection`. Assert the insert fails with a MongoDB write error.
+- **Description:** The `_NODE_VALIDATOR` enforces `node_type` as one of `["part", "chapter", "scene"]`. `"beat"` and all other values MUST NOT be stored. (CONSTITUTION IV.3, DD-11)
+- **Testable:** Directly insert a document with `node_type: "beat"` into `node_collection`. Assert the insert fails with a MongoDB write error.
 ---
  
 ### CP 31: Position Must Be Non-Negative at DB Level

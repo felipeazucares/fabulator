@@ -1,11 +1,9 @@
 # Fabulator — Design Document
 ## Spec-Driven Architecture Reference
  
-**Version:** 1.1
-**Date:** 2026-06-10
+**Version:** 1.0
+**Date:** 2026-06-06
 **Companion documents:** `CONSTITUTION.md` (rules), `CLAUDE.md` (AI workflow context), `README.md` (setup)
-
-> **v1.1 migration note:** This revision realigns the document with the normalised adjacency-list model that replaced the treelib snapshot model (CONSTITUTION Part I). The retired `tree_collection`, save/load and `/trees/*` surface, `RoutesHelper` layer, and per-request whole-tree loading are removed; the live Work/Node/Search/Demo surface, Tier-2 navigation, and Tier-3 query endpoints (including `GET /works/{work_id}/nodes/ordered`) are now described. Superseded design decisions are retained and marked.
  
 ---
  
@@ -21,9 +19,7 @@ Read `CONSTITUTION.md` first for the rules. This document describes the design t
  
 ### I.1 — What Fabulator Is
  
-Fabulator is a multi-user, hierarchical narrative editing tool. Users construct tree structures where each node represents a story beat, scene, or chapter. The tree is visualised and navigated in a browser. Each node is stored as an independent document in `node_collection` with a `parent_id` pointer to its parent (normalised adjacency list); a Work is a separate document in `work_collection`. Nodes carry content (description, text, previous/next narrative hints, tags).
-
-**Ordering authority:** Reading order is derived from the `parent_id` hierarchy + `position` only (depth-first pre-order, siblings by `position`). The node `previous` / `next` fields are currently free-text narrative hints (not UUIDs) and are **not** an ordering authority. (See `specification/work-reading-order/feature.md`.)
+Fabulator is a multi-user, hierarchical narrative editing tool. Users construct tree structures where each node represents a story beat, scene, or chapter. The tree is visualised and navigated in a browser. Nodes carry content (description, text, previous/next narrative links, tags).
  
 ### I.2 — System Context Diagram
  
@@ -45,7 +41,7 @@ Fabulator is a multi-user, hierarchical narrative editing tool. Users construct 
 | Actor | Role |
 |-------|------|
 | Browser user | Reads and writes narrative tree content via JWT-authenticated HTTP |
-| MongoDB Atlas | Persistent storage for Work and node documents (adjacency list) and user accounts |
+| MongoDB Atlas | Persistent storage for tree snapshots and user accounts |
 | Redis Cloud | JWT token blacklist; login rate-limit counter |
  
 ### I.3 — Deployment Units
@@ -66,20 +62,19 @@ No local database containers. MongoDB Atlas and Redis Cloud are always external.
 ```
 +--------------------------------------------------------------+
 |  HTTP Layer  (FastAPI routes — api.py)                       |
-|  - Route handlers grouped: Authentication, Meta, Works,      |
-|    Nodes, Search, Demo, Users (count maintained in api.py)   |
+|  - 22 route handlers                                         |
 |  - CORS middleware                                           |
 |  - SlowAPI rate-limit middleware                             |
 |  - OAuth2 / Security dependency injection                    |
 +--------------------------------------------------------------+
+|  Application Layer  (RoutesHelper — api.py)                  |
+|  - account_id_exists(), save_document_exists()               |
+|  - user_document_exists()                                    |
++--------------------------------------------------------------+
 |  Domain Layer  (database.py, authentication.py)              |
-|  - WorkStorage:   Work CRUD (work_collection), author cascade |
-|  - NodeStorage:   node CRUD, navigation, reorder, duplicate, |
-|                   reading order (node_collection)            |
-|  - SearchStorage: $text search + tag query (node_collection) |
-|  - DemoStorage:   transactional demo-tree seed               |
-|  - UserStorage:   user CRUD (user_collection)                |
-|  - Authentication: JWT, bcrypt, Redis blacklist             |
+|  - WorkStorage: Work CRUD (work_collection); NodeStorage: node CRUD (node_collection) |
+|  - UserStorage: user CRUD                                    |
+|  - Authentication: JWT, bcrypt, Redis blacklist              |
 +--------------------------------------------------------------+
 |  Schema Layer  (models.py)                                   |
 |  - Pydantic request/response models                          |
@@ -91,8 +86,6 @@ No local database containers. MongoDB Atlas and Redis Cloud are always external.
 |  - Python logging (get_logger factory — helpers.py)          |
 +--------------------------------------------------------------+
 ```
-
-> `RoutesHelper` (an earlier application-layer indirection) is **retired**; storage classes are injected directly into handlers via `Depends()` (CONSTITUTION III.1).
  
 ### II.2 — Dependency Injection Chain
  
@@ -188,7 +181,6 @@ The client is injected — never created internally.
 | `get_siblings` | `(node_id, account_id) -> list[dict]` | Siblings (same parent_id, excluding self) |
 | `get_roots` | `(work_id, account_id) -> list[dict]` | All Part nodes for a Work |
 | `get_leaves` | `(work_id, account_id) -> list[dict]` | All Beat nodes for a Work |
-| `get_reading_order` | `(work_id, account_id) -> list[dict]` | All nodes of a Work in depth-first pre-order, siblings by `position`; in-memory traversal over one `{account_id, work_id}` fetch, `visited` cycle-guard |
  
 **Key methods — Operations:**
  
@@ -200,23 +192,6 @@ The client is injected — never created internally.
 | `duplicate_shallow` | `(node_id, account_id) -> dict\|None` | Copies node (no children); tag gets " (copy)" suffix; placed after original |
 | `duplicate_deep` | `(node_id, account_id) -> dict\|None` | Recursive subtree copy with fresh UUIDs; tag "(copy)" suffix on root only |
  
-### III.1c — SearchStorage (`database.py`)
-
-**Responsibility:** Read-only discovery over `node_collection`. Strictly account-scoped; mutates nothing.
-
-| Method | Signature | Behaviour |
-|--------|-----------|-----------|
-| `search_nodes` | `(account_id, query, work_id=None, node_type=None, limit=50) -> list[dict]` | `$text` search over `description` + `text`; projects/sorts by `textScore` descending; uses `node_text_idx` |
-| `find_nodes_by_tags` | `(account_id, tags, match="any", work_id=None, node_type=None, limit=50) -> list[dict]` | Tag query via `$in` (any) / `$all` (all); uses `node_tags_idx` |
-
-### III.1d — DemoStorage (`database.py`)
-
-**Responsibility:** Seed a complete demo narrative tree for the authenticated account as a single transactional operation.
-
-| Method | Signature | Behaviour |
-|--------|-----------|-----------|
-| `seed_demo` | `(account_id, author, reset=False) -> dict` | Builds a demo Work + node tree via `build_demo_tree`; writes under a multi-document transaction with a compensating-delete fallback for atomicity; optional `reset` clears existing demo data first |
-
 ### III.2 — UserStorage (`database.py`)
  
 **Responsibility:** CRUD for user documents in `user_collection`.
@@ -300,61 +275,34 @@ Every module obtains its logger via `logger = get_logger(__name__)`. No module c
  
 ## Part IV — Data Schemas
  
-### IV.1 — MongoDB: work_collection and node_collection Documents
-
-The treelib `tree_collection` snapshot document is **retired** (CONSTITUTION I.1) and MUST NOT be written to. Narrative state is stored normalised across two collections.
-
-**work_collection document:**
+### IV.1 — MongoDB: tree_collection Document
+ 
 ```
 {
-  "_id":         ObjectId,          // MongoDB auto-generated (never used for lookups)
-  "work_id":     str (UUID4),       // application identifier — all lookups use this
-  "account_id":  str,               // bcrypt hash of username — tenant partition key
-  "title":       str,
-  "description": str|null,
-  "author":      str|null,          // denormalised onto every child node at creation
-  "tags":        list[str],
-  "created_at":  datetime (UTC),
-  "updated_at":  datetime (UTC)
+  "_id":        ObjectId,          // MongoDB auto-generated — the "save_id"
+  "account_id": str,               // bcrypt hash of username — tenant partition key
+  "date_time":  datetime (UTC),    // timestamp used to find "latest" save
+  "tree": {
+    "_identifier": str (UUID4),    // treelib tree identifier
+    "root":        str (UUID4),    // node_id of root node
+    "_nodes": {
+      "<UUID4>": {                 // keyed by node identifier
+        "_tag":          str,      // display name (e.g. "Chapter 1")
+        "_identifier":   str (UUID4),
+        "_predecessor":  str|null, // parent node_id (null for root)
+        "_successors":   list[str],// child node_ids
+        "data": {
+          "description": str|null,
+          "text":        str|null,
+          "previous":    str|null, // app-level narrative order hint (not UUID)
+          "next":        str|null, // app-level narrative order hint (not UUID)
+          "tags":        list[str]
+        }
+      }
+    }
+  }
 }
 ```
-
-**node_collection document (adjacency list):**
-```
-{
-  "_id":         ObjectId,          // never used for lookups
-  "node_id":     str (UUID4),       // application identifier
-  "work_id":     str (UUID4),       // FK to work_collection; every query scopes by this
-  "account_id":  str,               // tenant partition key
-  "author":      str|null,          // copied from the Work (CONSTITUTION I.7)
-  "node_type":   str,               // "part" | "chapter" | "scene" | "beat"
-  "parent_id":   str|null,          // parent node_id; null only for Part roots
-  "position":    int,               // zero-based, contiguous among siblings (CONSTITUTION IV.5)
-  "tag":         str,               // display name (e.g. "Chapter 1")
-  "description": str|null,
-  "text":        str|null,
-  "previous":    str|null,          // free-text narrative hint (not a UUID; not ordering authority)
-  "next":        str|null,          // free-text narrative hint (not a UUID; not ordering authority)
-  "tags":        list[str],
-  "created_at":  datetime (UTC),
-  "updated_at":  datetime (UTC)
-}
-```
-
-Both collections are created with a JSON Schema validator enforcing field types and the `node_type` enum (CONSTITUTION IV.7; REQUIREMENTS Req 26–28). The hierarchy `Work → Part → Chapter → Scene → Beat` is enforced at the application level on every create/reparent and at the schema level (CONSTITUTION I.5).
-
-**Indexes** (created idempotently in `setup_collections`):
-
-| Collection | Index | Purpose |
-|------------|-------|---------|
-| work_collection | `{account_id, work_id}` | Work lookup by id, account-scoped |
-| work_collection | `{account_id}` | List Works for an account |
-| node_collection | `{account_id, node_id}` | Single node lookup |
-| node_collection | `{account_id, work_id}` | List/traverse a Work's nodes (also serves reading order) |
-| node_collection | `{account_id, parent_id}` | Children / sibling navigation |
-| node_collection | `{account_id, node_type}` | Roots / leaves / type filters |
-| node_collection | `node_text_idx` (`$text` on `description`, `text`) | Full-text search |
-| node_collection | `node_tags_idx` (`{account_id, tags}`) | Tag query |
  
 ### IV.2 — MongoDB: user_collection Document
  
@@ -375,26 +323,18 @@ Both collections are created with a JSON Schema validator enforcing field types 
  
 | Schema | Used by | Key fields |
 |--------|---------|------------|
-| `CreateWorkRequest` | POST /works | `title` (1–200), `description?` (≤2000), `author?` (≤200), `tags?` (≤50×≤100) |
-| `UpdateWorkRequest` | PUT /works/{work_id} | all of the above, every field optional (partial update; `author` change cascades to nodes) |
-| `CreateNodeRequest` | POST /nodes | `work_id`, `node_type`, `parent_id?`, `tag` (1–200), `description?`, `text?` (≤50000), `previous?`/`next?` (≤200), `tags?` |
-| `UpdateNodeRequest` | PUT /nodes/{node_id} | all node content fields plus `parent_id` (reparent), every field optional |
-| `ReorderRequest` | PUT /nodes/{node_id}/reorder | `position: int` (≥0; clamped to `len(siblings)-1`) |
+| `NodePayload` | PUT /nodes/{id}, POST /nodes/{name} | `description`, `text`, `previous`, `next`, `tags` |
+| `NodeRequest` | POST /nodes/{name} | `parent: UuidStr|None`, `payload: NodePayload|None` |
+| `NodeUpdateRequest` | PUT /nodes/{id} | `tag: NodeNameStr|None`, `parent: UuidStr|None`, `payload: NodePayload|None` |
 | `UserDetails` | POST /users, PUT /users | `username`, `full_name`, `email`, `password`, `user_type` |
 | `PasswordRequest` | PUT /users/password | `old_password`, `new_password` |
 | `UserTypeRequest` | PUT /users/type | `user_type: Literal["free","premium"]` |
  
 ### IV.4 — Pydantic Response Schemas
  
-| Schema | Shape |
+| Schema | Wraps |
 |--------|-------|
-| `WorkResponse` | Work document **excluding** `account_id` |
-| `NodeResponse` | `node_id`, `work_id`, `author`, `node_type`, `parent_id`, `position`, `tag`, `description`, `text`, `previous`, `next`, `tags`, `created_at`, `updated_at` (**no** `account_id`) |
-| `AncestorsResponse` | `{ancestors: list[NodeResponse]}` (root-first) |
-| `WorkStatsResponse` | `{work_id, total_nodes, by_type: {part, chapter, scene, beat}, max_depth}` |
-| `NodeSearchResponse` | `{results: list[NodeResponse], count: int}` (search: `textScore` desc; by-tag: `created_at` desc) |
-| `OrderedNodesResponse` | `{work_id, nodes: list[NodeResponse], count, next_cursor: str\|null}` (reading order; cursor-paginated) |
-| `DemoSeedResponse` | `{work_id, title, total_nodes, by_type}` (**no** `account_id`) |
+| `ResponseModel(data, message)` | Standard wrapper for all route responses |
 | `UserDetailsPublic` | User data excluding the `password` field |
 | `Token` | `access_token: str`, `token_type: str` |
  
@@ -432,56 +372,40 @@ All require valid JWT. Operate on the authenticated user's own account only.
 | PUT | /users/type | usertype:writer | Set user_type to free or premium |
 | DELETE | /users | user:writer | Delete user document + all saves for account |
  
-### V.3 — Work Routes
-
-Operate on `work_collection`, account-scoped. Cross-account or missing Work returns **404** (`"Work not found"`), never 403.
-
-| Method | Path | Scopes | Resp | Behaviour |
-|--------|------|--------|------|-----------|
-| POST | /works | tree:writer | 201 `WorkResponse` | Create a Work (auto `work_id`, timestamps) |
-| GET | /works | tree:reader | 200 `list[WorkResponse]` | List the account's Works, `created_at` desc |
-| GET | /works/{work_id} | tree:reader | 200 `WorkResponse` | Fetch one Work |
-| PUT | /works/{work_id} | tree:writer | 200 `WorkResponse` | Partial update; `author` change cascades to all child nodes |
-| DELETE | /works/{work_id} | tree:writer | 200 `{detail}` | Delete Work + bulk-delete all its nodes |
-| GET | /works/{work_id}/stats | tree:reader | 200 `WorkStatsResponse` | Type counts + max depth |
-| GET | /works/{work_id}/nodes | tree:reader | 200 `list[NodeResponse]` | All nodes of a Work (flat) |
-| GET | /works/{work_id}/nodes/root | tree:reader | 200 `list[NodeResponse]` | All Part (root) nodes |
-| GET | /works/{work_id}/nodes/leaves | tree:reader | 200 `list[NodeResponse]` | All Beat (leaf) nodes |
-| GET | /works/{work_id}/nodes/ordered | tree:reader | 200 `OrderedNodesResponse` | All nodes in reading order (pre-order, siblings by `position`); `limit` (default 50, max 200) + opaque `node_id` `cursor` pagination |
-
-### V.4 — Node Routes
-
-Operate directly on individual node documents (CONSTITUTION I.2 — no save/load round-trip). Reads require `tree:reader`; writes `tree:writer`. `{node_id}` MUST match `UUID_PATTERN` via `Path(pattern=UUID_PATTERN)`.
-
-| Method | Path | Scopes | Resp | Behaviour |
-|--------|------|--------|------|-----------|
-| POST | /nodes | tree:writer | 201 `NodeResponse` | Create a node; validates Work + parent + hierarchy; auto-assigns end `position` |
-| GET | /nodes/{node_id} | tree:reader | 200 `NodeResponse` | Fetch one node |
-| PUT | /nodes/{node_id} | tree:writer | 200 `NodeResponse` | Partial update and/or reparent (cycle-checked) |
-| DELETE | /nodes/{node_id} | tree:writer | 200 `{detail}` | Cascade-delete node + all descendants |
-| PUT | /nodes/{node_id}/reorder | tree:writer | 200 `NodeResponse` | Move to a position among siblings; renumbers the sibling group contiguously |
-| POST | /nodes/{node_id}/duplicate | tree:writer | 201 `NodeResponse` | Duplicate as next sibling; `?deep=true` copies the subtree, else shallow |
-| GET | /nodes/{node_id}/children | tree:reader | 200 `list[NodeResponse]` | Direct children, `position` asc |
-| GET | /nodes/{node_id}/parent | tree:reader | 200 `NodeResponse\|null` | Parent (null for Part roots) |
-| GET | /nodes/{node_id}/ancestors | tree:reader | 200 `AncestorsResponse` | Root-to-parent chain |
-| GET | /nodes/{node_id}/siblings | tree:reader | 200 `list[NodeResponse]` | Same-parent nodes excluding self |
-
-### V.5 — Search & Demo Routes
-
-| Method | Path | Scopes | Resp | Behaviour |
-|--------|------|--------|------|-----------|
-| GET | /nodes/search | tree:reader | 200 `NodeSearchResponse` | `$text` search over `description`/`text`; `query` (req), `work_id?`, `node_type?`, `limit?`; `textScore` desc |
-| GET | /nodes/by-tag | tree:reader | 200 `NodeSearchResponse` | Tag query; `tags` (req, repeated), `match=any\|all`, `work_id?`, `node_type?`, `limit?` |
-| POST | /demo/seed | tree:writer | 201 `DemoSeedResponse` | Transactionally seed a demo Work + node tree; optional `reset` bool |
-
-The retired `/trees/*` and `/saves`, `/loads` routes (treelib save/load model) are **removed** (CONSTITUTION I.1–I.2).
-
-### V.6 — Meta Routes
-
-| Method | Path | Auth | Behaviour |
-|--------|------|------|-----------|
-| GET | /health | None | Liveness probe → `{"status": "ok"}` |
-| GET | /metrics | None | Uptime, connection-pool, request counters |
+### V.3 — Node Routes
+ 
+All require `tree:reader` (reads) or `tree:writer` (writes). All load the full tree from the latest save before operating.
+ 
+| Method | Path | Scopes | Write? | Behaviour |
+|--------|------|--------|--------|-----------|
+| GET | /nodes | tree:reader | No | Load tree → return all nodes as list; filter by tag if `?filterval=` |
+| GET | /nodes/{id} | tree:reader | No | Load tree → return single node by UUID |
+| POST | /nodes/{name} | tree:writer | Yes | Load tree → add node (root if no parent, child if parent given) → save → return updated tree |
+| PUT | /nodes/{id} | tree:writer | Yes | Load tree → update node fields and/or reparent → save → return updated tree |
+| DELETE | /nodes/{id} | tree:writer | Yes | Load tree → remove node and all descendants → save → return updated tree |
+ 
+**Path parameter validation:** `{id}` MUST match `UUID_PATTERN` via `Path(pattern=UUID_PATTERN)`. `{name}` MUST satisfy `Path(min_length=1, max_length=NODE_NAME_MAX_LEN)`.
+ 
+### V.4 — Tree Routes
+ 
+| Method | Path | Scopes | Write? | Behaviour |
+|--------|------|--------|--------|-----------|
+| GET | /trees/root | tree:reader | No | Load tree → return root node ID |
+| GET | /trees/{id} | tree:writer | **Yes** | Load tree → prune subtree at node → save pruned tree → return removed subtree |
+| POST | /trees/{id} | tree:writer | Yes | Load tree → graft submitted subtree under node {id} → save → return updated tree |
+ 
+Note: `GET /trees/{id}` is a mutating GET — a known legacy quirk. It requires `tree:writer` scope despite being a GET.
+ 
+### V.5 — Save/Load Routes
+ 
+| Method | Path | Scopes | Behaviour |
+|--------|------|--------|-----------|
+| GET | /saves | tree:reader | Return list of save metadata (account_id, date_time, _id) for the account |
+| DELETE | /saves | tree:writer | Delete all save documents for the account |
+| GET | /loads | tree:reader | Load the most recent save document → return full tree |
+| GET | /loads/{save_id} | tree:reader | Verify `save_id` belongs to account → load that specific save → return full tree |
+ 
+**Security note on `/loads/{save_id}`:** The route MUST call `check_if_document_exists(save_id, account_id)` before loading. Returning another user's save as a 200 is a data isolation violation.
  
 ---
  
@@ -514,28 +438,23 @@ Client                    FastAPI                  MongoDB              Redis
 ### VI.2 — Authenticated Write (Create Node)
  
 ```
-Client                    FastAPI                          MongoDB
-  |                          |                                |
-  |-- POST /nodes ---------->|                                |
-  |   Authorization: Bearer  |                                |
-  |   CreateNodeRequest      |                                |
-  |                          |-- decode JWT                    |
-  |                          |-- Redis blacklist check          |
-  |                          |-- verify scopes (tree:writer)    |
-  |                          |   -> account_id resolved         |
-  |                          |                                |
-  |                          |-- get_work(work_id, account) -->|
-  |                          |<- Work doc (or 404) ------------|
-  |                          |-- (if parent_id) get_node ----->|
-  |                          |<- parent doc (or 404) ----------|
-  |                          |   validate hierarchy (else 422)  |
-  |                          |   author = Work.author           |
-  |                          |   position = max(sibling)+1      |
-  |                          |-- insert_one(node document) --->|
-  |<- 201 NodeResponse ------|                                |
+Client                    FastAPI                  MongoDB
+  |                          |                        |
+  |-- POST /nodes/{name} --->|                        |
+  |   Authorization: Bearer  |                        |
+  |   {parent, payload}      |                        |
+  |                          |-- decode JWT            |
+  |                          |-- Redis blacklist check  |
+  |                          |-- verify scopes          |
+  |                          |   -> account_id resolved |
+  |                          |                        |
+  |                          |-- find latest save ---->|
+  |                          |<- tree document --------|
+  |                          |   build_tree_from_dict() (recursive)
+  |                          |   tree.create_node(name, parent=parent_id)
+  |                          |-- insert_one(new snapshot) ->|
+  |<- 200 {updated tree} ----|                        |
 ```
-
-No tree snapshot is loaded or written: the node document is inserted directly (CONSTITUTION I.1–I.2).
  
 ### VI.3 — Token Blacklisting on Logout
  
@@ -549,7 +468,7 @@ Client              FastAPI            Redis
   |                    |-- SET token TTL ->|
   |<- 200 -------------|                  |
   |                    |                  |
-  |-- GET /works ----->|                  |
+  |-- GET /nodes ------>|                  |
   |   (same token)     |-- EXISTS token ->|
   |                    |<- true ----------|
   |<- 401 -------------|                  |
@@ -602,7 +521,7 @@ Three Zustand stores. All are independent — no store imports another.
 **treeStore:**
 ```
 {
-  nodes: Node[],                // flat list from GET /works/{work_id}/nodes
+  nodes: Node[],                // flat list from GET /nodes
   selectedNodeId: string | null,
   dirtyNodeId: string | null,   // node with unsaved changes
   setNodes(nodes),
@@ -640,9 +559,9 @@ On other errors: re-throw for caller to handle
 API modules are pure async functions — no React, no Zustand, no side effects:
 ```
 auth.js    — login(credentials), logout()
-works.js   — listWorks(), getWork(id), createWork(body), updateWork(id, body), deleteWork(id), getStats(id), getOrderedNodes(id, {limit, cursor})
-nodes.js   — listWorkNodes(workId), getNode(id), createNode(body), updateNode(id, body), deleteNode(id), reorder(id, position), duplicate(id, {deep}), getChildren(id), getParent(id), getAncestors(id), getSiblings(id)
-search.js  — searchNodes(params), nodesByTag(params)
+nodes.js   — getNodes(), getNode(id), createNode(name, body), updateNode(id, body), deleteNode(id)
+trees.js   — getRoot(), getSubtree(id), graftSubtree(id, body)
+saves.js   — listSaves(), loadSave(id), loadLatest(), deleteSaves()
 ```
  
 ### VII.4 — Data Flow
@@ -758,9 +677,7 @@ Each decision records the choice made, the alternatives considered, and the rati
  
 ---
  
-### DD-01 — Append-Only Save Model  *(SUPERSEDED by DD-11)*
-
-> **Status:** Superseded by the normalised adjacency-list refactor (CONSTITUTION I.1–I.2). Retained for historical rationale only; the snapshot/save model is no longer in use — node documents are the persistent state, updated in place.
+### DD-01 — Append-Only Save Model
  
 **Decision:** Every write operation inserts a new complete tree snapshot. No in-place updates.
  
@@ -784,9 +701,7 @@ Each decision records the choice made, the alternatives considered, and the rati
  
 ---
  
-### DD-03 — Per-Request Tree Loading (No Cache)  *(SUPERSEDED by DD-11)*
-
-> **Status:** Superseded. Whole-tree-per-request loading no longer occurs; the adjacency-list model serves single-document lookups and targeted, account-scoped queries. The no-cache stance still holds (each request reads current state from MongoDB).
+### DD-03 — Per-Request Tree Loading (No Cache)
  
 **Decision:** Every request that touches tree data loads the full tree from MongoDB.
  
@@ -873,34 +788,49 @@ Each decision records the choice made, the alternatives considered, and the rati
  
 ---
  
-### DD-11 — Normalised Adjacency-List Storage
+---
 
-**Decision:** Each node is an independent `node_collection` document with a `parent_id` pointer; Works live in `work_collection`. No single-document tree snapshots; treelib is removed.
+### DD-11 — Flexible Node Hierarchy (Drop Beat, Relax Parent-Child Enforcement)
+
+**Decision:** Replace the fixed five-tier chain (`Work → Part → Chapter → Scene → Beat`) with a flexible three-type model: `Part`, `Chapter`, and `Scene` are the only node types. Any of the three may be a direct child of any other, or a direct child of a Work. `Scene` is always a leaf — it may not have children. `Part` (with `parent_id == null`) remains the only valid root node. `Beat` is removed entirely.
 
 **Alternatives considered:**
-- Append-only whole-tree snapshots (the original model — see superseded DD-01)
-- Materialised-path or nested-set encodings
+- Retain the fixed chain but make intermediate levels optional (skip-level allowed): rejected — this still requires encoding a strict ordering and does not reflect how narrative planning actually works.
+- Label-free nodes with user-defined depth: rejected — type labels carry semantic meaning (Part = major division, Chapter = grouping, Scene = atomic unit) and are needed for filtering, display, and export.
 
-**Rationale:** Independent node documents allow single-document lookups, targeted in-place updates, and account-scoped cascade deletes without loading the full tree, which the snapshot model could not do efficiently. `position` gives gap-free sibling ordering; reading order is recovered by pre-order traversal (`specification/work-reading-order/feature.md`). Trade-off: multi-node operations (cascade delete, author cascade, deep duplicate) now span several documents and rely on application-level invariants (hierarchy, no-cycles, contiguous positions) enforced on every write, plus MongoDB JSON Schema validation. Accepted as the architectural foundation (CONSTITUTION Part I).
- 
----
- 
+**Rationale:** In practice, a writer planning a novel may have Parts containing Scenes directly (no Chapters), or a short story with only Scenes under a single Part, or a complex work with all three levels. The enforced chain prevented valid structures and added friction. Beat was removed because it represents a level of granularity below what is useful for planning — individual beats are better captured as prose within a Scene's `text` field. Scene becomes the atomic narrative unit.
+
+**New valid parent-child rules:**
+
+| Parent type | Valid child types |
+|-------------|------------------|
+| `null` (root) | `part` only |
+| `part` | `part`, `chapter`, `scene` |
+| `chapter` | `part`, `chapter`, `scene` |
+| `scene` | _(none — leaf)_ |
+
+**Impact:**
+- `_VALID_CHILD` dict replaced by `_VALID_CHILDREN` set-valued dict in `database.py`
+- `NodeType` enum in `models.py`: remove `beat`
+- `_NODE_VALIDATOR` JSON Schema in `database.py`: update `node_type` enum to `["part", "chapter", "scene"]`
+- `is_valid_parent_child` function updated to check set membership
+- Beat guard in duplicate and hierarchy checks: removed
+- `CONSTITUTION.md` I.5 and IV.3 updated
+- `REQUIREMENTS.md` glossary, CP 12, CP 13, CP 15, CP 17, CP 19, CP 20, CP 27, CP 30 updated
+
+**Trade-off:** Removing Beat means any existing data with `node_type: "beat"` requires migration. Acceptable — no production data exists at this stage.
+
 ## Part X — Open Design Questions
  
 These are unresolved decisions that will need answers before the affected features are built.
  
-**Resolved:**
-- **OD-01** (reorder position semantics) → **integer index among siblings**, clamped to `len(siblings)-1`, with the sibling group renumbered contiguously. (`specification/node-reorder/feature.md`)
-- **OD-02** (duplicate depth) → **single endpoint with `?deep=true`**; default shallow, deep copies the subtree with fresh UUIDs. (`specification/node-duplicate/feature.md`)
-- **OD-03** (full-text search) → **native MongoDB `$text` index** (`node_text_idx`), not Atlas Search — Atlas Search on M0 needs out-of-band async `createSearchIndex` provisioning rather than the idempotent `create_index` path in `setup_collections`. (`specification/search-query/feature.md`)
- 
-**Open:**
- 
 | # | Question | Affects | Options |
 |---|----------|---------|---------|
+| OD-01 | How should `PUT /nodes/{id}/reorder` define position? Index among siblings? Before/after a specific sibling UUID? | Tier 1 roadmap | (a) integer index (b) `{before: uuid}` / `{after: uuid}` |
+| OD-02 | Should `POST /nodes/{id}/duplicate` deep-copy children recursively or shallow-copy the node only? | Tier 1 roadmap | (a) flag `?include_children=true` (b) always deep (c) always shallow |
+| OD-03 | Full-text search: MongoDB Atlas Search index or in-memory filter of loaded tree? | Tier 3 roadmap | Atlas Search is accurate but requires index creation; in-memory is simpler but loads full tree |
 | OD-04 | Export format: generate server-side (Python) or client-side (browser)? | Tier 4 roadmap | Server-side enables complex formats (DOCX); client-side avoids new dependencies |
 | OD-05 | Auto-save conflict resolution: last-write-wins, or optimistic locking with version field? | Frontend | Current model is last-write-wins; version field would require API change |
-| OD-06 | Should `previous`/`next` become typed UUID4 links (indexed, chain-validated on write) so they can drive cross-hierarchy narrative ordering? | Data model | (a) keep as free-text hints (b) migrate to nullable UUID4 with validation + backfill |
  
 ---
  
