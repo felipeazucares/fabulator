@@ -892,12 +892,12 @@ class NodeStorage:
         self, work_id: str, account_id: str,
         limit: int = 50, cursor: str | None = None,
     ) -> tuple[list[dict], str | None]:
-        """Return Beat (leaf) nodes for a Work with cursor pagination, ordered by position.
+        """Return Scene (leaf) nodes for a Work with cursor pagination, ordered by position.
 
         Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
         """
         logger.debug(f"get_leaves({work_id}) called")
-        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "beat"}
+        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "scene"}
         if cursor is not None:
             try:
                 query["_id"] = {"$gt": ObjectId(cursor)}
