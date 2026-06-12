@@ -362,7 +362,7 @@ _NODE_VALIDATOR = {
         "bsonType": "object",
         "required": ["node_id", "work_id", "account_id", "tag", "node_type", "position", "tags"],
         "properties": {
-            "node_type":  {"bsonType": "string", "enum": ["part", "chapter", "scene", "beat"]},
+            "node_type":  {"bsonType": "string", "enum": ["part", "chapter", "scene"]},
             "node_id":    {"bsonType": "string", "pattern": _UUID4_RE},
             "work_id":    {"bsonType": "string", "pattern": _UUID4_RE},
             "account_id": {"bsonType": "string", "minLength": 1},
