@@ -249,6 +249,190 @@
 
 ---
 
+---
+
+## Phase 21 — DD-11: Flexible Node Hierarchy Refactor
+
+**Design decision:** DD-11 (DESIGN.md Part IX)  
+**Branch:** `refactor/dd11-flexible-hierarchy`  
+**Prerequisite:** All Phase 20 tasks complete (✅). DD-12 (tag→name) and DD-13 (tags semantic change) should be sequenced as separate phases after this one.
+
+> **Coordination note:** E-85 (B-13, bare `except Exception`) and E-87 (B-16, missing beat children) are open defects that touch `api.py` and `demo.py` respectively. E-87 is superseded by E-108 below (beats are removed entirely). E-85 remains independent.
+
+---
+
+### E-101 — Remove `beat` from `NodeType` enum
+
+**File:** `server/app/models.py`  
+**What:** Delete `beat = "beat"` from the `NodeType` enum. Search entire codebase for `NodeType.beat`, `"beat"`, and `Literal["beat"]` before removing — any missed reference will cause an `AttributeError` at import time.  
+**Acceptance criteria:** `from app.models import NodeType; NodeType("beat")` raises `ValueError`. All existing imports succeed.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** XS (15 min)
+
+---
+
+### E-102 — Replace `_VALID_CHILD` with `_VALID_CHILDREN` set-valued dict
+
+**File:** `server/app/database.py`  
+**What:** Replace:
+```python
+_VALID_CHILD = {None: "part", "part": "chapter", "chapter": "scene", "scene": "beat", "beat": None}
+```
+with:
+```python
+_VALID_CHILDREN: dict[str | None, set[str]] = {
+    None: {"part"},
+    "part": {"part", "chapter", "scene"},
+    "chapter": {"part", "chapter", "scene"},
+    "scene": set(),
+}
+```
+Update `is_valid_parent_child(parent_type, child_type)` to: `return child_type in _VALID_CHILDREN.get(parent_type, set())`.  
+Grep for all direct reads of `_VALID_CHILD` (not via the function) and update them.  
+**Acceptance criteria:** `is_valid_parent_child("part", "scene")` returns `True`. `is_valid_parent_child("scene", "part")` returns `False`. `is_valid_parent_child(None, "chapter")` returns `False`.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** S (20 min)
+
+---
+
+### E-103 — Update MongoDB JSON Schema validator to remove `beat`
+
+**File:** `server/app/database.py` — `_NODE_VALIDATOR`  
+**What:** Change `node_type` enum in `_NODE_VALIDATOR` from `["part", "chapter", "scene", "beat"]` to `["part", "chapter", "scene"]`. The Atlas `collMod` permission guard (E-79) means this may not apply to existing collections in production — note this in the PR but it is not a blocker.  
+**Acceptance criteria:** Inserting a document with `node_type: "beat"` directly via Motor raises `WriteError` in a fresh collection. (May be skipped if collection was created without validator — see E-112.)  
+**GitHub label:** `refactor`, `p1`  
+**Est:** XS (10 min)
+
+---
+
+### E-104 — Remove Beat guard; add Scene deep-duplicate leaf guard
+
+**Files:** `server/app/api.py`, `server/app/database.py`  
+**What:** Remove the HTTP 400 guard that blocks duplication of Beat nodes. Replace with: deep duplicate of a Scene node MUST return HTTP 400 (Scene is a leaf, has no children to copy). Shallow duplicate of a Scene remains permitted.  
+Guard MUST fire at the API layer before any DB call, so CP 27 remains testable without hitting MongoDB.  
+**Acceptance criteria:** `POST /nodes/{scene_id}/duplicate?deep=true` returns 400. `POST /nodes/{scene_id}/duplicate` (shallow) returns 201.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** S (20 min)
+
+---
+
+### E-105 — Update `get_leaves` to return Scene nodes not Beat nodes
+
+**Files:** `server/app/database.py` — `NodeStorage.get_leaves`; `server/app/api.py` — `GET /works/{work_id}/nodes/leaves`  
+**What:** Change the MongoDB filter from `{"node_type": "beat"}` to `{"node_type": "scene"}`. Update the OpenAPI `description` on the endpoint to reflect Scene as the leaf type.  
+**Pitfall:** Integration tests asserting `node_type: "beat"` in leaves responses will fail until E-110 is applied — do not run the full integration suite between E-105 and E-110.  
+**Acceptance criteria:** `GET /works/{work_id}/nodes/leaves` returns only nodes with `node_type: "scene"`.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** S (15 min)
+
+---
+
+### E-106 — Update hierarchy validation error messages
+
+**File:** `server/app/api.py`  
+**What:** Audit every HTTP 422 `detail` string referencing the old hierarchy (e.g. `"Beat nodes cannot have children"`, `"Only Part nodes can be roots"`). Rewrite to describe the new rules. Grep integration tests for exact strings before changing — matched strings in tests must be updated in E-110.  
+**Acceptance criteria:** No response body references `"beat"`. Error messages describe valid parent types for the rejected operation.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** S (15 min)
+
+---
+
+### E-107 — Update `CONSTITUTION.md` and `REQUIREMENTS.md` post-code verification
+
+**Files:** `CONSTITUTION.md`, `REQUIREMENTS.md`  
+**What:** Both documents were updated in the DD-11 doc pass (2026-06-12). After E-101–E-106 are merged, verify the CP assertions in REQUIREMENTS.md (CP 12, 13, 15, 17, 19, 20, 27, 30) match the actual code and test implementations. Correct any discrepancy.  
+**Acceptance criteria:** Every testable assertion in each CP can be traced to a passing test.  
+**GitHub label:** `docs`  
+**Est:** XS (15 min)
+
+---
+
+### E-108 — Restructure demo tree — remove Beat nodes, exercise flexible hierarchy
+
+**File:** `server/app/demo.py`  
+**What:** Remove all Beat node construction from `build_demo_tree()`. Restructure the demo tree to exercise the new hierarchy:
+- At least one Part → Scene path (no Chapter)
+- At least one Part → Chapter → Scene path
+- At least one Part → Chapter → Part → Scene path (nested Part)
+Verify `previous`/`next` adjacency fields remain consistent after restructure.  
+**Note:** This supersedes open defect B-16 (#31) — close GitHub issue #31 in the PR.  
+**Acceptance criteria:** `build_demo_tree()` returns no nodes with `node_type: "beat"`. All three hierarchy patterns are present. All 12 unit tests in `TestBuildDemoTree` pass after update.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** M (45 min)
+
+---
+
+### E-109 — Update unit tests for new hierarchy rules
+
+**File:** `server/tests/test_unit.py`  
+**What:**  
+- `TestHierarchyValidator` (T-UNIT-01, T-UNIT-02): replace test cases to cover new valid pairs (Part→Part, Part→Chapter, Part→Scene, Chapter→Part, Chapter→Chapter, Chapter→Scene) and invalid pairs (Scene→anything, null→Chapter, null→Scene, any→beat).  
+- `TestDuplicateNode` (T-UNIT-08–10): replace Beat guard tests with Scene deep-duplicate guard tests.  
+- `TestBuildDemoTree`: update node count assertions and hierarchy depth assertions to match restructured demo tree from E-108. Do not remove cycle detection or sibling reorder tests — those are unaffected.  
+**Acceptance criteria:** All unit tests pass. No test references `NodeType.beat` or `"beat"`.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** M (45 min)
+
+---
+
+### E-110 — Update integration tests for new hierarchy rules
+
+**File:** `server/tests/test_integration_normalised.py`  
+**What:**  
+- `TestNodeCreate`: add tests for Part→Scene (skipping Chapter), Chapter→Part (nested), Scene-as-parent-returns-422. Remove Beat creation tests.  
+- `TestNodeNavigation` / `TestLeaves`: assert `node_type: "scene"` not `"beat"`. Update ancestors test (CP 17) — use Scene at depth 3 with Part and Chapter ancestors.  
+- `TestReorderDuplicate`: replace Beat deep-copy guard test with Scene deep-copy guard test.  
+- Update any error message string matches to reflect E-106 changes.  
+**Pitfall:** `TestDemoSeed` `by_type` count assertions depend on E-108 completing first — do E-108 before running this.  
+**Acceptance criteria:** Full integration suite passes. No test references `"beat"` as an expected value.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** L (2h)
+
+---
+
+### E-111 — Update demo seed integration tests for restructured tree
+
+**File:** `server/tests/test_integration_normalised.py` — `TestDemoSeed`  
+**What:** Update `by_type` count assertions to match the restructured demo tree from E-108. Verify: no `"beat"` key in `by_type` response, at least one node of each remaining type, flexible hierarchy paths exercised.  
+**Pitfall:** Depends on E-108. Do not merge before E-108 is stable.  
+**Acceptance criteria:** All `TestDemoSeed` tests pass against the live Atlas instance.  
+**GitHub label:** `refactor`, `p1`  
+**Est:** M (30 min)
+
+---
+
+### E-112 — Add DB-level `beat` rejection test
+
+**File:** `server/tests/test_unit.py`  
+**What:** Add a test that directly inserts a document with `node_type: "beat"` into `node_collection` via Motor and asserts a MongoDB `WriteError` is raised (CP 30). Mark `@pytest.mark.skipif` if the collection was created without a validator (Atlas `collMod` permission issue — E-79/E-80).  
+**Acceptance criteria:** Test passes when validator is active. Skip condition is documented.  
+**GitHub label:** `test`, `p2`  
+**Est:** S (20 min)
+
+---
+
+### Phase 21 Summary Table
+
+| # | Task | File(s) | Status | Est | GitHub | Notes |
+|---|------|---------|--------|-----|--------|-------|
+| E-101 | Remove `beat` from `NodeType` enum | `models.py` | ⬜ | XS | TBC | Do first |
+| E-102 | Replace `_VALID_CHILD` with `_VALID_CHILDREN` | `database.py` | ⬜ | S | TBC | Depends E-101 |
+| E-103 | Update MongoDB JSON Schema validator | `database.py` | ⬜ | XS | TBC | |
+| E-104 | Remove Beat guard; add Scene deep-dup guard | `api.py`, `database.py` | ⬜ | S | TBC | |
+| E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ⬜ | S | TBC | |
+| E-106 | Update hierarchy validation error messages | `api.py` | ⬜ | S | TBC | |
+| E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ⬜ | XS | TBC | Do last |
+| E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ⬜ | M | TBC | Closes #31 |
+| E-109 | Update unit tests | `test_unit.py` | ⬜ | M | TBC | After E-108 |
+| E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | TBC | After E-108 |
+| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | TBC | After E-108 |
+| E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | TBC | |
+
+**Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests) → E-107 (doc verification)
+
+
+---
+
 ## Running Totals
 
 | Category | Done | Total |
@@ -268,10 +452,11 @@
 | # | Task | Priority | GitHub | Status |
 |---|------|----------|--------|--------|
 | E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | #26 | — |
-| E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | — |
+| E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | ✅ |
 | E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — |
 
-**Note:** E-84 (Fix B-05, `**node_data` Pydantic v2 unpack) removed — already fixed in commit `84f3414`, closed via GitHub issue #27.
+**Note:** E-84 (Fix B-05, `**node_data` Pydantic v2 unpack) removed — already fixed in commit `84f3414`, closed via GitHub issue #27.  
+**Note:** E-88 (Fix B-18, `by_type` untyped dict) removed — fixed in this session, closed via GitHub issue #25.
 
 
 ---
@@ -425,10 +610,10 @@
 ### B-14 — Deferred imports inside method bodies
 
 **Severity:** Low — style/performance  
-**Status:** ⬜ Open  
-**File:** `database.py:1342, 1431`  
+**Status:** ✅ Fixed (2026-06-12)  
+**File:** `database.py:27` (moved from line 1416)  
 **GitHub:** #24  
-**Detail:** `from app.demo import build_demo_tree` and `import uuid as _uuid` should be top-of-file  
+**Detail:** `from app.demo import build_demo_tree` moved to top-level imports; inline import removed from `seed_demo()` method body. PR #39 merged.  
 
 ---
 
@@ -465,10 +650,20 @@
 ### B-18 — `by_type` uses untyped `dict[str, int]` in models.py
 
 **Severity:** Minor — weak type safety  
-**Status:** ⬜ Open  
-**File:** `models.py:641`  
+**Status:** ✅ Fixed (2026-06-12)  
+**File:** `models.py:497, 643`  
 **GitHub:** #25  
-**Detail:** Should be `dict[NodeType, int]` or validate expected keys match spec example  
+**Detail:** Changed `by_type` from `dict[str, int]` to `dict[NodeType, int]` in both `WorkStatsResponse` and `DemoSeedResponse`. NodeType is a str enum so JSON serialization is identical at runtime.  
+
+---
+
+### B-19 — `_PLACEHOLDER_WORK_ID` sentinel string fails Pydantic UUID pattern validation
+
+**Severity:** Low — blocks test execution for demo seeding feature  
+**Status:** ✅ Fixed (2026-06-11)  
+**File:** `demo.py:7`  
+**GitHub:** #37  
+**Detail:** Replaced `str(uuid.uuid4())` with `str(uuid.UUID("00000000-0000-0000-0000-000000000000"))` — valid UUID format that passes validation, clearly non-real in code review. Both seed paths overwrite before any DB write.  
 
 ---
 
@@ -610,6 +805,26 @@
 - **B-01 → ✅ Resolved:** Infra fix — new Atlas Database Access user, `MONGO_DETAILS` updated in `.env`. Verified app starts and `/health` returns 200. Verified `/get_token` login succeeds. Verified `/demo/seed` works via Swagger (after authorizing).
 - **B-04 T-84 → ✅ Implemented:** `GET /health` now creates a short-lived `AsyncIOMotorClient` (`serverSelectionTimeoutMS=5000`, `maxPoolSize=1`) that forces a fresh auth attempt instead of reusing a stale pool connection. Verified: 200 when Atlas is up, health reports `database: "connected"` correctly.
 - **Commit `4c5dfe9`:** Staged and committed `api.py` (T-84 code) + `PROGRESS.md` (B-01 fixed, B-04/T-84 marked done).
+
+---
+
+### 2026-06-11 — Fix B-15/#37: _PLACEHOLDER_WORK_ID sentinel fails Pydantic UUID validation
+
+**Done:**
+- Changed `_PLACEHOLDER_WORK_ID` in `server/app/demo.py:7` from `str(uuid.uuid4())` to `str(uuid.UUID("00000000-0000-0000-0000-000000000000"))`
+- Fixed sentinel is a valid UUID4-format string that passes Pydantic `UUID_PATTERN` validation
+- Clearly non-real (all zeros) and distinguishable in code review
+- Both seed paths (`_seed_with_transaction:1464`, `_seed_with_compensating_cleanup:1507`) overwrite the placeholder with `work_doc["work_id"]` before any DB write — confirmed safe
+- Verified: `build_demo_tree()` returns valid `CreateWorkRequest` and 13 `CreateNodeRequest` objects that pass full Pydantic validation without ValidationError
+
+**PROGRESS.md changes:**
+- New session entry added below
+- New defect B-19/#37 added to Defects section (✅ Fixed)
+
+**Commit:** `bb9bcbd Fix sentinel work_id to pass Pydantic UUID validation`
+**PR:** https://github.com/felipeazucares/fabulator/pull/38 (merged to close #37)
+
+**Branch:** `feature/work-reading-order`
 
 ---
 

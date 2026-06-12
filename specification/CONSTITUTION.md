@@ -135,7 +135,16 @@ Every MongoDB document (Work or node) MUST carry `account_id` (a bcrypt hash of 
 
 ### I.5 — Hierarchy Enforcement
 
-The node type hierarchy is fixed: `Work → Part → Chapter → Scene → Beat`. This MUST be enforced at application level on every create and reparent operation. Violations MUST return HTTP 422. The hierarchy MUST also be enforced at MongoDB schema level via a JSON Schema validator on `node_collection`.
+The valid node types are `part`, `chapter`, and `scene`. `beat` is not a valid type. The following parent-child rules MUST be enforced at application level on every create and reparent operation. Violations MUST return HTTP 422. The rules MUST also be enforced at MongoDB schema level via a JSON Schema validator on `node_collection`.
+
+| Parent type | Valid child types |
+|-------------|------------------|
+| `null` (root) | `part` only |
+| `part` | `part`, `chapter`, `scene` |
+| `chapter` | `part`, `chapter`, `scene` |
+| `scene` | _(none — leaf)_ |
+
+Scene nodes MUST NOT have children. Part nodes with `parent_id == null` are the only valid roots. (DD-11)
 
 ### I.6 — Work Scoping
 
@@ -253,7 +262,7 @@ Every node document in `node_collection` MUST carry: `node_id` (UUID4), `work_id
 
 ### IV.3 — Node Type Enum
 
-`node_type` MUST be one of: `"part"`, `"chapter"`, `"scene"`, `"beat"`. No other values are permitted. This MUST be enforced by both the application and the MongoDB JSON Schema validator on `node_collection`.
+`node_type` MUST be one of: `"part"`, `"chapter"`, `"scene"`. `"beat"` is not a valid type and MUST NOT be stored. This MUST be enforced by both the application and the MongoDB JSON Schema validator on `node_collection`. (DD-11)
 
 ### IV.4 — Identifier Format
 
