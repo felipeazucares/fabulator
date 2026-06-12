@@ -319,20 +319,19 @@ class UserStorage:
 
 _UUID4_RE = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
-# Maps parent node_type → the only valid child node_type.
+# Maps parent node_type → set of valid child node_types.
 # None key = root level (only "part" may have no parent).
-_VALID_CHILD: dict[str | None, str | None] = {
-    None: "part",
-    "part": "chapter",
-    "chapter": "scene",
-    "scene": "beat",
-    "beat": None,
+_VALID_CHILDREN: dict[str | None, set[str]] = {
+    None: {"part"},
+    "part": {"part", "chapter", "scene"},
+    "chapter": {"part", "chapter", "scene"},
+    "scene": set(),
 }
 
 
 def is_valid_parent_child(parent_type: str | None, child_type: str) -> bool:
-    """Return True if child_type is the valid child of parent_type per hierarchy rules."""
-    return _VALID_CHILD.get(parent_type) == child_type
+    """Return True if child_type is a valid child of parent_type per hierarchy rules."""
+    return child_type in _VALID_CHILDREN.get(parent_type, set())
 
 
 def _strip_id(doc: dict) -> dict:
