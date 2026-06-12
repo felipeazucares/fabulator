@@ -1180,8 +1180,8 @@ async def duplicate_node(
         raise HTTPException(status_code=503, detail="Database error")
     if source is None:
         raise HTTPException(status_code=404, detail="Node not found")
-    if source["node_type"] == "beat":
-        raise HTTPException(status_code=400, detail="Beat nodes cannot be duplicated")
+    if source["node_type"] == "scene" and deep:
+        raise HTTPException(status_code=400, detail="Scene nodes cannot be deep-duplicated (they are leaf nodes)")
     try:
         if deep:
             result = await node_storage.duplicate_deep(
