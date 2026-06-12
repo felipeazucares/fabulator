@@ -494,7 +494,7 @@ class AncestorsResponse(BaseModel):
 class WorkStatsResponse(BaseModel):
     work_id: str
     total_nodes: int
-    by_type: dict[str, int]
+    by_type: dict[NodeType, int]
     max_depth: int
 
     model_config = ConfigDict(
@@ -640,7 +640,7 @@ class DemoSeedResponse(BaseModel):
     work_id: str
     title: str
     total_nodes: int
-    by_type: dict[str, int]
+    by_type: dict[NodeType, int]
 
     model_config = ConfigDict(
         json_schema_extra={
