@@ -54,8 +54,8 @@ async def _create_node(ac, headers, work_id, node_type, tag, parent_id=None):
     return resp
 
 
-async def _create_hierarchy(ac, headers, work_id, depth=4):
-    """Create Part -> Chapter -> Scene -> Beat and return list of node_ids."""
+async def _create_hierarchy(ac, headers, work_id, depth=3):
+    """Create Part -> Chapter -> Scene and return list of node_ids."""
     ids = []
     r = await _create_node(ac, headers, work_id, "part", "Part One")
     assert r.status_code == 201
@@ -72,11 +72,7 @@ async def _create_hierarchy(ac, headers, work_id, depth=4):
     sc_id = r.json()["node_id"]
     ids.append(sc_id)
 
-    r = await _create_node(ac, headers, work_id, "beat", "Beat 1", parent_id=sc_id)
-    assert r.status_code == 201
-    ids.append(r.json()["node_id"])
-
-    return ids  # [part_id, chapter_id, scene_id, beat_id]
+    return ids  # [part_id, chapter_id, scene_id]
 
 
 async def _create_work_and_hierarchy(ac, headers, author=None):
@@ -771,13 +767,13 @@ class TestNodeCreate:
         assert r.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_t_create_25_beat_no_children_guard(self, main_user):
-        """T-CREATE-25: Cannot create child under a Beat node."""
+    async def test_t_create_25_scene_leaf_guard(self, main_user):
+        """T-CREATE-25: Cannot create child under a Scene node."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             work_id, ids = await _create_work_and_hierarchy(ac, headers)
-            beat_id = ids[3]
-            r = await _create_node(ac, headers, work_id, "beat", "sub-beat", parent_id=beat_id)
+            scene_id = ids[2]
+            r = await _create_node(ac, headers, work_id, "scene", "sub-scene", parent_id=scene_id)
         assert r.status_code == 422
 
 
@@ -813,12 +809,12 @@ class TestNodeNavigation:
         assert children[0]["position"] == 0
 
     @pytest.mark.asyncio
-    async def test_t_nav_02_children_beat_empty(self, work_and_nodes):
-        """T-NAV-02: GET /nodes/{beat_id}/children returns []."""
+    async def test_t_nav_02_children_scene_leaf(self, work_and_nodes):
+        """T-NAV-02: GET /nodes/{scene_id}/children returns []."""
         headers, _, ids = work_and_nodes
-        beat_id = ids[3]
+        scene_id = ids[2]
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
-            r = await ac.get(f"/nodes/{beat_id}/children", headers=headers)
+            r = await ac.get(f"/nodes/{scene_id}/children", headers=headers)
         assert r.status_code == 200
         assert r.json() == []
 
@@ -890,17 +886,16 @@ class TestNodeNavigation:
 
     @pytest.mark.asyncio
     async def test_t_nav_10_ancestors_deep(self, work_and_nodes):
-        """T-NAV-10: GET /nodes/{beat_id}/ancestors returns root-first chain."""
+        """T-NAV-10: GET /nodes/{scene_id}/ancestors returns root-first chain."""
         headers, _, ids = work_and_nodes
-        beat_id = ids[3]
+        scene_id = ids[2]
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
-            r = await ac.get(f"/nodes/{beat_id}/ancestors", headers=headers)
+            r = await ac.get(f"/nodes/{scene_id}/ancestors", headers=headers)
         assert r.status_code == 200
         ancestors = r.json()["ancestors"]
-        assert len(ancestors) == 3
+        assert len(ancestors) == 2
         assert ancestors[0]["node_type"] == "part"
         assert ancestors[1]["node_type"] == "chapter"
-        assert ancestors[2]["node_type"] == "scene"
 
     @pytest.mark.asyncio
     async def test_t_nav_11_ancestors_root_empty(self, work_and_nodes):
@@ -1009,18 +1004,18 @@ class TestNodeNavigation:
 
     @pytest.mark.asyncio
     async def test_t_nav_21_leaves_happy(self, work_and_nodes):
-        """T-NAV-21: GET /works/{id}/nodes/leaves returns Beat nodes."""
+        """T-NAV-21: GET /works/{id}/nodes/leaves returns Scene nodes."""
         headers, work_id, _ = work_and_nodes
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/leaves", headers=headers)
         assert r.status_code == 200
         leaves = r.json()["results"]
         assert len(leaves) == 1
-        assert leaves[0]["node_type"] == "beat"
+        assert leaves[0]["node_type"] == "scene"
 
     @pytest.mark.asyncio
     async def test_t_nav_22_leaves_empty(self, main_user, work_id):
-        """T-NAV-22: GET /works/{id}/nodes/leaves with no beats returns []."""
+        """T-NAV-22: GET /works/{id}/nodes/leaves with no scenes returns []."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             r = await ac.get(f"/works/{work_id}/nodes/leaves", headers=headers)
@@ -1037,12 +1032,12 @@ class TestNodeNavigation:
             r = await ac.get(f"/works/{work_id}/stats", headers=headers)
         assert r.status_code == 200
         stats = r.json()
-        assert stats["total_nodes"] == 4
+        assert stats["total_nodes"] == 3
         assert stats["by_type"]["part"] == 1
         assert stats["by_type"]["chapter"] == 1
         assert stats["by_type"]["scene"] == 1
-        assert stats["by_type"]["beat"] == 1
-        assert stats["max_depth"] >= 3
+        assert "beat" not in stats["by_type"]
+        assert stats["max_depth"] >= 2
 
     @pytest.mark.asyncio
     async def test_t_nav_24_stats_empty(self, main_user, work_id):
@@ -1244,11 +1239,11 @@ class TestNodeUpdateDelete:
 
     @pytest.mark.asyncio
     async def test_t_delete_02_leaf_node(self, main_user):
-        """T-DELETE-02: DELETE /nodes/{beat} removes 0 descendants."""
+        """T-DELETE-02: DELETE /nodes/{scene} removes 0 descendants."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             work_id, ids = await _create_work_and_hierarchy(ac, headers)
-            r = await ac.delete(f"/nodes/{ids[3]}", headers=headers)
+            r = await ac.delete(f"/nodes/{ids[2]}", headers=headers)
         assert r.status_code == 200
         assert "0 descendant(s) removed" in r.json()["detail"]
 
@@ -1485,34 +1480,34 @@ class TestReorderDuplicate:
             assert len(new_ids) >= 4
 
     @pytest.mark.asyncio
-    async def test_t_dup_05_beat_guard(self, main_user):
-        """T-DUP-05: Beat node duplicate returns 400."""
+    async def test_t_dup_05_scene_guard(self, main_user):
+        """T-DUP-05: Scene node duplicate returns 400."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             work_id, ids = await _create_work_and_hierarchy(ac, headers)
-            r = await ac.post(f"/nodes/{ids[3]}/duplicate", headers=headers)
+            r = await ac.post(f"/nodes/{ids[2]}/duplicate", headers=headers)
         assert r.status_code == 400
-        assert r.json()["detail"] == "Beat nodes cannot be duplicated"
+        assert r.json()["detail"] == "Scene nodes cannot be duplicated"
 
     @pytest.mark.asyncio
-    async def test_t_dup_06_beat_guard_deep(self, main_user):
-        """T-DUP-06: Beat deep duplicate returns 400."""
+    async def test_t_dup_06_scene_guard_deep(self, main_user):
+        """T-DUP-06: Scene deep duplicate returns 400."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             work_id, ids = await _create_work_and_hierarchy(ac, headers)
-            r = await ac.post(f"/nodes/{ids[3]}/duplicate?deep=true", headers=headers)
+            r = await ac.post(f"/nodes/{ids[2]}/duplicate?deep=true", headers=headers)
         assert r.status_code == 400
-        assert r.json()["detail"] == "Beat nodes cannot be duplicated"
+        assert r.json()["detail"] == "Scene nodes cannot be duplicated"
 
     @pytest.mark.asyncio
-    async def test_t_dup_07_beat_no_write(self, main_user, motor_client):
-        """T-DUP-07: Beat duplicate writes no documents."""
+    async def test_t_dup_07_scene_no_write(self, main_user, motor_client):
+        """T-DUP-07: Scene duplicate writes no documents."""
         headers, _ = main_user
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
             work_id, ids = await _create_work_and_hierarchy(ac, headers)
         count_before = await _count_nodes(motor_client, work_id=work_id)
         async with httpx.AsyncClient(transport=ASGITransport(app=api.app), base_url="http://test") as ac:
-            r = await ac.post(f"/nodes/{ids[3]}/duplicate", headers=headers)
+            r = await ac.post(f"/nodes/{ids[2]}/duplicate", headers=headers)
         assert r.status_code == 400
         count_after = await _count_nodes(motor_client, work_id=work_id)
         assert count_after == count_before
@@ -1568,12 +1563,11 @@ class TestDemoSeed:
         assert "work_id" in body
         assert re.match(UUID_PATTERN, body["work_id"])
         assert body["title"] == "Demo: The Lighthouse at the End of the World"
-        assert body["total_nodes"] == 15
+        assert body["total_nodes"] == 10
         assert sum(body["by_type"].values()) == body["total_nodes"]
-        assert body["by_type"]["part"] == 1
+        assert body["by_type"]["part"] == 2
         assert body["by_type"]["chapter"] == 2
-        assert body["by_type"]["scene"] == 4
-        assert body["by_type"]["beat"] == 8
+        assert body["by_type"]["scene"] == 6
         assert "account_id" not in body
 
     # -----------------------------------------------------------------------
@@ -1598,7 +1592,7 @@ class TestDemoSeed:
             rn = await ac.get(f"/works/{work_id}/nodes", headers=headers)
         assert rn.status_code == 200
         nodes = rn.json()["results"]
-        assert len(nodes) == 15
+        assert len(nodes) == 10
         for node in nodes:
             assert node.get("author") == username
 
