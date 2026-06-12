@@ -30,26 +30,20 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
 
     # Generate unique UUIDs for each node
     part1_id = str(uuid.uuid4())
+    part2_id = str(uuid.uuid4())
     ch1_id = str(uuid.uuid4())
     ch2_id = str(uuid.uuid4())
     s1_id = str(uuid.uuid4())
     s2_id = str(uuid.uuid4())
     s3_id = str(uuid.uuid4())
     s4_id = str(uuid.uuid4())
-    b1_id = str(uuid.uuid4())
-    b2_id = str(uuid.uuid4())
-    b3_id = str(uuid.uuid4())
-    b4_id = str(uuid.uuid4())
-
-    b5_id = str(uuid.uuid4())
-    b6_id = str(uuid.uuid4())
-    b7_id = str(uuid.uuid4())
-    b8_id = str(uuid.uuid4())
+    s5_id = str(uuid.uuid4())
+    s6_id = str(uuid.uuid4())
 
     # Define the tree structure with sibling groups
     # Each group is a list of (node_type, tag, description, text, child_group) tuples
     tree_structure = [
-        # Part 1 (root) -> children: [Chapter 1, Chapter 2]
+        # Part 1 (root) -> children: [Scene 1, Chapter 1, Chapter 2]
         {
             "node_id": part1_id,
             "node_type": NodeType.part,
@@ -59,149 +53,103 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
             "text": "In the remote coastal town of Millhaven, lived a lighthouse keeper named Thomas. The lighthouse stood tall on the rocky cliff, its beacon cutting through the foggy nights.",
             "tags": ["introduction", "character"],
             "children": [
+                # Direct Part->Scene path
+                {
+                    "node_id": s1_id,
+                    "node_type": NodeType.scene,
+                    "parent_id": part1_id,
+                    "tag": "The First Signal",
+                    "description": "Thomas first notices the mysterious signal",
+                    "text": "On his first night of observation, Thomas was struck by how clear the signal was. The flashes were perfectly timed and rhythmic, spelling out a message he could not yet understand.",
+                    "tags": ["observation", "first night"],
+                    "children": []
+                },
+                # Standard Part->Chapter path
                 {
                     "node_id": ch1_id,
                     "node_type": NodeType.chapter,
                     "parent_id": part1_id,
-                    "tag": "The Signal",
-                    "description": "Thomas discovers an unusual signal from the lighthouse",
-                    "text": "One evening, while checking the lighthouse equipment, Thomas noticed a strange pattern in the beacon. It wasn't the regular rotating light he was used to - it was a series of flashes that seemed to form a message.",
-                    "tags": ["mystery", "signal"],
+                    "tag": "The Investigation",
+                    "description": "Thomas investigates the unusual signal",
+                    "text": "Determined to understand what he had seen, Thomas spent the next few nights observing the lighthouse. He noted that the signal pattern was consistent - it came every night at exactly 11:47 PM.",
+                    "tags": ["investigation", "mystery"],
                     "children": [
+                        # Chapter->Part path (nested Part)
                         {
-                            "node_id": s1_id,
-                            "node_type": NodeType.scene,
+                            "node_id": part2_id,
+                            "node_type": NodeType.part,
                             "parent_id": ch1_id,
-                            "tag": "The First Night",
-                            "description": "Thomas first notices the signal",
-                            "text": "On his first night of observation, Thomas was struck by how clear the signal was. The flashes were perfectly timed and rhythmic.",
-                            "tags": ["observation", "first night"],
+                            "tag": "The Sailor's Tale",
+                            "description": "A flashback story within the investigation",
+                            "text": "During his investigation, Thomas recalled a story his grandfather once told him about a shipwreck off the coast many years ago. The old sailor's tale held a clue to the signal.",
+                            "tags": ["flashback", "story"],
                             "children": [
+                                # Part->Scene inside nested Part
                                 {
-                                    "node_id": b1_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s1_id,
-                                    "tag": "The Search Begins",
-                                    "description": "Thomas starts the search for the signal sender",
-                                    "text": "With his lantern and compass, Thomas began his search through the foggy night.",
-                                    "tags": ["search", "beginning"],
-                                    "children": []
-                                },
-                                {
-                                    "node_id": b2_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s1_id,
-                                    "tag": "The Discovery",
-                                    "description": "Thomas discovers the signal sender",
-                                    "text": "After hours of searching, Thomas found a small boat stranded on the rocks.",
-                                    "tags": ["discovery", "boat"],
+                                    "node_id": s2_id,
+                                    "node_type": NodeType.scene,
+                                    "parent_id": part2_id,
+                                    "tag": "The Lost Voyage",
+                                    "description": "The story of the shipwreck",
+                                    "text": "The ship had been carrying a valuable cargo when it was caught in a terrible storm. The crew sent out a distress signal, but by the time help arrived, the ship had vanished into the depths.",
+                                    "tags": ["shipwreck", "history"],
                                     "children": []
                                 }
                             ]
                         },
+                        # Chapter->Scene path
                         {
-                            "node_id": s2_id,
+                            "node_id": s3_id,
                             "node_type": NodeType.scene,
                             "parent_id": ch1_id,
-                            "tag": "The Pattern",
-                            "description": "Thomas decodes the signal pattern",
-                            "text": "After several nights of careful observation, Thomas realized that the flashes formed a pattern - they were spelling out letters in Morse code.",
-                            "tags": ["decoding", "pattern"],
-                            "children": [
-                                {
-                                    "node_id": b3_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s2_id,
-                                    "tag": "The Rescue",
-                                    "description": "Thomas rescues the signal sender",
-                                    "text": "Inside the boat, Thomas found a young woman who had been lost at sea.",
-                                    "tags": ["rescue", "woman"],
-                                    "children": []
-                                },
-                                {
-                                    "node_id": b4_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s2_id,
-                                    "tag": "The Return",
-                                    "description": "Thomas returns the woman to safety",
-                                    "text": "With the help of the local coast guard, Thomas returned the woman safely to shore.",
-                                    "tags": ["return", "safety"],
-                                    "children": []
-                                }
-                            ]
+                            "tag": "The Message",
+                            "description": "Thomas decodes the signal",
+                            "text": "After several nights of careful observation, Thomas realized that the flashes formed a pattern - they were spelling out letters in Morse code. The message read: 'Help needed. Lighthouse keeper. Signal 1234.'",
+                            "tags": ["decoding", "message"],
+                            "children": []
+                        },
+                        # Another Chapter->Scene path
+                        {
+                            "node_id": s4_id,
+                            "node_type": NodeType.scene,
+                            "parent_id": ch1_id,
+                            "tag": "The Rescue",
+                            "description": "Thomas organizes a rescue mission",
+                            "text": "Thomas decided to act on the message. He organized a search party, armed with his lantern and compass, and set out into the treacherous waters to find who needed help.",
+                            "tags": ["rescue", "action"],
+                            "children": []
                         }
                     ]
                 },
+                # Second Part->Chapter path
                 {
                     "node_id": ch2_id,
                     "node_type": NodeType.chapter,
                     "parent_id": part1_id,
-                    "tag": "The Investigation",
-                    "description": "Thomas begins investigating the signal",
-                    "text": "Determined to understand what he had seen, Thomas spent the next few nights observing the lighthouse. He noted that the signal pattern was consistent - it came every night at exactly 11:47 PM.",
-                    "tags": ["investigation", "mystery"],
+                    "tag": "The Revelation",
+                    "description": "The mystery unravels",
+                    "text": "As Thomas pieced together the clues from the signal, the old sailor's tale, and his own observations, a larger picture began to emerge about what lay beneath the waves off Millhaven's coast.",
+                    "tags": ["revelation", "mystery"],
                     "children": [
                         {
-                            "node_id": s3_id,
+                            "node_id": s5_id,
                             "node_type": NodeType.scene,
                             "parent_id": ch2_id,
-                            "tag": "The Message",
-                            "description": "Thomas discovers the message content",
-                            "text": "The message read: 'Help needed. Lighthouse keeper. Signal 1234.' Thomas realized someone was in trouble.",
-                            "tags": ["message", "help"],
-                            "children": [
-                                {
-                                    "node_id": b5_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s3_id,
-                                    "tag": "The Decision",
-                                    "description": "Thomas decides to follow the signal coordinates",
-                                    "text": "Armed with the message and his knowledge of the waters, Thomas prepared his boat for a journey into the storm.",
-                                    "tags": ["decision", "journey"],
-                                    "children": []
-                                },
-                                {
-                                    "node_id": b6_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s3_id,
-                                    "tag": "The Storm",
-                                    "description": "Thomas faces a sudden storm during the investigation",
-                                    "text": "A fierce storm rolled in as Thomas set out, making it difficult for him to see and navigate. But he pressed on, driven by the urgent message.",
-                                    "tags": ["storm", "courage"],
-                                    "children": []
-                                }
-                            ]
+                            "tag": "The Truth",
+                            "description": "Thomas discovers the truth behind the signal",
+                            "text": "The signal was not a cry for help from the present, but a legacy message from the past, repeating automatically for decades. Thomas was the first person in generations to notice it and understand its meaning.",
+                            "tags": ["truth", "discovery"],
+                            "children": []
                         },
                         {
-                            "node_id": s4_id,
+                            "node_id": s6_id,
                             "node_type": NodeType.scene,
                             "parent_id": ch2_id,
-                            "tag": "The Rescue",
-                            "description": "Thomas attempts to rescue the signal sender",
-                            "text": "Thomas decided to act on the message. He organized a search party and set out to find who needed help.",
-                            "tags": ["rescue", "action"],
-                            "children": [
-                                {
-                                    "node_id": b7_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s4_id,
-                                    "tag": "The Departure",
-                                    "description": "Thomas and the search party set out",
-                                    "text": "With the coordinates from the message, Thomas led the search party into the treacherous waters, hoping they would reach the stranded person in time.",
-                                    "tags": ["departure", "search"],
-                                    "children": []
-                                },
-                                {
-                                    "node_id": b8_id,
-                                    "node_type": NodeType.beat,
-                                    "parent_id": s4_id,
-                                    "tag": "The Discovery",
-                                    "description": "Thomas finds the signal sender",
-                                    "text": "After hours of navigating through the storm, Thomas spotted a small raft with a lone figure waving frantically in the fading light.",
-                                    "tags": ["discovery", "rescue"],
-                                    "children": []
-                                }
-                            ]
+                            "tag": "The Farewell",
+                            "description": "Thomas makes his peace with the past",
+                            "text": "With the mystery solved, Thomas stood at the lighthouse one last time as the sun set. He had given the lost crew the recognition they deserved. The signal would continue, but now someone would remember.",
+                            "tags": ["resolution", "farewell"],
+                            "children": []
                         }
                     ]
                 }
@@ -215,7 +163,7 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
         for i, node_def in enumerate(nodes):
             next_id = nodes[i + 1]["node_id"] if i + 1 < len(nodes) else None
             prev_id = nodes[i - 1]["node_id"] if i > 0 else None
-            
+
             node = CreateNodeRequest(
                 node_id=node_def["node_id"],
                 work_id=_PLACEHOLDER_WORK_ID,
@@ -229,7 +177,7 @@ def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, li
                 tags=node_def.get("tags", []),
             )
             result.append(node)
-            
+
             # Recursively flatten children
             if node_def.get("children"):
                 result.extend(flatten(node_def["children"], parent_id=node_def["node_id"]))

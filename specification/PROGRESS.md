@@ -422,7 +422,7 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ✅ | S | #45 | |
 | E-106 | Update hierarchy validation error messages | `api.py` | ✅ | S | #58 | Done — PR merged |
 | E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ✅ | XS | #47 | Verified CPs 12/13/15/17/19/20/27/30; stale beat references updated in REQUIREMENTS.md |
-| E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ⬜ | M | #48 | Closes #31 |
+| E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ✅ | M | #48 | Closes #31 |
 | E-109 | Update unit tests | `test_unit.py` | ⬜ | M | #49 | After E-108 |
 | E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | #50 | After E-108 |
 | E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | #51 | After E-108 |
@@ -438,6 +438,7 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | Category | Done | Total |
 |----------|------|-------|
 | Enhancement tasks (E-56–E-90) | 35 | 35 |
+| Enhancement tasks (E-101–E-112, Phase 21) | 8 | 12 |
 | Bug items tracked (B-01–B-18) | 13 | 18 |
 | Unit tests | 52 | 52 |
 | Integration tests | 188 | 204 |
@@ -973,5 +974,25 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 - Session entry added
 
 **Branch:** `main`
+
+---
+
+### 2026-06-12 — E-107 doc verification + E-108 demo tree restructured
+
+**Done:**
+- E-107: Verified CPs 12/13/15/17/19/20/27/30 against code. Updated `specification/REQUIREMENTS.md` — 14 sections cleaned of stale "beat" references. PR #60 created to `refactor/renovate_hierarchy`.
+- E-108: Restructured `server/app/demo.py` — removed 8 Beat nodes, added Part 2 (nested under Chapter 1) + 2 new Scenes. Tree now 10 nodes (`{part: 2, chapter: 2, scene: 6}`). All flexible-hierarchy paths exercised: Part→Scene, Part→Chapter, Chapter→Part, Chapter→Scene.
+- Opencode `.claude/` directory populated: `context.md`, `mode=normal`.
+
+**Still open:**
+- E-109 (update unit tests), E-110 (integration tests), E-111 (demo seed tests), E-112 (beat rejection test) — all ⬜
+- 15 pre-existing test failures: 5 TestBuildDemoTree assertion failures (need E-109 update for new tree shape), 2 TestAuthHelpers (bcrypt/passlib compat), 1 TestDemoSeedResponse (stale `by_type`)
+
+**PROGRESS.md changes:**
+- Phase 21 table: E-108 ⬜ → ✅
+- Running totals: 7/12 → 8/12
+- Session entry added
+
+**Branch:** `refactor/e107-post-code-doc-verification`
 
 
