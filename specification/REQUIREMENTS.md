@@ -205,7 +205,7 @@ This document consolidates all functional requirements, non-functional requireme
 #### Acceptance Criteria
  
 1. GIVEN a Part node with 2 Chapter children each with 1 Scene WHEN `DELETE /nodes/{part_node_id}` is called THEN the server returns HTTP 200 with `detail: "Node deleted. 4 descendant(s) removed."` and no descendant nodes remain.
-2. GIVEN a leaf Beat node WHEN `DELETE /nodes/{beat_id}` is called THEN the server returns HTTP 200 with `detail: "Node deleted. 0 descendant(s) removed."`.
+2. GIVEN a leaf Scene node WHEN `DELETE /nodes/{scene_id}` is called THEN the server returns HTTP 200 with `detail: "Node deleted. 0 descendant(s) removed."`.
 3. GIVEN a valid JWT WHEN `DELETE /nodes/{node_id}` is called with a non-existent or cross-account `node_id` THEN the server returns HTTP 404 with `detail: "Node not found"`.
 4. GIVEN User A owns Node N and User B is authenticated WHEN User B calls `DELETE /nodes/{N.node_id}` THEN the server returns HTTP 404.
 ---
@@ -213,15 +213,15 @@ This document consolidates all functional requirements, non-functional requireme
 ### Requirement 11: Valid Parent-Child Enforcement
  
 **Feature group:** Node Hierarchy (`node-hierarchy/feature.md`)  
-**User Story:** As an authenticated writer, I want the API to reject invalid parent-child combinations so that the hierarchy always forms a correct Part → Chapter → Scene → Beat structure.  
+**User Story:** As an authenticated writer, I want the API to reject invalid parent-child combinations so that the hierarchy always forms a correct tree per flexible rules (Part and Chapter may contain Part/Chapter/Scene; Scene is leaf).  
 **Maps to:** `is_valid_parent_child(parent_type, child_type)` — called on every create and reparent operation.
- 
+
 #### Acceptance Criteria
- 
+
 1. GIVEN `is_valid_parent_child(None, "part")` is called THEN it returns `True`.
 2. GIVEN `is_valid_parent_child("part", "chapter")` is called THEN it returns `True`.
-3. GIVEN `is_valid_parent_child("beat", "beat")` is called THEN it returns `False` (Beat is a leaf).
-4. GIVEN a valid JWT WHEN `POST /nodes` is called with `node_type: "scene"` and a Part `parent_id` THEN the server returns HTTP 422 with `detail: "A scene cannot be a child of a part"`.
+3. GIVEN `is_valid_parent_child("scene", "part")` is called THEN it returns `False` (Scene is a leaf).
+4. GIVEN a valid JWT WHEN `POST /nodes` is called with `node_type: "chapter"` and a Scene `parent_id` THEN the server returns HTTP 422 with `detail: "A chapter cannot be a child of a scene"`.
 5. GIVEN a valid JWT WHEN `PUT /nodes/{id}` is called with a `parent_id` that would violate hierarchy THEN the server returns HTTP 422 with a `detail` containing both type names.
 ---
  
@@ -235,7 +235,7 @@ This document consolidates all functional requirements, non-functional requireme
  
 1. GIVEN a valid JWT WHEN `POST /nodes` is called with `{"node_type": "part", ...}` and no `parent_id` THEN the server returns HTTP 201.
 2. GIVEN a valid JWT WHEN `POST /nodes` is called with `{"node_type": "chapter", ...}` and no `parent_id` THEN the server returns HTTP 422 with exact `detail: "Only 'part' nodes may have no parent"`.
-3. GIVEN a valid JWT WHEN `POST /nodes` is called with `{"node_type": "beat", ...}` and no `parent_id` THEN the server returns HTTP 422 with exact `detail: "Only 'part' nodes may have no parent"`.
+3. GIVEN a valid JWT WHEN `POST /nodes` is called with `{"node_type": "scene", ...}` and no `parent_id` THEN the server returns HTTP 422 with exact `detail: "Only 'part' nodes may have no parent"`.
 ---
  
 ### Requirement 13: Cycle Detection on Reparent
@@ -271,12 +271,12 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to retrieve the direct children of a node, so that I can navigate down the hierarchy one level.  
 **Endpoint:** `GET /nodes/{node_id}/children` — scope: `tree:reader` — returns `200 list[NodeResponse]`  
-**Status:** API endpoint not yet implemented (DB method complete).
- 
+**Status:** Implemented.
+
 #### Acceptance Criteria
- 
+
 1. GIVEN a valid JWT and a Part node `P` with 2 Chapter children WHEN `GET /nodes/{P.node_id}/children` is called THEN the server returns HTTP 200 with 2 `NodeResponse` objects ordered by `position` ascending.
-2. GIVEN a valid JWT and a Beat node (leaf) WHEN `GET /nodes/{beat_id}/children` is called THEN the server returns HTTP 200 with an empty list `[]`.
+2. GIVEN a valid JWT and a Scene node (leaf) WHEN `GET /nodes/{scene_id}/children` is called THEN the server returns HTTP 200 with an empty list `[]`.
 3. GIVEN a valid JWT WHEN called with a non-existent or cross-account `node_id` THEN the server returns HTTP 404 with `detail: "Node not found"`.
 4. GIVEN no Authorization header WHEN `GET /nodes/{node_id}/children` is called THEN the server returns HTTP 401.
 5. GIVEN User A owns Node N and User B is authenticated WHEN User B calls `GET /nodes/{N.node_id}/children` THEN the server returns HTTP 404.
@@ -287,7 +287,7 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to retrieve the parent of a node, so that I can navigate up the hierarchy.  
 **Endpoint:** `GET /nodes/{node_id}/parent` — scope: `tree:reader` — returns `200 NodeResponse | null`  
-**Status:** API endpoint not yet implemented (DB method complete).
+**Status:** Implemented.
  
 #### Acceptance Criteria
  
@@ -302,11 +302,11 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to retrieve the full ancestor chain from root to parent, so that I can display breadcrumb navigation.  
 **Endpoint:** `GET /nodes/{node_id}/ancestors` — scope: `tree:reader` — returns `200 AncestorsResponse`  
-**Status:** API endpoint not yet implemented (DB method complete).
+**Status:** Implemented.
  
 #### Acceptance Criteria
  
-1. GIVEN a valid JWT and a Beat node `B` with ancestors Part `P` → Chapter `C` → Scene `S` WHEN `GET /nodes/{B.node_id}/ancestors` is called THEN the server returns HTTP 200 with `{"ancestors": [P, C, S]}` (root-first order).
+1. GIVEN a valid JWT and a Scene node `S` with ancestors Part `P` → Chapter `C` WHEN `GET /nodes/{S.node_id}/ancestors` is called THEN the server returns HTTP 200 with `{"ancestors": [P, C]}` (root-first order).
 2. GIVEN a valid JWT and a Part node (root) WHEN `GET /nodes/{part_id}/ancestors` is called THEN the server returns HTTP 200 with `{"ancestors": []}`.
 3. GIVEN a valid JWT WHEN called with a non-existent or cross-account `node_id` THEN the server returns HTTP 404 with `detail: "Node not found"`.
 ---
@@ -316,7 +316,7 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to retrieve the siblings of a node, so that I can navigate the hierarchy laterally.  
 **Endpoint:** `GET /nodes/{node_id}/siblings` — scope: `tree:reader` — returns `200 list[NodeResponse]`  
-**Status:** API endpoint not yet implemented (DB method complete).
+**Status:** Implemented.
  
 #### Acceptance Criteria
  
@@ -330,7 +330,7 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to retrieve all root (Part) nodes for a Work, so that I can render the top level of the hierarchy.  
 **Endpoint:** `GET /works/{work_id}/nodes/root` — scope: `tree:reader` — returns `200 list[NodeResponse]`  
-**Status:** API endpoint not yet implemented (DB method complete).
+**Status:** Implemented.
  
 #### Acceptance Criteria
  
@@ -343,14 +343,14 @@ This document consolidates all functional requirements, non-functional requireme
 ### Requirement 20: Get Leaf Nodes
  
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
-**User Story:** As an authenticated reader, I want to retrieve all leaf (Beat) nodes for a Work, so that I can find story endpoints.  
+**User Story:** As an authenticated reader, I want to retrieve all leaf (Scene) nodes for a Work, so that I can find story endpoints.  
 **Endpoint:** `GET /works/{work_id}/nodes/leaves` — scope: `tree:reader` — returns `200 list[NodeResponse]`  
-**Status:** API endpoint not yet implemented (DB method complete).
- 
+**Status:** Implemented.
+
 #### Acceptance Criteria
- 
-1. GIVEN a valid JWT and a Work with 3 Beat nodes WHEN `GET /works/{work_id}/nodes/leaves` is called THEN the server returns HTTP 200 with the 3 Beat nodes ordered by `position` ascending.
-2. GIVEN a valid JWT and a Work with no Beat nodes WHEN `GET /works/{work_id}/nodes/leaves` is called THEN the server returns HTTP 200 with an empty list `[]`.
+
+1. GIVEN a valid JWT and a Work with 3 Scene nodes WHEN `GET /works/{work_id}/nodes/leaves` is called THEN the server returns HTTP 200 with the 3 Scene nodes ordered by `position` ascending.
+2. GIVEN a valid JWT and a Work with no Scene nodes WHEN `GET /works/{work_id}/nodes/leaves` is called THEN the server returns HTTP 200 with an empty list `[]`.
 3. GIVEN a valid JWT WHEN called with a non-existent or cross-account `work_id` THEN the server returns HTTP 404 with `detail: "Work not found"`.
 ---
  
@@ -359,11 +359,11 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Navigation (`node-navigation/feature.md`)  
 **User Story:** As an authenticated reader, I want to see aggregate statistics for a Work (node counts by type and max depth).  
 **Endpoint:** `GET /works/{work_id}/stats` — scope: `tree:reader` — returns `200 WorkStatsResponse`  
-**Status:** API endpoint not yet implemented (DB method complete).
- 
+**Status:** Implemented.
+
 #### Acceptance Criteria
- 
-1. GIVEN a Work with 1 Part, 2 Chapters, 2 Scenes, 2 Beats WHEN `GET /works/{work_id}/stats` is called THEN the server returns HTTP 200 with `{"work_id": "...", "total_nodes": 7, "by_type": {"part": 1, "chapter": 2, "scene": 2, "beat": 2}, "max_depth": 3}`.
+
+1. GIVEN a Work with 1 Part, 2 Chapters, 3 Scenes WHEN `GET /works/{work_id}/stats` is called THEN the server returns HTTP 200 with `{"work_id": "...", "total_nodes": 6, "by_type": {"part": 1, "chapter": 2, "scene": 3}, "max_depth": 2}`.
 2. GIVEN a Work with no nodes WHEN `GET /works/{work_id}/stats` is called THEN the server returns HTTP 200 with `total_nodes: 0` and `max_depth: 0`.
 3. GIVEN a Work with only a single Part node WHEN `GET /works/{work_id}/stats` is called THEN `max_depth` is 0.
 4. GIVEN a valid JWT WHEN called with a non-existent or cross-account `work_id` THEN the server returns HTTP 404 with `detail: "Work not found"`.
@@ -374,7 +374,7 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Reorder (`node-reorder/feature.md`)  
 **User Story:** As an authenticated writer, I want to move a node to a specific position among its siblings, so that I can arrange chapters or scenes in the desired narrative order.  
 **Endpoint:** `PUT /nodes/{node_id}/reorder` — scope: `tree:writer` — returns `200 NodeResponse`  
-**Status:** API endpoint not yet implemented (DB method `reorder_siblings` complete).
+**Status:** Implemented.
  
 #### Acceptance Criteria
  
@@ -403,15 +403,15 @@ This document consolidates all functional requirements, non-functional requireme
 **Feature group:** Node Duplicate (`node-duplicate/feature.md`)  
 **User Story:** As an authenticated writer, I want to create a copy of a node (with or without its children) as the next sibling.  
 **Endpoint:** `POST /nodes/{node_id}/duplicate[?deep=true]` — scope: `tree:writer` — returns `201 NodeResponse`  
-**Status:** API endpoint not yet implemented (DB methods `duplicate_shallow` and `duplicate_deep` complete).
- 
+**Status:** Implemented.
+
 #### Acceptance Criteria
- 
+
 1. GIVEN a Chapter node `C` at position 1 with siblings at positions 0 and 2 WHEN `POST /nodes/{C.node_id}/duplicate` is called THEN the server returns HTTP 201 with `tag: "{C.tag} (copy)"`, `position: 2`, and the former position-2 sibling is now at position 3.
 2. GIVEN a Chapter node with no children WHEN `POST /nodes/{C.node_id}/duplicate` (shallow) is called THEN the result has no children (calling `GET /nodes/{new_id}/children` returns `[]`).
 3. GIVEN a Part node with 2 Chapter children each with 1 Scene WHEN `POST /nodes/{P.node_id}/duplicate?deep=true` is called THEN the server returns HTTP 201 for the Part copy with 2 Chapter children each with 1 Scene child (all with new `node_id` values).
-4. GIVEN a valid JWT WHEN `POST /nodes/{beat_id}/duplicate` is called on a Beat node THEN the server returns HTTP 400 with `detail: "Beat nodes cannot be duplicated"`.
-5. GIVEN a valid JWT WHEN `POST /nodes/{beat_id}/duplicate?deep=true` is called on a Beat node THEN the server returns HTTP 400 with `detail: "Beat nodes cannot be duplicated"`.
+4. GIVEN a valid JWT WHEN `POST /nodes/{scene_id}/duplicate?deep=true` is called on a Scene node THEN the server returns HTTP 400 with `detail: "Scene nodes cannot be deep-duplicated (they are leaf nodes)"`.
+5. GIVEN a valid JWT WHEN `POST /nodes/{scene_id}/duplicate` (shallow) is called on a Scene node THEN the server returns HTTP 201.
 6. GIVEN a valid JWT WHEN called with a non-existent or cross-account `node_id` THEN the server returns HTTP 404 with `detail: "Node not found"`.
 7. GIVEN a JWT with `tree:reader` scope only WHEN `POST /nodes/{node_id}/duplicate` is called THEN the server returns HTTP 403.
 ---
@@ -709,15 +709,15 @@ This document consolidates all functional requirements, non-functional requireme
 2. GIVEN a deep duplicate, all copied nodes MUST have `account_id` equal to the authenticated user's `account_id`.
 ---
  
-### NR 22: Beat Guard Enforcement (Duplicate Endpoint)
- 
+### NR 22: Scene Leaf Guard Enforcement (Duplicate Endpoint)
+
 **Feature group:** Node Duplicate  
-**User Story:** As a system, I want Beat nodes to be rejected before any write occurs.
- 
+**User Story:** As a system, I want Scene (leaf) nodes to be rejected from deep duplication before any write occurs.
+
 #### Acceptance Criteria
- 
-1. GIVEN a Beat node `B` WHEN `POST /nodes/{B.node_id}/duplicate` is called THEN the server returns HTTP 400 with `detail: "Beat nodes cannot be duplicated"` and NO document is written to `node_collection`.
-2. GIVEN the API returns HTTP 400 for a Beat THEN `duplicate_shallow` or `duplicate_deep` MUST NOT have been called.
+
+1. GIVEN a Scene node `S` WHEN `POST /nodes/{S.node_id}/duplicate?deep=true` is called THEN the server returns HTTP 400 with `detail: "Scene nodes cannot be deep-duplicated (they are leaf nodes)"` and NO document is written to `node_collection`.
+2. GIVEN the API returns HTTP 400 for a Scene deep duplicate THEN `duplicate_deep` MUST NOT have been called. Shallow duplicate of a Scene is permitted.
 ---
  
 ### NR 23: Error Message Format (Duplicate Endpoint)
@@ -728,7 +728,7 @@ This document consolidates all functional requirements, non-functional requireme
 #### Acceptance Criteria
  
 1. GIVEN a 404 from the duplicate endpoint THEN `detail` is exactly `"Node not found"`.
-2. GIVEN a 400 from the duplicate endpoint THEN `detail` is exactly `"Beat nodes cannot be duplicated"`.
+2. GIVEN a 400 from the duplicate endpoint (Scene deep duplicate) THEN `detail` is exactly `"Scene nodes cannot be deep-duplicated (they are leaf nodes)"`.
 ---
  
 ### NR 24: Setup Runs at Startup, Not Per-Request
