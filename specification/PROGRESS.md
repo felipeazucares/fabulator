@@ -415,20 +415,20 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 
 | # | Task | File(s) | Status | Est | GitHub | Notes |
 |---|------|---------|--------|-----|--------|-------|
-| E-101 | Remove `beat` from `NodeType` enum | `models.py` | ⬜ | XS | #41 | Do first |
-| E-102 | Replace `_VALID_CHILD` with `_VALID_CHILDREN` | `database.py` | ⬜ | S | #42 | Depends E-101 |
-| E-103 | Update MongoDB JSON Schema validator | `database.py` | ⬜ | XS | #43 | |
-| E-104 | Remove Beat guard; add Scene deep-dup guard | `api.py`, `database.py` | ⬜ | S | #44 | |
-| E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ⬜ | S | #45 | |
-| E-106 | Update hierarchy validation error messages | `api.py` | ⬜ | S | #46 | |
-| E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ⬜ | XS | #47 | Do last |
+| E-101 | Remove `beat` from `NodeType` enum | `models.py` | ✅ | XS | #41 | Do first |
+| E-102 | Replace `_VALID_CHILD` with `_VALID_CHILDREN` | `database.py` | ✅ | S | #42 | Depends E-101 |
+| E-103 | Update MongoDB JSON Schema validator | `database.py` | ✅ | XS | #43 | |
+| E-104 | Remove Beat guard; add Scene deep-dup guard | `api.py`, `database.py` | ✅ | S | #44 | |
+| E-105 | `get_leaves` returns Scene not Beat | `database.py`, `api.py` | ✅ | S | #45 | |
+| E-106 | Update hierarchy validation error messages | `api.py` | ✅ | S | #58 | Done — PR merged |
+| E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ✅ | XS | #47 | Verified CPs 12/13/15/17/19/20/27/30; stale beat references updated in REQUIREMENTS.md |
 | E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ⬜ | M | #48 | Closes #31 |
 | E-109 | Update unit tests | `test_unit.py` | ⬜ | M | #49 | After E-108 |
 | E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | #50 | After E-108 |
 | E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | #51 | After E-108 |
 | E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | #52 | |
 
-**Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests) → E-107 (doc verification)
+**Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-107 (doc verification) ✅ → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests)
 
 
 ---
@@ -453,7 +453,7 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 |---|------|----------|--------|--------|
 | E-85 | Fix B-13: narrow `except Exception` in `seed_demo` to specific error types; let programming errors surface as 500 | Low | #26 | — |
 | E-86 | Fix B-14: move deferred imports to top of `database.py` | Low | #24 | ✅ |
-| E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — |
+| E-87 | Fix B-16: add 1-2 beat nodes under Scene 3 or 4 so all branches reach beat depth | Low | #31 | — (superseded by E-108) |
 
 **Note:** E-84 (Fix B-05, `**node_data` Pydantic v2 unpack) removed — already fixed in commit `84f3414`, closed via GitHub issue #27.  
 **Note:** E-88 (Fix B-18, `by_type` untyped dict) removed — fixed in this session, closed via GitHub issue #25.
