@@ -4,7 +4,7 @@ from typing import Tuple
 from .models import CreateNodeRequest, CreateWorkRequest, NodeType
 
 # Placeholder work_id used by build_demo_tree; overwritten in _seed_with_transaction()
-_PLACEHOLDER_WORK_ID = "__placeholder_work_id__"
+_PLACEHOLDER_WORK_ID = str(uuid.UUID("00000000-0000-0000-0000-000000000000"))
 
 
 def build_demo_tree(account_id: str, author: str) -> Tuple[CreateWorkRequest, list[CreateNodeRequest]]:

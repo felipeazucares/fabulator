@@ -24,6 +24,7 @@ from .models import (
     UpdateUserType,
     users_saves_helper,
 )
+from app.demo import build_demo_tree
 
 
 MONGO_DETAILS = os.getenv(key="MONGO_DETAILS")
@@ -1413,7 +1414,6 @@ class DemoStorage:
         logger.debug(f"seed_demo({account_id}, reset={reset}) called")
         
         # Generate the demo content using build_demo_tree function
-        from app.demo import build_demo_tree
         work_data, node_list = build_demo_tree(account_id, author)
         
         try:
