@@ -178,7 +178,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-version = "0.1.0"
+version = "1.0"
 
 _cors_origins_raw = os.getenv("CORS_ORIGINS", "")
 if not _cors_origins_raw.strip():
@@ -1426,10 +1426,6 @@ async def seed_demo(
         )
     except (pymongo.errors.ConnectionFailure, pymongo.errors.OperationFailure):
         logger.error("Database error in seed_demo", exc_info=True)
-        raise HTTPException(status_code=503, detail="Database error")
-    except Exception as e:
-        # Log the exception but return a generic error message to avoid leaking information
-        logger.error(f"Unexpected error in seed_demo: {str(e)}", exc_info=True)
         raise HTTPException(status_code=503, detail="Database error")
     
     return result
