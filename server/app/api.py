@@ -621,9 +621,9 @@ async def get_work_root_nodes(
     response_model=PaginatedNodeResponse,
     summary="Get leaf nodes for a work",
     description=(
-        "Return Beat (leaf) nodes for the specified Work with cursor pagination, "
+        "Return Scene (leaf) nodes for the specified Work with cursor pagination, "
         "ordered by position ascending. "
-        "Beats are the terminal narrative units and have no children. "
+        "Scenes are the terminal narrative units and have no children. "
         "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
