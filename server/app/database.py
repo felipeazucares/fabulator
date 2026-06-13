@@ -319,20 +319,19 @@ class UserStorage:
 
 _UUID4_RE = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
-# Maps parent node_type → the only valid child node_type.
+# Maps parent node_type → set of valid child node_types.
 # None key = root level (only "part" may have no parent).
-_VALID_CHILD: dict[str | None, str | None] = {
-    None: "part",
-    "part": "chapter",
-    "chapter": "scene",
-    "scene": "beat",
-    "beat": None,
+_VALID_CHILDREN: dict[str | None, set[str]] = {
+    None: {"part"},
+    "part": {"part", "chapter", "scene"},
+    "chapter": {"part", "chapter", "scene"},
+    "scene": set(),
 }
 
 
 def is_valid_parent_child(parent_type: str | None, child_type: str) -> bool:
-    """Return True if child_type is the valid child of parent_type per hierarchy rules."""
-    return _VALID_CHILD.get(parent_type) == child_type
+    """Return True if child_type is a valid child of parent_type per hierarchy rules."""
+    return child_type in _VALID_CHILDREN.get(parent_type, set())
 
 
 def _strip_id(doc: dict) -> dict:
@@ -363,7 +362,7 @@ _NODE_VALIDATOR = {
         "bsonType": "object",
         "required": ["node_id", "work_id", "account_id", "tag", "node_type", "position", "tags"],
         "properties": {
-            "node_type":  {"bsonType": "string", "enum": ["part", "chapter", "scene", "beat"]},
+            "node_type":  {"bsonType": "string", "enum": ["part", "chapter", "scene"]},
             "node_id":    {"bsonType": "string", "pattern": _UUID4_RE},
             "work_id":    {"bsonType": "string", "pattern": _UUID4_RE},
             "account_id": {"bsonType": "string", "minLength": 1},
@@ -893,12 +892,12 @@ class NodeStorage:
         self, work_id: str, account_id: str,
         limit: int = 50, cursor: str | None = None,
     ) -> tuple[list[dict], str | None]:
-        """Return Beat (leaf) nodes for a Work with cursor pagination, ordered by position.
+        """Return Scene (leaf) nodes for a Work with cursor pagination, ordered by position.
 
         Returns (stripped_docs, next_cursor). next_cursor is None when no more pages.
         """
         logger.debug(f"get_leaves({work_id}) called")
-        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "beat"}
+        query: dict = {"work_id": work_id, "account_id": account_id, "node_type": "scene"}
         if cursor is not None:
             try:
                 query["_id"] = {"$gt": ObjectId(cursor)}
@@ -1101,13 +1100,6 @@ class NodeStorage:
         if node is None:
             return None
 
-        # Beat nodes are leaves and must not be duplicated
-        if node["node_type"] == "beat":
-            logger.debug(
-                f"duplicate_shallow rejects Beat type node {node_id}"
-            )
-            return None
-
         try:
             await self.node_collection.update_many(
                 {
@@ -1162,13 +1154,6 @@ class NodeStorage:
         logger.debug(f"duplicate_deep({node_id}) called")
         node = await self.get_node(node_id, account_id)
         if node is None:
-            return None
-
-        # Beat nodes are leaves and must not be duplicated
-        if node["node_type"] == "beat":
-            logger.debug(
-                f"duplicate_deep rejects Beat type node {node_id}"
-             )
             return None
 
         if _is_root_call:

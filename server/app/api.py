@@ -334,7 +334,7 @@ async def get_current_active_user_account(
     summary="Create a work",
     description=(
         "Create a new narrative work for the authenticated user. "
-        "A work is the top-level container for a node hierarchy (parts, chapters, scenes, beats). "
+        "A work is the top-level container for a node hierarchy (parts, chapters, scenes). "
         "Returns HTTP 201 on success."
     ),
     tags=["Works"],
@@ -480,7 +480,7 @@ async def delete_work(
     summary="Get statistics for a work",
     description=(
         "Return aggregate statistics for the specified Work: total node count, "
-        "counts by node type (part/chapter/scene/beat), and the maximum hierarchy depth. "
+        "counts by node type (part/chapter/scene), and the maximum hierarchy depth. "
         "Depth is 0-indexed at root Part nodes. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
@@ -520,7 +520,7 @@ async def get_work_stats(
         "Create a new node within a work. The `work_id` and `node_type` are required. "
         "Provide `parent_id` to attach the node under an existing parent; omit it to create "
         "a root-level `part` node. Hierarchy rules are enforced: "
-        "part → chapter → scene → beat. Returns HTTP 201 on success."
+        "part → chapter → scene. Returns HTTP 201 on success."
     ),
     tags=["Nodes"],
 )
@@ -621,9 +621,9 @@ async def get_work_root_nodes(
     response_model=PaginatedNodeResponse,
     summary="Get leaf nodes for a work",
     description=(
-        "Return Beat (leaf) nodes for the specified Work with cursor pagination, "
+        "Return Scene (leaf) nodes for the specified Work with cursor pagination, "
         "ordered by position ascending. "
-        "Beats are the terminal narrative units and have no children. "
+        "Scenes are the terminal narrative units and have no children. "
         "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the Work does not exist or belongs to a different account."
     ),
@@ -715,7 +715,7 @@ async def get_work_reading_order(
     description=(
         "Return nodes belonging to the specified work with cursor pagination. "
         "Pass `node_type` as a query parameter to filter by type "
-        "(one of: `part`, `chapter`, `scene`, `beat`). "
+        "(one of: `part`, `chapter`, `scene`). "
         "Use `limit` (default 50, max 200) and `cursor` to page through results. "
         "Returns 404 if the work does not exist or belongs to a different account."
     ),
@@ -1160,9 +1160,9 @@ async def reorder_node(
         "Create a copy of the specified node as the next sibling. "
         "The copy receives a new UUID and a '(copy)' suffix on its tag. "
         "Pass ?deep=true to recursively copy all descendants with fresh UUIDs. "
-        "Beat nodes cannot be duplicated. "
+        "Scene nodes cannot be deep-duplicated (they are leaf nodes). "
         "Returns 404 if the node does not exist or belongs to a different account. "
-        "Returns 400 if the node is a Beat."
+        "Returns 400 if the node is a Scene and deep=true."
     ),
     tags=["Nodes"],
 )
@@ -1180,8 +1180,8 @@ async def duplicate_node(
         raise HTTPException(status_code=503, detail="Database error")
     if source is None:
         raise HTTPException(status_code=404, detail="Node not found")
-    if source["node_type"] == "beat":
-        raise HTTPException(status_code=400, detail="Beat nodes cannot be duplicated")
+    if source["node_type"] == "scene" and deep:
+        raise HTTPException(status_code=400, detail="Scene nodes cannot be deep-duplicated (they are leaf nodes)")
     try:
         if deep:
             result = await node_storage.duplicate_deep(
@@ -1394,7 +1394,7 @@ async def save_user(
     summary="Seed demo content",
     description=(
         "Load a ready-made demo Work and node tree into the authenticated user's account. "
-        "The demo contains a complete narrative structure with part/chapter/scene/beat nodes. "
+        "The demo contains a complete narrative structure with part/chapter/scene nodes. "
         "Returns HTTP 201 on success."
     ),
     tags=["Demo"],
