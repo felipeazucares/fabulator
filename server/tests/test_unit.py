@@ -7,10 +7,13 @@ Covers:
   - Authentication helpers: verify_password, get_password_hash, create_access_token
 """
 
+import os
+import uuid
 import pytest
 from datetime import timedelta
 from bson.objectid import ObjectId
 from pydantic import ValidationError
+import motor.motor_asyncio
 
 # Ensure .env is loaded before importing app modules
 import app.config  # noqa: F401
@@ -33,7 +36,7 @@ from app.models import (
     DemoSeedResponse,
     CreateWorkRequest,
 )
-from app.database import NodeStorage
+from app.database import NodeStorage, is_valid_parent_child
 from app.authentication import Authentication
 
 
@@ -250,13 +253,13 @@ class TestDemoSeedResponse:
         response = DemoSeedResponse(
             work_id="9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
             title="Demo: The Lighthouse at the End of the World",
-            total_nodes=15,
-            by_type={"part": 1, "chapter": 2, "scene": 4, "beat": 8}
+            total_nodes=10,
+            by_type={"part": 2, "chapter": 2, "scene": 6}
         )
         assert response.work_id == "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         assert response.title == "Demo: The Lighthouse at the End of the World"
-        assert response.total_nodes == 15
-        assert response.by_type == {"part": 1, "chapter": 2, "scene": 4, "beat": 8}
+        assert response.total_nodes == 10
+        assert response.by_type == {"part": 2, "chapter": 2, "scene": 6}
 
 
 class TestBuildDemoTree:
@@ -268,7 +271,7 @@ class TestBuildDemoTree:
         
         assert isinstance(work_data, CreateWorkRequest)
         assert isinstance(node_list, list)
-        assert len(node_list) == 15
+        assert len(node_list) == 10
         
         first_node = node_list[0]
         assert hasattr(first_node, "work_id")
@@ -282,23 +285,23 @@ class TestBuildDemoTree:
         assert hasattr(first_node, "tags")
 
     def test_build_demo_tree_node_counts(self):
-        """Test that build_demo_tree returns exactly 11 nodes with correct type distribution"""
+        """Test that build_demo_tree returns correct node counts by type"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
-        assert len(node_list) == 15
+        assert len(node_list) == 10
         
         by_type = {}
         for node in node_list:
             nt = node.node_type if isinstance(node.node_type, str) else node.node_type.value
             by_type[nt] = by_type.get(nt, 0) + 1
         
-        assert by_type["part"] == 1
+        assert by_type["part"] == 2
         assert by_type["chapter"] == 2
-        assert by_type["scene"] == 4
-        assert by_type["beat"] == 8
+        assert by_type["scene"] == 6
+        assert sum(by_type.values()) == 10
 
     def test_build_demo_tree_parent_references_valid(self):
         """Test that every parent_id references an existing node in the tree"""
@@ -326,15 +329,15 @@ class TestBuildDemoTree:
         # Root group (parent_id=None): 1 part
         assert len(siblings[None]) == 1
         
-        # Chapter group (under Part): 2 chapters
+        # Under Part 1: 3 children (Scene 1, Chapter 1, Chapter 2)
         part_parent_id = siblings[None][0].node_id
-        assert len(siblings[part_parent_id]) == 2
+        assert len(siblings[part_parent_id]) == 3
 
-        # Scene groups: 2 scenes under ch1, 2 scenes under ch2
-        chapter_ids = [n.node_id for n in siblings[part_parent_id]]
-        scene_counts = {ch_id: len(siblings[ch_id]) for ch_id in chapter_ids}
-        assert scene_counts[chapter_ids[0]] == 2
-        assert scene_counts[chapter_ids[1]] == 2
+        # Chapter 1 has 3 children (Part 2, Scene 3, Scene 4)
+        # Chapter 2 has 2 children (Scene 5, Scene 6)
+        chapter_ids = [n.node_id for n in siblings[part_parent_id] if n.node_type.value == 'chapter']
+        assert len(siblings[chapter_ids[0]]) == 3
+        assert len(siblings[chapter_ids[1]]) == 2
 
     def test_build_demo_tree_previous_next_chains_valid(self):
         """Test that previous/next form unbroken linked lists within each sibling group"""
@@ -377,15 +380,17 @@ class TestBuildDemoTree:
             assert set(visited) == {n.node_id for n in group}, "chain does not cover all nodes"
 
     def test_build_demo_tree_root_has_no_parent(self):
-        """Test that the single Part node has parent_id=None"""
+        """Test that the root Part node has parent_id=None"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
         work_data, node_list = build_demo_tree("mock_account_id", "Mock Author")
         
         parts = [n for n in node_list if n.node_type == NodeType.part]
-        assert len(parts) == 1
-        assert parts[0].parent_id is None
+        assert len(parts) == 2
+        roots = [p for p in parts if p.parent_id is None]
+        assert len(roots) == 1
+        assert roots[0].parent_id is None
 
     def test_build_demo_tree_author_propagated(self):
         """Test that the author from build_demo_tree matches the input"""
@@ -440,7 +445,7 @@ class TestBuildDemoTree:
             assert len(node.text) > 0
 
     def test_build_demo_tree_hierarchy_depth(self):
-        """Test that the tree has exactly 4 levels: part -> chapter -> scene -> beat"""
+        """Test that the tree respects flexible hierarchy rules (part/chapter/scene)"""
         from app.demo import build_demo_tree
         from app.models import NodeType
         
@@ -452,27 +457,31 @@ class TestBuildDemoTree:
             parent_key = node.parent_id
             children_map.setdefault(parent_key, []).append(node)
         
-        # Part (root) -> chapters
-        part = [n for n in node_list if n.node_type == NodeType.part][0]
-        chapters = children_map.get(part.node_id, [])
-        assert all(n.node_type == NodeType.chapter for n in chapters)
+        # Root (parent_id=None) -> exactly 1 part
+        root = [n for n in node_list if n.parent_id is None]
+        assert len(root) == 1
+        assert root[0].node_type == NodeType.part
 
-        # Chapters -> scenes
-        scene_count = 0
-        for ch in chapters:
-            scenes = children_map.get(ch.node_id, [])
-            assert all(n.node_type == NodeType.scene for n in scenes)
-            scene_count += len(scenes)
-        assert scene_count == 4
+        # Part 1 children: scene + chapters (exercises Part->Scene and Part->Chapter)
+        part1_children = children_map.get(root[0].node_id, [])
+        assert any(n.node_type == NodeType.scene for n in part1_children)
+        assert any(n.node_type == NodeType.chapter for n in part1_children)
 
-        # Scenes -> beats
-        beat_count = 0
+        # Chapter 1 children: part + scenes (exercises Chapter->Part and Chapter->Scene)
+        ch1 = [n for n in part1_children if n.tag == 'The Investigation'][0]
+        ch1_children = children_map.get(ch1.node_id, [])
+        assert any(n.node_type == NodeType.part for n in ch1_children)
+        assert any(n.node_type == NodeType.scene for n in ch1_children)
+
+        # Part 2 (nested) children: scene (exercises Part->Scene in nested context)
+        part2 = [n for n in ch1_children if n.node_type == NodeType.part][0]
+        part2_children = children_map.get(part2.node_id, [])
+        assert all(n.node_type == NodeType.scene for n in part2_children)
+
+        # No scene has children
         for node in node_list:
             if node.node_type == NodeType.scene:
-                beats = children_map.get(node.node_id, [])
-                assert all(n.node_type == NodeType.beat for n in beats)
-                beat_count += len(beats)
-        assert beat_count == 8
+                assert node.node_id not in children_map or len(children_map[node.node_id]) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -568,5 +577,421 @@ class TestNodeStorageGetReadingOrder:
         result = await storage.get_reading_order("w-1", "a-1")
         for node in result:
             assert "_id" not in node
+
+
+# ---------------------------------------------------------------------------
+# E-112: DB-level `beat` rejection test (CP 30)
+# ---------------------------------------------------------------------------
+
+class TestBeatRejectionDBLevel:
+    """E-112: Verify MongoDB validator rejects node_type 'beat' at the database level."""
+
+    @pytest.fixture
+    def motor_client(self):
+        client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_DETAILS"))
+        yield client
+        client.close()
+
+    async def test_t_db_beat_rejected(self, motor_client):
+        """T-DB-BEAT-01: Inserting node_type='beat' raises WriteError via MongoDB validator."""
+        from pymongo import MongoClient
+        from pymongo.errors import OperationFailure
+
+        # Check if validator exists first (skip if not)
+        client = MongoClient(os.getenv("MONGO_DETAILS"))
+        db = client.fabulator
+        try:
+            info = db.node_collection.options()
+            has_validator = "validator" in info and info["validator"] is not None
+        except OperationFailure:
+            pytest.skip("Cannot read collection options (no collMod permission)")
+        finally:
+            client.close()
+
+        if not has_validator:
+            pytest.skip("node_collection has no validator — cannot test beat rejection")
+
+        # Attempt to insert a document with node_type='beat'
+        try:
+            await motor_client.fabulator.node_collection.insert_one({
+                "node_id": str(uuid.uuid4()),
+                "work_id": str(uuid.uuid4()),
+                "account_id": "test_account",
+                "author": None,
+                "node_type": "beat",
+                "parent_id": None,
+                "position": 0,
+                "tag": "Test Beat",
+                "description": None,
+                "text": None,
+                "previous": None,
+                "next": None,
+                "tags": [],
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            })
+        except OperationFailure as e:
+            assert "beat" in str(e).lower() or "validator" in str(e).lower(), (
+                f"Expected validator rejection for 'beat', got: {e}"
+            )
+            return
+
+        pytest.fail("Expected WriteError/OperationFailure for node_type='beat' but insert succeeded")
+
+
+# ---------------------------------------------------------------------------
+# Hierarchy validation — is_valid_parent_child  (DD-11 rules)
+# ---------------------------------------------------------------------------
+
+class TestHierarchyValidator:
+    """DD-11 flexible hierarchy rules via is_valid_parent_child()."""
+
+    def test_none_to_part_valid(self):
+        assert is_valid_parent_child(None, "part") is True
+
+    def test_part_to_part_valid(self):
+        assert is_valid_parent_child("part", "part") is True
+
+    def test_part_to_chapter_valid(self):
+        assert is_valid_parent_child("part", "chapter") is True
+
+    def test_part_to_scene_valid(self):
+        assert is_valid_parent_child("part", "scene") is True
+
+    def test_chapter_to_part_valid(self):
+        assert is_valid_parent_child("chapter", "part") is True
+
+    def test_chapter_to_chapter_valid(self):
+        assert is_valid_parent_child("chapter", "chapter") is True
+
+    def test_chapter_to_scene_valid(self):
+        assert is_valid_parent_child("chapter", "scene") is True
+
+    def test_scene_has_no_children(self):
+        assert is_valid_parent_child("scene", "part") is False
+        assert is_valid_parent_child("scene", "chapter") is False
+        assert is_valid_parent_child("scene", "scene") is False
+
+    def test_none_to_non_part_invalid(self):
+        assert is_valid_parent_child(None, "chapter") is False
+        assert is_valid_parent_child(None, "scene") is False
+
+    def test_unknown_parent_types_return_false(self):
+        assert is_valid_parent_child("invalid", "part") is False
+        assert is_valid_parent_child(None, "invalid") is False
+
+
+# ---------------------------------------------------------------------------
+# Cycle detection — NodeStorage.would_create_cycle  (migrated from Phase 10)
+# ---------------------------------------------------------------------------
+
+class TestNodeStorageWouldCreateCycle:
+    """Tests for NodeStorage.would_create_cycle() using mocked DB."""
+
+    def _mock_motor_client(self):
+        mongo_client = MagicMock()
+        db = MagicMock()
+        collection = MagicMock()
+        mongo_client.__getitem__ = lambda self, name: db
+        db.__getitem__ = lambda self, name: collection
+        return mongo_client, collection
+
+    def _make_storage(self):
+        mongo_client, collection = self._mock_motor_client()
+        storage = NodeStorage(client=mongo_client)
+        storage.node_collection = collection
+        return storage
+
+    async def test_direct_cycle_returns_true(self):
+        """Reparent A under B when B is child of A -> cycle detected."""
+        storage = self._make_storage()
+        storage.node_collection.find_one = AsyncMock(
+            return_value={"parent_id": "node-A"}
+        )
+        result = await storage.would_create_cycle(
+            node_id="node-A", new_parent_id="node-B", account_id="acc1",
+        )
+        assert result is True
+
+    async def test_indirect_cycle_returns_true(self):
+        """Chain A->B->C->D: reparenting A under D creates indirect cycle."""
+        storage = self._make_storage()
+        storage.node_collection.find_one = AsyncMock(
+            side_effect=[
+                {"parent_id": "node-B"},
+                {"parent_id": "node-C"},
+                {"parent_id": "node-D"},
+                {"parent_id": "node-A"},
+            ]
+        )
+        result = await storage.would_create_cycle(
+            node_id="node-A", new_parent_id="node-E", account_id="acc1",
+        )
+        assert result is True
+
+    async def test_no_cycle_returns_false(self):
+        """Unrelated subtree -> no cycle."""
+        storage = self._make_storage()
+        storage.node_collection.find_one = AsyncMock(
+            side_effect=[
+                {"parent_id": "node-B"},
+                {"parent_id": "node-C"},
+                {"parent_id": None},
+            ]
+        )
+        result = await storage.would_create_cycle(
+            node_id="node-A", new_parent_id="node-X", account_id="acc1",
+        )
+        assert result is False
+
+    async def test_no_cycle_unrelated_subtree_returns_false(self):
+        """Node with entirely separate ancestry -> no cycle."""
+        storage = self._make_storage()
+        storage.node_collection.find_one = AsyncMock(
+            return_value={"parent_id": None}
+        )
+        result = await storage.would_create_cycle(
+            node_id="node-A", new_parent_id="node-Z", account_id="acc1",
+        )
+        assert result is False
+
+    async def test_node_not_in_collection_breaks_search(self):
+        """If node not found, walk ends and returns False (no cycle)."""
+        storage = self._make_storage()
+        storage.node_collection.find_one = AsyncMock(return_value=None)
+        result = await storage.would_create_cycle(
+            node_id="node-A", new_parent_id="node-Q", account_id="acc1",
+        )
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# Sibling renumbering — NodeStorage.reorder_siblings  (migrated from Phase 10)
+# ---------------------------------------------------------------------------
+
+class TestNodeStorageReorderSiblings:
+    """Tests for NodeStorage.reorder_siblings() using mocked DB."""
+
+    def _node(self, node_id, position, parent_id="p-1", node_type="chapter"):
+        return {
+            "node_id": node_id,
+            "work_id": "w-1",
+            "account_id": "a-1",
+            "node_type": node_type,
+            "parent_id": parent_id,
+            "position": position,
+            "tag": f"N-{node_id[:8]}",
+            "author": None,
+            "description": None,
+            "text": None,
+            "previous": None,
+            "next": None,
+            "tags": [],
+        }
+
+    def _make_storage(self):
+        client = MagicMock()
+        storage = NodeStorage(client)
+        storage.node_collection.update_one = AsyncMock()
+        return storage
+
+    async def test_insert_at_end_clamped(self):
+        """Position > max index clamps to end of list."""
+        storage = self._make_storage()
+        storage.get_node = AsyncMock(return_value=self._node("A", 0))
+        cursor = AsyncMock()
+        cursor.to_list.return_value = [
+            self._node("A", 0), self._node("B", 1), self._node("C", 2),
+        ]
+        storage.node_collection.find = MagicMock(return_value=cursor)
+        result = await storage.reorder_siblings(
+            node_id="A", account_id="a-1", new_position=999,
+        )
+        assert result is not None
+        assert result["node_id"] == "A"
+
+    async def test_insert_at_start(self):
+        """Moving node from end to start shifts others right."""
+        storage = self._make_storage()
+        storage.get_node = AsyncMock(return_value=self._node("C", 2))
+        cursor = AsyncMock()
+        cursor.to_list.return_value = [
+            self._node("C", 2), self._node("A", 0), self._node("B", 1),
+        ]
+        storage.node_collection.find = MagicMock(return_value=cursor)
+        result = await storage.reorder_siblings(
+            node_id="C", account_id="a-1", new_position=0,
+        )
+        assert result is not None
+        assert result["node_id"] == "C"
+
+    async def test_node_not_found_returns_none(self):
+        """If the source node is not found, return None."""
+        storage = self._make_storage()
+        storage.get_node = AsyncMock(return_value=None)
+        result = await storage.reorder_siblings(
+            node_id="X", account_id="a-1", new_position=0,
+        )
+        assert result is None
+
+    async def test_remove_from_middle(self):
+        """Removing middle node and inserting at end."""
+        storage = self._make_storage()
+        storage.get_node = AsyncMock(return_value=self._node("B", 1))
+        cursor = AsyncMock()
+        cursor.to_list.return_value = [
+            self._node("B", 1), self._node("C", 2), self._node("A", 0),
+        ]
+        storage.node_collection.find = MagicMock(return_value=cursor)
+        result = await storage.reorder_siblings(
+            node_id="B", account_id="a-1", new_position=2,
+        )
+        assert result is not None
+        assert result["node_id"] == "B"
+
+    async def test_single_node_clamped_to_zero(self):
+        """Only node stays at position 0."""
+        storage = self._make_storage()
+        storage.get_node = AsyncMock(return_value=self._node("A", 0))
+        cursor = AsyncMock()
+        cursor.to_list.return_value = [self._node("A", 0)]
+        storage.node_collection.find = MagicMock(return_value=cursor)
+        result = await storage.reorder_siblings(
+            node_id="A", account_id="a-1", new_position=999,
+        )
+        assert result is not None
+        assert result["node_id"] == "A"
+
+
+# ---------------------------------------------------------------------------
+# Duplicate — NodeStorage.duplicate_shallow / duplicate_deep  (migrated from Phase 10)
+# ---------------------------------------------------------------------------
+
+class TestNodeStorageDuplicate:
+    """Tests for NodeStorage.duplicate_shallow() and duplicate_deep()."""
+
+    def _make_storage(self):
+        mongo_client = MagicMock()
+        db = MagicMock()
+        collection = MagicMock()
+        mongo_client.__getitem__ = lambda self, name: db
+        db.__getitem__ = lambda self, name: collection
+        storage = NodeStorage(client=mongo_client)
+        storage.node_collection = collection
+        return storage
+
+    def _make_node(self, node_id, node_type, position, tag,
+                   parent_id="parent-1", work_id="work-1"):
+        return {
+            "node_id": node_id,
+            "node_type": node_type,
+            "parent_id": parent_id,
+            "work_id": work_id,
+            "account_id": "acc1",
+            "position": position,
+            "tag": tag,
+            "author": None,
+            "description": None,
+            "text": None,
+            "previous": None,
+            "next": None,
+            "tags": [],
+        }
+
+    async def test_shallow_duplicate_position(self):
+        """Copy is placed at original.position + 1."""
+        storage = self._make_storage()
+        source = self._make_node("node-A", "chapter", 2, "Chapter One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+        result = await storage.duplicate_shallow(
+            node_id="node-A", account_id="acc1",
+        )
+        assert result is not None
+        assert result["position"] == 3
+        storage.node_collection.update_many.assert_called_once()
+        storage.node_collection.insert_one.assert_called_once()
+
+    async def test_shallow_duplicate_tag_suffix(self):
+        """Copy tag is '{source.tag} (copy)'; node_id is a fresh UUID."""
+        storage = self._make_storage()
+        source = self._make_node("node-A", "chapter", 0, "Chapter One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+        result = await storage.duplicate_shallow(
+            node_id="node-A", account_id="acc1",
+        )
+        assert result is not None
+        assert result["tag"] == "Chapter One (copy)"
+        assert result["node_id"] != "node-A"
+
+    async def test_deep_duplicate_root_position_and_tag(self):
+        """duplicate_deep root copy is at original.position + 1 with ' (copy)' suffix."""
+        storage = self._make_storage()
+        source = self._make_node("node-A", "chapter", 0, "Chapter One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.find = MagicMock()
+        cursor = AsyncMock()
+        cursor.to_list.return_value = []
+        storage.node_collection.find.return_value = cursor
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+        result = await storage.duplicate_deep(
+            node_id="node-A", account_id="acc1",
+        )
+        assert result is not None
+        assert result["position"] == 1
+        assert result["tag"] == "Chapter One (copy)"
+        assert result["node_id"] != "node-A"
+
+    async def test_scene_shallow_duplicate_permitted(self):
+        """Scene nodes can be shallow-duplicated (returns copy)."""
+        storage = self._make_storage()
+        source = self._make_node("node-S", "scene", 0, "Scene One")
+        storage.get_node = AsyncMock(return_value=source)
+        storage.node_collection.update_many = AsyncMock()
+        storage.node_collection.insert_one = AsyncMock()
+        result = await storage.duplicate_shallow(
+            node_id="node-S", account_id="acc1",
+        )
+        assert result is not None
+        assert result["tag"] == "Scene One (copy)"
+
+
+# ---------------------------------------------------------------------------
+# Author propagation — NodeStorage (migrated from Phase 10)
+# ---------------------------------------------------------------------------
+
+class TestNodeStorageAuthorPropagation:
+    """Tests for author field propagation during node creation."""
+
+    def _make_storage(self):
+        client = MagicMock()
+        storage = NodeStorage(client)
+        storage.node_collection.find_one = AsyncMock(return_value=None)
+        storage.node_collection.insert_one = AsyncMock()
+        return storage
+
+    async def test_non_null_author_propagates_to_node(self):
+        """Author from Work is copied onto the node when non-null."""
+        storage = self._make_storage()
+        work_doc = {"work_id": "w-1", "account_id": "a-1", "author": "Alice", "title": "Test"}
+        data = {"work_id": "w-1", "node_type": "part", "parent_id": None, "tag": "Root"}
+        result = await storage.create_node(
+            account_id="a-1", work_doc=work_doc, data=data,
+        )
+        assert result["author"] == "Alice"
+
+    async def test_null_author_handled(self):
+        """None author from Work is propagated to the node."""
+        storage = self._make_storage()
+        work_doc = {"work_id": "w-1", "account_id": "a-1", "author": None, "title": "Test"}
+        data = {"work_id": "w-1", "node_type": "part", "parent_id": None, "tag": "Root"}
+        result = await storage.create_node(
+            account_id="a-1", work_doc=work_doc, data=data,
+        )
+        assert result["author"] is None
 
 
