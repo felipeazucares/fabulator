@@ -423,10 +423,10 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | E-106 | Update hierarchy validation error messages | `api.py` | ✅ | S | #58 | Done — PR merged |
 | E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ✅ | XS | #47 | Verified CPs 12/13/15/17/19/20/27/30; stale beat references updated in REQUIREMENTS.md |
 | E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ✅ | M | #48 | Closes #31 |
-| E-109 | Update unit tests | `test_unit.py` | ⬜ | M | #49 | After E-108 |
-| E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | #50 | After E-108 |
-| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | #51 | After E-108 |
-| E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | #52 | |
+| E-109 | Update unit tests | `test_unit.py` | ✅ | M | #49 | PR #62 merged |
+| E-110 | Update integration tests | `test_integration_normalised.py` | ✅ | L | #50 | PR #63 merged |
+| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ✅ | M | #51 | Superseded by E-110 |
+| E-112 | DB-level `beat` rejection test | `test_unit.py` | ✅ | S | #52 | PR #64 merged; skips if no validator active |
 
 **Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-107 (doc verification) ✅ → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests)
 
@@ -438,9 +438,9 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | Category | Done | Total |
 |----------|------|-------|
 | Enhancement tasks (E-56–E-90) | 35 | 35 |
-| Enhancement tasks (E-101–E-112, Phase 21) | 8 | 12 |
+| Enhancement tasks (E-101–E-112, Phase 21) | 11 | 12 |
 | Bug items tracked (B-01–B-18) | 13 | 18 |
-| Unit tests | 52 | 52 |
+| Unit tests | 79 | 79 |
 | Integration tests | 188 | 204 |
 | SPEC.md acceptance criteria | 11 | 11 |
 
@@ -994,5 +994,23 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 - Session entry added
 
 **Branch:** `refactor/e107-post-code-doc-verification`
+
+### 2026-06-13 — Remove obsolete test_phase10.py; migrate 26 tests to test_unit.py
+
+**Done:**
+- Deleted `server/tests/test_phase10.py` — 8 tests failed, 28 remained but 11 were accidentally passing with wrong assertions (V.5 dead code).
+- Migrated 26 passing tests to `server/tests/test_unit.py`: `TestHierarchyValidator` (10, DD-11 rules), `TestNodeStorageWouldCreateCycle` (5), `TestNodeStorageReorderSiblings` (5), `TestNodeStorageDuplicate` (4), `TestNodeStorageAuthorPropagation` (2).
+- `database.py`: removed stale `"beat": 0` from three `by_type` counter dicts.
+- `test_unit.py`: removed `@pytest.mark.asyncio` from E-112 test (VI.6 violation).
+
+**Still open:**
+- All Phase 21 tasks complete. Zero remaining Phase 21 work.
+- Pre-existing bcrypt/passlib TestAuthHelpers failures (2) untouched.
+- Issue #66 created to track `test_phase10.py` cleanup — closed by this commit.
+
+**PROGRESS.md changes:**
+- Unit tests: 53 → 79 (26 new, 36 removed obsolete)
+- Running totals unchanged (Phase 21 already complete at 11/12)
+- QA findings section added
 
 

@@ -983,7 +983,7 @@ class NodeStorage:
     async def get_stats(self, work_id: str, account_id: str) -> dict:
         """Return WorkStatsResponse-shaped dict with node counts by type and max depth."""
         logger.debug(f"get_stats({work_id}) called")
-        by_type: dict[str, int] = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+        by_type: dict[str, int] = {"part": 0, "chapter": 0, "scene": 0}
         pipeline = [
             {"$match": {"work_id": work_id, "account_id": account_id}},
             {"$group": {"_id": "$node_type", "count": {"$sum": 1}}},
@@ -1451,7 +1451,7 @@ class DemoStorage:
                     )
                     created_nodes.append(node_doc)
 
-                by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+                by_type = {"part": 0, "chapter": 0, "scene": 0}
                 for node in created_nodes:
                     by_type[node["node_type"]] += 1
 
@@ -1493,7 +1493,7 @@ class DemoStorage:
                 )
                 created_nodes.append(node_doc)
 
-            by_type = {"part": 0, "chapter": 0, "scene": 0, "beat": 0}
+            by_type = {"part": 0, "chapter": 0, "scene": 0}
             for node in created_nodes:
                 by_type[node["node_type"]] += 1
 
