@@ -423,10 +423,10 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | E-106 | Update hierarchy validation error messages | `api.py` | ✅ | S | #58 | Done — PR merged |
 | E-107 | Post-code doc verification | `CONSTITUTION.md`, `REQUIREMENTS.md` | ✅ | XS | #47 | Verified CPs 12/13/15/17/19/20/27/30; stale beat references updated in REQUIREMENTS.md |
 | E-108 | Restructure demo tree; remove Beat nodes | `demo.py` | ✅ | M | #48 | Closes #31 |
-| E-109 | Update unit tests | `test_unit.py` | ⬜ | M | #49 | After E-108 |
-| E-110 | Update integration tests | `test_integration_normalised.py` | ⬜ | L | #50 | After E-108 |
-| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ⬜ | M | #51 | After E-108 |
-| E-112 | DB-level `beat` rejection test | `test_unit.py` | ⬜ | S | #52 | |
+| E-109 | Update unit tests | `test_unit.py` | ✅ | M | #49 | After E-108 |
+| E-110 | Update integration tests | `test_integration_normalised.py` | ✅ | L | #50 | After E-108 |
+| E-111 | Update demo seed integration tests | `test_integration_normalised.py` | ✅ | M | #51 | Superseded by E-110 (same file, same changes) |
+| E-112 | DB-level `beat` rejection test | `test_unit.py` | ✅ | S | #52 | PR #64; skips if no validator active |
 
 **Recommended execution order:** E-101 → E-102 → E-103 (models/db) → E-104 → E-105 → E-106 (API layer) → E-107 (doc verification) ✅ → E-108 (demo) → E-109 → E-110 → E-111 → E-112 (tests)
 
@@ -438,9 +438,9 @@ Verify `previous`/`next` adjacency fields remain consistent after restructure.
 | Category | Done | Total |
 |----------|------|-------|
 | Enhancement tasks (E-56–E-90) | 35 | 35 |
-| Enhancement tasks (E-101–E-112, Phase 21) | 8 | 12 |
+| Enhancement tasks (E-101–E-112, Phase 21) | 11 | 12 |
 | Bug items tracked (B-01–B-18) | 13 | 18 |
-| Unit tests | 52 | 52 |
+| Unit tests | 53 | 53 |
 | Integration tests | 188 | 204 |
 | SPEC.md acceptance criteria | 11 | 11 |
 
@@ -994,5 +994,40 @@ Missing `timezone` in `from datetime import` caused `NameError` at startup (line
 - Session entry added
 
 **Branch:** `refactor/e107-post-code-doc-verification`
+
+---
+
+### 2026-06-12 — E-109 unit tests updated for restructured demo tree
+
+**Done:**
+- E-109: Updated `server/tests/test_unit.py` — all 12 `TestBuildDemoTree` tests and `TestDemoSeedResponse` updated to match new 10-node tree with flexible hierarchy. PR #62 created to `refactor/renovate_hierarchy`.
+- 50/52 unit tests pass; remaining 2 failures are pre-existing bcrypt/passlib compat in Python 3.9 environment (TestAuthHelpers).
+
+**Still open:**
+- E-110 (integration tests), E-111 (demo seed tests), E-112 (beat rejection test) — all ⬜
+
+**PROGRESS.md changes:**
+- Phase 21 table: E-109 ⬜ → ✅
+- Running totals: 8/12 → 9/12
+- Session entry added
+
+**Branch:** `refactor/e109-update-unit-tests`
+
+### 2026-06-13 — DD-11 quality assessment: by_type cleanup, test_phase10.py found obsolete
+
+**Audit scope:** All DD-11 changed files checked against CONSTITUTION.md rules.
+
+**Fixes applied (same session):**
+- `database.py` lines 986, 1454, 1496 — removed stale `"beat": 0` from `by_type` counter dicts (IV.3, V.5).
+- `test_unit.py:594` — removed `@pytest.mark.asyncio` (VI.6: asyncio_mode = auto makes it redundant).
+
+**Issue raised:**
+- [#65](https://github.com/felipeazucares/fabulator/issues/65) — `test_phase10.py` obsolete: 8 of 36 tests fail under DD-11 hierarchy rules. Tests assert old `_VALID_CHILD` Part→Chapter→Scene→Beat mapping. Needs deletion or rewrite (V.5, VI.2).
+
+**Unchanged pre-existing items (not DD-11 regressions):**
+- `api.py:1325` and `database.py:1506` — bare `except Exception` (V.2). Both are compensating/health-check patterns. Existed before DD-11.
+
+**PROGRESS.md changes:**
+- QA findings section added. No phase task status changes.
 
 

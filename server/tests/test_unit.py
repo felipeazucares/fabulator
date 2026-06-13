@@ -591,7 +591,6 @@ class TestBeatRejectionDBLevel:
         yield client
         client.close()
 
-    @pytest.mark.asyncio
     async def test_t_db_beat_rejected(self, motor_client):
         """T-DB-BEAT-01: Inserting node_type='beat' raises WriteError via MongoDB validator."""
         from pymongo import MongoClient
