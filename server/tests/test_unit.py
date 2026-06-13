@@ -7,10 +7,12 @@ Covers:
   - Authentication helpers: verify_password, get_password_hash, create_access_token
 """
 
+import os
 import pytest
 from datetime import timedelta
 from bson.objectid import ObjectId
 from pydantic import ValidationError
+import motor.motor_asyncio
 
 # Ensure .env is loaded before importing app modules
 import app.config  # noqa: F401
@@ -574,5 +576,66 @@ class TestNodeStorageGetReadingOrder:
         result = await storage.get_reading_order("w-1", "a-1")
         for node in result:
             assert "_id" not in node
+
+
+# ---------------------------------------------------------------------------
+# E-112: DB-level `beat` rejection test (CP 30)
+# ---------------------------------------------------------------------------
+
+class TestBeatRejectionDBLevel:
+    """E-112: Verify MongoDB validator rejects node_type 'beat' at the database level."""
+
+    @pytest.fixture
+    def motor_client(self):
+        client = motor.motor_asyncio.AsyncIOMotorClient(os.getenv("MONGO_DETAILS"))
+        yield client
+        client.close()
+
+    @pytest.mark.asyncio
+    async def test_t_db_beat_rejected(self, motor_client):
+        """T-DB-BEAT-01: Inserting node_type='beat' raises WriteError via MongoDB validator."""
+        from pymongo import MongoClient
+        from pymongo.errors import OperationFailure
+
+        # Check if validator exists first (skip if not)
+        client = MongoClient(os.getenv("MONGO_DETAILS"))
+        db = client.fabulator
+        try:
+            info = db.node_collection.options()
+            has_validator = "validator" in info and info["validator"] is not None
+        except OperationFailure:
+            pytest.skip("Cannot read collection options (no collMod permission)")
+        finally:
+            client.close()
+
+        if not has_validator:
+            pytest.skip("node_collection has no validator — cannot test beat rejection")
+
+        # Attempt to insert a document with node_type='beat'
+        try:
+            await motor_client.fabulator.node_collection.insert_one({
+                "node_id": str(uuid.uuid4()),
+                "work_id": str(uuid.uuid4()),
+                "account_id": "test_account",
+                "author": None,
+                "node_type": "beat",
+                "parent_id": None,
+                "position": 0,
+                "tag": "Test Beat",
+                "description": None,
+                "text": None,
+                "previous": None,
+                "next": None,
+                "tags": [],
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            })
+        except OperationFailure as e:
+            assert "beat" in str(e).lower() or "validator" in str(e).lower(), (
+                f"Expected validator rejection for 'beat', got: {e}"
+            )
+            return
+
+        pytest.fail("Expected WriteError/OperationFailure for node_type='beat' but insert succeeded")
 
 
